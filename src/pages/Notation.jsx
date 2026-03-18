@@ -1,9 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
+
+// Dictionnaire des couleurs par genre
+const GENRE_COLORS = {
+  "Action": "bg-red-500/20 border-red-500/50 text-red-400",
+  "Comédie": "bg-yellow-500/20 border-yellow-500/50 text-yellow-400",
+  "Drame": "bg-blue-500/20 border-blue-500/50 text-blue-400",
+  "Science-Fiction": "bg-purple-500/20 border-purple-500/50 text-purple-400",
+  "Horreur": "bg-red-900/40 border-red-700/50 text-red-500",
+  "Thriller": "bg-emerald-500/20 border-emerald-500/50 text-emerald-400",
+  "Animation": "bg-pink-500/20 border-pink-500/50 text-pink-400",
+  "Aventure": "bg-orange-500/20 border-orange-500/50 text-orange-400",
+  "Romance": "bg-rose-500/20 border-rose-500/50 text-rose-400",
+  "Documentaire": "bg-teal-500/20 border-teal-500/50 text-teal-400",
+  // Valeur de secours si le genre n'est pas dans la liste ou est vide
+  "default": "bg-white/10 border-white/30 text-white"
+};
 
 function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   const film = films[0];
-  const [rating, setRating] = useState(7);
+  const [rating, setRating] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [comment, setComment] = useState("");
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCapucine, setIsCapucine] = useState(false);
@@ -11,6 +28,40 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [numeroSeance, setNumeroSeance] = useState("...");
+  const starsRef = useRef(null);
+
+  const calculateRating = (e) => {
+    if (!starsRef.current) return;
+    const rect = starsRef.current.getBoundingClientRect();
+    
+    // Position X du doigt relative à la zone des étoiles
+    let x = e.clientX - rect.left;
+    // On contraint x pour qu'il ne dépasse pas les bords
+    x = Math.max(0, Math.min(x, rect.width));
+    
+    // Calcul du pourcentage et de la note sur 10
+    const percent = x / rect.width;
+    const rawRating = percent * 10;
+    
+    // Arrondi au demi-point le plus proche
+    setRating(Math.round(rawRating * 2) / 2);
+  };
+
+  const handlePointerDown = (e) => {
+    setIsDragging(true);
+    calculateRating(e);
+    // Capture le pointeur pour continuer à glisser même si le doigt sort un peu de la zone
+    e.target.setPointerCapture(e.pointerId); 
+  };
+
+  const handlePointerMove = (e) => {
+    if (isDragging) calculateRating(e);
+  };
+
+  const handlePointerUp = (e) => {
+    setIsDragging(false);
+    e.target.releasePointerCapture(e.pointerId);
+  };
 
   useEffect(() => {
     if (film && spreadsheetId && film.annee) {
@@ -73,51 +124,119 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
         className="absolute left-0 right-0 z-10 overflow-y-auto scrollbar-hide"
         style={{
           top: 0,
-          bottom: 'calc(-2 * env(safe-area-inset-bottom))',
+          bottom: 'calc(-3 * env(safe-area-inset-bottom))',
         }}
       >
         {/* Spacer transparent — cliquable pour skip, pousse l'overlay vers le bas */}
-        <div style={{ height: '75dvh' }} onClick={onSkip} />
+        <div style={{ height: '82dvh' }} onClick={onSkip} />
 
         {/* Overlay glassmorphism */}
         <div
-          className="w-full bg-black/30 backdrop-blur-xl rounded-t-[25px] border-t border-white/20 px-8 pt-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+          className="w-full bg-black/30 backdrop-blur-xl rounded-t-[25px] border-t border-white/20 px-8 pt-2 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
           style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
         >
-          <div className="w-12 h-1 bg-white/30 rounded-full mx-auto mb-4"></div>
+          <div className="w-20 h-1 bg-white/30 rounded-full mx-auto mb-8"></div>
 
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none mb-3 drop-shadow-xl">
+          {/* TITRE DU FILM EN SYNE BOLD */}
+          <h2 className="font-syne text-4xl font-bold uppercase tracking-tighter leading-none mb-4 drop-shadow-xl">
             {film.titre}
           </h2>
 
-          <div className="flex gap-1 mb-10">
-            <span className="bg-black/30 border border-white/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
+          <div className="flex gap-2 mb-10">
+            {/* Gélule GENRE - Dynamique */}
+            <span 
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border transition-colors ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}
+            >
               {film.genre || "Cinéma"}
             </span>
-            <span className="bg-black/30 border border-white/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
+            
+            {/* Gélule ANNÉE - Reste neutre */}
+            <span className="bg-black/30 border border-white/30 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
               {film.annee}
             </span>
           </div>
 
-          {/* NOTE */}
-          <div className="mb-12">
-            <div className="flex justify-between items-center mb-6">
-              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">Ma Note</label>
-              <div className="bg-yellow-500 text-black font-black px-4 py-1 rounded-xl text-2xl">
+          {/* NOTE & COUP DE COEUR */}
+          <div className="mb-14 flex items-center justify-between h-16">
+            
+            {/* ETOILES & ZONE TACTILE ÉLARGIE */}
+            {/* On ajoute ref={starsRef} ici pour mesurer cette div */}
+            <div ref={starsRef} className="relative flex-1 h-full flex items-center pr-2">
+              
+              {/* Bulle flottante (remontée à -top-16 pour éviter d'être sous le gros doigt) */}
+              <div 
+                className={`absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black px-3 py-1 rounded-xl text-xs transition-all duration-200 pointer-events-none z-50 ${isDragging ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-90'}`}
+              >
                 {rating}
               </div>
+
+              {/* Visuel des 10 Etoiles SVG */}
+              <div className="absolute inset-0 flex justify-between items-center pointer-events-none w-full">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => {
+                  const fillPercent = Math.max(0, Math.min(1, rating - (index - 1))) * 100;
+                  
+                  return (
+                    <div key={index} className="relative w-[22px] h-[22px] flex-shrink-0">
+                      <svg className="absolute inset-0 w-full h-full text-white/20" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                      </svg>
+                      {fillPercent > 0 && (
+                        <svg 
+                          className="absolute inset-0 w-full h-full text-yellow-500" 
+                          fill="currentColor" 
+                          viewBox="0 0 24 24"
+                          style={{ clipPath: `inset(0 ${100 - fillPercent}% 0 0)` }}
+                        >
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* NOUVELLE ZONE DE TOUCH (Remplaçant l'input range) */}
+              {/* -top-8 et -bottom-8 étendent massivement la zone cliquable en haut et en bas. touch-none empêche le scroll de la page pendant le swipe */}
+              <div
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                className="absolute -top-8 -bottom-8 left-0 right-0 z-10 touch-none cursor-pointer"
+              />
             </div>
-            <input
-              type="range" min="0" max="10" step="0.5" value={rating}
-              onChange={(e) => setRating(e.target.value)}
-              className="w-full h-2 bg-white/20 rounded-full appearance-none accent-yellow-500 cursor-pointer"
-            />
-            <div className="mt-8">
-              <button onClick={() => setIsFavorite(!isFavorite)} className={`flex items-center gap-3 font-black text-xs tracking-widest uppercase transition-colors ${isFavorite ? 'text-red-500' : 'text-white/50'}`}>
-                <span className="text-2xl">{isFavorite ? '❤️' : '🤍'}</span>
-                Coup de coeur
-              </button>
-            </div>
+
+            {/* LIGNE DE SÉPARATION DISCRÈTE */}
+            <div className="w-px h-8 bg-white/10 mx-3"></div>
+
+            {/* BOUTON COEUR (Design plat, 100% fiable sur iOS) */}
+            <button 
+              onClick={() => setIsFavorite(!isFavorite)} 
+              className={`relative h-full flex items-center justify-center transition-all duration-300 active:scale-75 focus:outline-none flex-shrink-0 z-20 px-1 ${isFavorite ? 'text-red-500 scale-110' : 'text-white/20 hover:text-white/60'}`}
+              aria-label="Coup de coeur"
+            >
+              <div className="relative w-[22px] h-[22px]">
+                
+                {/* Cœur vide */}
+                <svg 
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isFavorite ? 'opacity-0' : 'opacity-100'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor" 
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+                </svg>
+
+                {/* Cœur plein : Finis les effets d'ombre, place à la simplicité */}
+                <svg 
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isFavorite ? 'opacity-100' : 'opacity-0'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor" 
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+                </svg>
+                
+              </div>
+            </button>
           </div>
 
           {/* AVIS */}

@@ -5,7 +5,14 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        // Définit DM Sans comme police par défaut pour toute l'app
+        sans: ['"DM Sans"', 'sans-serif'],
+        // Crée la classe custom 'font-syne'
+        syne: ['"Syne"', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }
