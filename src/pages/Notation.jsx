@@ -45,19 +45,17 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   return (
     <div className="h-full w-full bg-black text-white font-sans overflow-hidden">
 
-      {/* 1. AFFICHE — couvre tout l'écran safe area comprise */}
+      {/* 1. AFFICHE */}
       {film.affiche && (
         <img
           src={film.affiche}
           className="absolute top-0 left-0 w-full object-cover opacity-100 z-0"
-          style={{
-            height: 'calc(100dvh + env(safe-area-inset-bottom))',
-          }}
+          style={{ height: 'calc(100dvh + env(safe-area-inset-bottom))' }}
           alt=""
         />
       )}
 
-      {/* 2. BOUTON "Plus tard" — ancré sous la status bar */}
+      {/* 2. BOUTON "Plus tard" */}
       <div className="fixed top-0 left-0 right-0 pt-[env(safe-area-inset-top)] z-50 px-6 flex justify-end">
         <button
           onClick={onSkip}
@@ -67,17 +65,32 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
         </button>
       </div>
 
-      {/* 3. ZONE SCROLLABLE — descend jusqu'au vrai bord de l'écran */}
-      <div className="absolute inset-0 z-10 overflow-y-auto pt-[70dvh] scrollbar-hide">
-        <div className="w-full bg-black/40 backdrop-blur-xl rounded-t-[40px] border-t border-white/20 px-8 pt-6 pb-8 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+      {/* 3. ZONE SCROLLABLE
+          — top: 0, bottom négatif pour déborder sous la home bar
+          — le spacer en haut pousse l'overlay à 70dvh initialement
+          — on peut scroller vers le haut pour révéler le poster en dessous */}
+      <div
+        className="absolute left-0 right-0 z-10 overflow-y-auto scrollbar-hide"
+        style={{
+          top: 0,
+          bottom: 'calc(-2 * env(safe-area-inset-bottom))',
+        }}
+      >
+        {/* Spacer transparent — cliquable pour skip, pousse l'overlay vers le bas */}
+        <div style={{ height: '75dvh' }} onClick={onSkip} />
 
-          <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-8"></div>
+        {/* Overlay glassmorphism */}
+        <div
+          className="w-full bg-black/30 backdrop-blur-xl rounded-t-[25px] border-t border-white/20 px-8 pt-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+          style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+        >
+          <div className="w-12 h-1 bg-white/30 rounded-full mx-auto mb-4"></div>
 
-          <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-none mb-4 drop-shadow-xl">
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none mb-3 drop-shadow-xl">
             {film.titre}
           </h2>
 
-          <div className="flex gap-2 mb-10">
+          <div className="flex gap-1 mb-10">
             <span className="bg-black/30 border border-white/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
               {film.genre || "Cinéma"}
             </span>
@@ -155,9 +168,6 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
           >
             {loading ? 'CHARGEMENT...' : 'ENREGISTRER'}
           </button>
-
-          {/* Spacer — pousse le bouton au-dessus de la barre home */}
-          <div style={{ height: 'env(safe-area-inset-bottom)' }} />
 
         </div>
       </div>
