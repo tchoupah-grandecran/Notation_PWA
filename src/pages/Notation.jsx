@@ -138,7 +138,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
           <div className="w-20 h-1 bg-white/30 rounded-full mx-auto mb-8"></div>
 
           {/* TITRE DU FILM EN SYNE BOLD */}
-          <h2 className="font-syne text-4xl font-bold uppercase tracking-tighter leading-none mb-4 drop-shadow-xl">
+          <h2 className="font-syne text-2xl font-black uppercase tracking-tighter leading-none mb-4 drop-shadow-xl">
             {film.titre}
           </h2>
 
@@ -239,55 +239,170 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
             </button>
           </div>
 
-          {/* AVIS */}
-          <div className="mb-12">
-            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-4 block">Avis express</label>
+          {/* AVIS (Design minimaliste & Auto-expand) */}
+          <div className="mb-12 relative">
+            
+            {/* Le Textarea : 1 ligne par défaut, auto-extensible */}
             <textarea
-              value={comment} onChange={(e) => setComment(e.target.value)}
-              placeholder="Qu'as-tu pensé du film ?"
-              className="w-full bg-black/30 border border-white/10 rounded-3xl p-5 outline-none focus:border-yellow-500 text-sm h-28 resize-none placeholder:text-white/30"
+              value={comment} 
+              rows={1}
+              onChange={(e) => {
+                setComment(e.target.value);
+                // Astuce JS pour l'auto-expand : on réinitialise la hauteur à 'auto' 
+                // puis on lui donne exactement la hauteur du texte (scrollHeight)
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              className="w-full bg-transparent border-0 border-b border-white/20 rounded-none pb-2 px-1 outline-none focus:ring-0 focus:border-yellow-500 text-base min-h-[36px] overflow-hidden resize-none transition-colors relative z-10 text-white leading-relaxed"
             />
+            
+            {/* Le faux "Placeholder" aligné sur la ligne unique */}
+            {!comment && (
+              <div className="absolute top-0 left-1 flex items-center gap-2 text-white/30 pointer-events-none transition-opacity duration-200 h-[36px] pb-2">
+                {/* Icône Crayon */}
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                {/* truncate évite que le texte ne passe sur 2 lignes sur les tout petits écrans */}
+                <span className="text-base italic truncate">Ton avis à chaud, en quelques mots...</span>
+              </div>
+            )}
+
           </div>
 
-          {/* OPTIONS */}
-          <div className="mb-12 space-y-4">
-            <div onClick={() => setIsCapucine(!isCapucine)} className={`flex items-center justify-between p-5 rounded-3xl border cursor-pointer transition-all ${isCapucine ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' : 'bg-black/30 border-white/10 text-white/50'}`}>
-              <span className="font-bold text-xs uppercase tracking-widest">Sélection Capucines</span>
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isCapucine ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'}`}>
-                {isCapucine && <span className="text-black text-xs font-bold">✓</span>}
+          {/* OPTIONS : Capucines & Extra (Sur 2 colonnes) */}
+          <div className="mb-12 grid grid-cols-2 gap-4">
+            
+            {/* 1. BOUTON CAPUCINES */}
+            <div 
+              onClick={() => setIsCapucine(!isCapucine)} 
+              className={`flex flex-col items-center justify-center p-4 rounded-xl border cursor-pointer transition-all duration-300 active:scale-95 ${isCapucine ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-500' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+            >
+              {/* L'image change dynamiquement selon l'état */}
+              <img 
+                src={isCapucine ? "https://i.imgur.com/lg1bkrO.png" : "https://i.imgur.com/7SaHwd8.png"} 
+                alt="Capucines" 
+                className="w-10 h-10 mb-3 object-contain drop-shadow-md transition-transform duration-300"
+              />
+              {/* Le texte sur 2 lignes pour que "Sélectionné" tienne bien dans la colonne */}
+              <span className="font-bold text-[9px] uppercase tracking-widest text-center leading-tight whitespace-pre-line">
+                {isCapucine ? "Sélectionné\nCapucines" : "Capucines"}
+              </span>
+            </div>
+
+            {/* 2. DÉPENSE / EXTRA */}
+            <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 text-white relative">
+              
+              {/* Icône de Panier : On utilise "text-white opacity-30" au lieu de "text-white/30" */}
+              <svg className="w-9 h-9 mb-2 text-white opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+
+              <div className="flex items-center justify-center w-full">
+                <input
+                  type="text" 
+                  inputMode="decimal"
+                  value={price === "0" ? "" : price} 
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="0,00"
+                  className="bg-transparent text-right outline-none font-regular text-l w-16 placeholder:text-white/20 text-white"
+                />
+                <span className="font-black text-l text-white/50 ml-1 mt-0">€</span>
               </div>
             </div>
-            <div className="flex items-center justify-between p-5 bg-black/30 rounded-3xl border border-white/10 text-white">
-              <span className="font-bold text-xs uppercase tracking-widest text-white/50">Dépense séance (€)</span>
-              <input
-                type="number" value={price} onChange={(e) => setPrice(e.target.value)}
-                className="bg-transparent text-right outline-none font-black text-2xl w-24"
-              />
-            </div>
-          </div>
-
-          {/* RÉCAP TECHNIQUE */}
-          <div className="bg-black/50 rounded-3xl p-6 mb-12 border border-white/10 grid grid-cols-2 gap-y-6">
-            <div className="col-span-2 border-b border-white/10 pb-4 mb-2 flex justify-between items-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">Séance de l'année</p>
-              <p className="text-2xl font-black italic tracking-tighter">#{numeroSeance}</p>
-            </div>
-            <DetailItem label="Date" value={film.date} />
-            <DetailItem label="Heure" value={film.heure} />
-            <DetailItem label="Salle" value={film.salle || "?"} />
-            <DetailItem label="Siège" value={film.siege || "?"} />
-            <DetailItem label="Langue" value={film.langue || "?"} />
-            <DetailItem label="Durée" value={film.duree} />
           </div>
 
           <button
             disabled={loading}
             onClick={handleSave}
-            className="w-full bg-white text-black font-black py-6 rounded-3xl shadow-xl active:scale-95 transition-all text-xl italic uppercase tracking-tighter"
+            className="w-full bg-white text-black font-black py-3 rounded-3xl shadow-xl active:scale-95 transition-all text-xl italic uppercase tracking-tighter"
           >
             {loading ? 'CHARGEMENT...' : 'ENREGISTRER'}
           </button>
 
+          {/* RÉCAP TECHNIQUE (Footer discret) */}
+          {/* Ajout de mt-6 pour aérer vis-à-vis du bouton Enregistrer */}
+          <div className="mt-6 mb-10 px-3">
+            
+            {/* En-tête : Séance de l'année */}
+            {/* J'ai réduit le gap à gap-2 pour lier visuellement le label et le numéro */}
+            <div className="flex items-center justify-center gap-2 mb-3 border-b border-white/10 pb-2 mx-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-500">#{numeroSeance}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Séance de l'année</span>
+              {/* Typographie identique au label, couleur jaune conservée */}
+              </div>
+
+            {/* Grille : 2 lignes x 3 colonnes */}
+            <div className="grid grid-cols-3 gap-y-3 gap-x-2">
+              
+              {/* Date (Calendrier) */}
+              <div className="flex items-center justify-left gap-2">
+                {/* Correction : text-white opacity-30 */}
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span className="text-xs font-bold text-white/80">{film.date}</span>
+              </div>
+
+              {/* Heure (Horloge) */}
+              <div className="flex items-center justify-left gap-2">
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span className="text-xs font-bold text-white/80">{film.heure}</span>
+              </div>
+
+              {/* Durée (Sablier) */}
+              <div className="flex items-center justify-left gap-2">
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 22h14"></path>
+                  <path d="M5 2h14"></path>
+                  <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+                  <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+                </svg>
+                <span className="text-xs font-bold text-white/80">{film.duree}</span>
+              </div>
+
+              {/* Salle (Écran) */}
+              <div className="flex items-center justify-left gap-2">
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span className="text-xs font-bold text-white/80">{film.salle || "?"}</span>
+              </div>
+
+              {/* Siège (Fauteuil) */}
+              <div className="flex items-center justify-left gap-2">
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"></path>
+                  <path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"></path>
+                  <path d="M5 18v2"></path>
+                  <path d="M19 18v2"></path>
+                </svg>
+                <span className="text-xs font-bold text-white/80">{film.siege || "?"}</span>
+              </div>
+
+              {/* Langue (Globe) */}
+              <div className="flex items-center justify-left gap-2">
+                <svg className="w-4 h-4 text-white opacity-30 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <span className="text-xs font-bold text-white/80 uppercase">{film.langue || "?"}</span>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
 
@@ -298,15 +413,6 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-yellow-500">Archivé !</h2>
         </div>
       )}
-    </div>
-  );
-}
-
-function DetailItem({ label, value }) {
-  return (
-    <div>
-      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 mb-1">{label}</p>
-      <p className="text-sm font-bold uppercase tracking-tight">{value}</p>
     </div>
   );
 }

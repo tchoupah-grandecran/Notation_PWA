@@ -10,7 +10,7 @@
 }
 
 html {
-  background-color: black;
+  background-color: back;
 }
 
 body {
@@ -38,3 +38,16 @@ body {
 .pb-safe { padding-bottom: var(--sab); }
 .pl-safe { padding-left: var(--sal); }
 .pr-safe { padding-right: var(--sar); }
+
+@layer utilities {
+  /* Cache la barre de scroll pour Chrome, Safari et Opera (Webkit) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Cache la barre de scroll pour IE, Edge et Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE et Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
