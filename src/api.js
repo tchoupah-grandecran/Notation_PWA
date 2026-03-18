@@ -1,0 +1,296 @@
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
+// Décodage Base64
+const decodeEmailBody = (data) => {
+  if (!data) return "";
+  try {
+    let base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    return decodeURIComponent(escape(atob(base64)));
+  } catch (e) { return ""; }
+};
+
+// Utilitaire pour nettoyer les caractères HTML (&amp;, &#39; etc.)
+const decodeHtmlEntities = (text) => {
+  const textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+};
+
+// Recherche récursive des différentes parties de l'email
+const findEmailPart = (parts, mimeType) => {
+  if (!parts) return null;
+  for (const p of parts) {
+    if (p.mimeType === mimeType) return p.body?.data;
+    if (p.parts) {
+      const found = findEmailPart(p.parts, mimeType);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+// ==========================================
+// PARSING EMAIL PATHÉ (Logique Originale Restaurée)
+// ==========================================
+const parsePatheEmail = (htmlBody, plainBody) => {
+  const html = htmlBody || "";
+  const plain = plainBody || html.replace(/<[^>]*>?/gm, ' ') || "";
+  const data = {};
+
+  // ── Titre ──────────────────────────────────────────────────────────────
+  let m = html.match(/<h1[^>]*>\s*<span[^>]*><\/span>\s*([^<]+)\s*<\/h1>/i);
+  if (!m) m = html.match(/<h1[^>]*>\s*([^<]+)\s*<\/h1>/i);
+  if (!m) m = plain.match(/Film\s*:?\s*([^\n\r]+)/i);
+  if (!m) return null;
+
+  let titre = m[1].replace(/\s+/g, ' ').trim();
+  titre = titre.replace(/^La Soirée des Passionnés\s*:\s*/i, '').trim();
+  data.titre = decodeHtmlEntities(titre);
+
+  // ── Date & heure ────────────────────────────────────────────────────────
+  m = html.match(/(?:Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche)?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[,\s]*(\d{1,2}[:h]\d{2})/i);
+  if (m) {
+    data.date = m[1].replace(/-/g, '/');
+    data.heure = m[2].replace('h', ':');
+  } else {
+    m = html.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+    if (m) data.date = m[1].replace(/-/g, '/');
+    m = html.match(/(\d{1,2}[:h]\d{2})/);
+    if (m) data.heure = m[1].replace('h', ':');
+  }
+
+  // Ajout de l'année pour notre PWA
+  if (data.date) {
+    const parts = data.date.split('/');
+    if (parts.length === 3) {
+      data.annee = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+    }
+  }
+
+  // ── Durée — 4 stratégies ────────────────────────────────────────────────
+  // Stratégie 1 : label explicite "Durée : Xh YY"
+  m = html.match(/[Dd]ur[ée]{1,2}[^:]*:\s*(\d{1,2})\s*h\s*(\d{2})\s*(?:min)?/i)
+   || plain.match(/[Dd]ur[ée]{1,2}[^:]*:\s*(\d{1,2})\s*h\s*(\d{2})\s*(?:min)?/i);
+  if (m) {
+    data.duree = `${parseInt(m[1])}h${m[2]}`;
+  }
+
+  // Stratégie 2 : "XhYY" standalone
+  if (!data.duree) {
+    const durPattern = /\b(\d{1,2})h(\d{2})\b/g;
+    let candidate, match2;
+    while ((match2 = durPattern.exec(html)) !== null) {
+      const h     = parseInt(match2[1]);
+      const min   = parseInt(match2[2]);
+      const total = h * 60 + min;
+      if (total >= 45 && total <= 270) {
+        if (h < 7 || (h >= 1 && min > 0 && total <= 270)) {
+          if (!candidate) candidate = match2;
+        }
+      }
+    }
+    if (candidate) data.duree = `${parseInt(candidate[1])}h${candidate[2]}`;
+  }
+
+  // Stratégie 3 : calcul depuis "Fin prévue à HH:MM"
+  if (!data.duree && data.heure) {
+    m = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}:\d{2})/i)
+     || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}:\d{2})/i);
+    if (m) {
+      const d1   = data.heure.split(':').map(Number);
+      const d2   = m[1].split(':').map(Number);
+      const min1 = d1[0] * 60 + d1[1];
+      let min2   = d2[0] * 60 + d2[1];
+      if (min2 < min1) min2 += 24 * 60;
+      const dur  = Math.max(0, min2 - min1 - 15);
+      if (dur >= 45) data.duree = `${Math.floor(dur/60)}h${String(dur%60).padStart(2,'0')}`;
+    }
+  }
+
+  // Stratégie 4 : "XX minutes"
+  if (!data.duree) {
+    m = plain.match(/\b(\d{2,3})\s*min(?:utes?)?\b/i);
+    if (m) {
+      const total = parseInt(m[1]);
+      if (total >= 45 && total <= 270) {
+        data.duree = `${Math.floor(total/60)}h${String(total%60).padStart(2,'0')}`;
+      }
+    }
+  }
+
+  // ── Salle & siège (Version assouplie) ──────────────────────────────────
+  // 1. Extraction de la Salle
+  let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i) || plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i);
+  if (salleMatch) {
+    data.salle = salleMatch[1].trim();
+  } else {
+    // Fallback si la 1ère méthode échoue
+    let oldRoomMatch = html.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i) || plain.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i);
+    if (oldRoomMatch) data.salle = oldRoomMatch[1].trim();
+  }
+
+  // 2. Extraction du Siège (Prend en compte Rang, Fauteuil, Place, Siège...)
+  let rangMatch = html.match(/Rang\s+([A-Z0-9]+)/i) || plain.match(/Rang\s+([A-Z0-9]+)/i);
+  let placeMatch = html.match(/(?:Place|Si[èe]ge|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i) || plain.match(/(?:Place|Si[èe]ge|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i);
+  
+  if (rangMatch && placeMatch) {
+    // S'il y a un rang ET un siège (ex: "K / 14")
+    data.siege = `${rangMatch[1].trim()} / ${placeMatch[1].trim()}`;
+  } else if (placeMatch) {
+    // S'il n'y a que le siège
+    data.siege = placeMatch[1].trim();
+  }
+
+  // ── Langue (Version assouplie) ──────────────────────────────────────────
+  let langMatch = html.match(/\b(VF|VOST|VOSTF|VOSTFR|VO|VFQ)\b/i) || plain.match(/\b(VF|VOST|VOSTF|VOSTFR|VO|VFQ)\b/i);
+  if (langMatch) {
+    data.langue = langMatch[1].toUpperCase().replace('VOSTFR', 'VOST').replace('VOSTF', 'VOST');
+  } else {
+    // Fallback: On cherche les lettres même si elles sont collées à un autre mot (ex: "Film(VOST)")
+    let fallbackMatch = html.match(/(VF|VOST|VO|VFQ)/i) || plain.match(/(VF|VOST|VO|VFQ)/i);
+    if (fallbackMatch) {
+      data.langue = fallbackMatch[1].toUpperCase();
+    } else {
+      data.langue = "?"; // Si vraiment introuvable, on met un point d'interrogation pour éviter le champ vide
+    }
+  }
+
+  return data;
+};
+
+// Récupération TMDB
+const getMovieDataFromTMDB = async (titre) => {
+  if (!titre || !TMDB_API_KEY) return { affiche: null, genre: "Cinéma" };
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
+    const json = await res.json();
+    if (json.results?.[0]) {
+      const movie = json.results[0];
+      const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=fr-FR`);
+      const details = await detailRes.json();
+      return {
+        affiche: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+        genre: details.genres?.[0]?.name || "Cinéma",
+        tmdbId: movie.id,
+        dureeReelle: details.runtime ? Math.floor(details.runtime/60)+'h'+String(details.runtime%60).padStart(2,'0') : "—"
+      };
+    }
+  } catch (e) { console.error("TMDB Error", e); }
+  return { affiche: null, genre: "Cinéma" };
+};
+
+// LA FONCTION PRINCIPALE EXPORTÉE
+export const getFilmsANoter = async (token) => {
+  try {
+    // 💡 J'ai adapté la requête Gmail pour coller exactement à ton ancien script
+    const query = encodeURIComponent('subject:"Confirmation de commande les cinémas Pathé" is:unread');
+    const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!data.messages) return [];
+
+    const films = [];
+    for (const msg of data.messages) {
+      const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const mData = await mRes.json();
+      
+      let htmlData = null;
+      let plainData = null;
+      
+      // On extrait proprement le HTML et le Texte brut pour alimenter ton parseur
+      if (mData.payload.parts) {
+        htmlData = findEmailPart(mData.payload.parts, 'text/html');
+        plainData = findEmailPart(mData.payload.parts, 'text/plain');
+      } else if (mData.payload.body?.data) {
+        if (mData.payload.mimeType === 'text/html') htmlData = mData.payload.body.data;
+        if (mData.payload.mimeType === 'text/plain') plainData = mData.payload.body.data;
+      }
+
+      const html = decodeEmailBody(htmlData);
+      const plain = decodeEmailBody(plainData);
+      
+      const parsed = parsePatheEmail(html, plain);
+      
+      if (parsed) {
+        const tmdb = await getMovieDataFromTMDB(parsed.titre);
+        // Si la durée n'a pas été trouvée dans le mail, on prend celle de TMDB
+        if (!parsed.duree && tmdb.dureeReelle) parsed.duree = tmdb.dureeReelle;
+        
+        films.push({ ...parsed, ...tmdb, messageId: msg.id });
+      }
+    }
+    return films;
+  } catch (e) { 
+    console.error("Erreur Fetch API:", e); 
+    return []; 
+  }
+};
+
+// ==========================================
+// SAUVEGARDE ET HISTORIQUE (Google Sheets)
+// ==========================================
+
+export const getHistory = async (token, spreadsheetId) => {
+  if (!token || !spreadsheetId) return [];
+  try {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.values) return [];
+    
+    // On retourne juste l'historique nécessaire
+    return data.values.slice(1).map(row => ({ date: row[2] }));
+  } catch (e) {
+    console.error("Erreur Historique", e);
+    return [];
+  }
+};
+
+export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
+  if (!token || !spreadsheetId || !annee) return "...";
+  try {
+    const history = await getHistory(token, spreadsheetId);
+    // On compte combien de films ont la même année dans la colonne Date
+    const yearFilms = history.filter(f => f.date && f.date.includes(String(annee)));
+    return yearFilms.length + 1;
+  } catch (e) {
+    return "?";
+  }
+};
+
+export const saveFilmToSheet = async (token, spreadsheetId, data) => {
+  try {
+    // Ordre des colonnes selon ton ancien script: 
+    // ID | Titre | Date | Heure | Durée | Langue | Salle | Siège | Note | CoupDeCoeur | Genre | Depense | Capucine | Commentaire | Affiche | TmdbId
+    const row = [
+      Date.now(), data.titre, data.date, data.heure, data.duree, data.langue, 
+      data.salle, data.siege, data.note, data.coupDeCoeur, data.genre, 
+      data.depense, data.capucine, data.commentaire, data.affiche, data.tmdbId
+    ];
+
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P:append?valueInputOption=USER_ENTERED`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    });
+
+    if (!res.ok) throw new Error("Erreur écriture Sheets");
+
+    // Marquer l'e-mail comme LU pour ne plus le scanner !
+    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.messageId}/modify`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
+    });
+
+    return true;
+  } catch (e) { 
+    console.error("Erreur de sauvegarde:", e); 
+    return false; 
+  }
+};
