@@ -408,6 +408,7 @@ export const getFullHistory = async (token, spreadsheetId) => {
         note: row[8] || "",
         // On vérifie le "1" pour le coup de coeur (comme on a fait pour les stats)
         coupDeCoeur: row[9] !== undefined && String(row[9]).trim() === "1",
+        capucine: row[12] !== undefined && String(row[12]).trim() === "1",
         genre: row[10] || "Cinéma",
         affiche: row[14] || null
       };

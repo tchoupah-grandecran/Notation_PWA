@@ -6,11 +6,17 @@ import { saveFilmToSheet, getProchainNumeroSeance, getStats, getFullHistory, get
 
 // Mini-composant pour gérer les affiches (avec recherche automatique si manquante)
 const SmartPoster = ({ afficheInitiale, titre }) => {
-  const [posterUrl, setPosterUrl] = useState(afficheInitiale);
+  const [posterUrl, setPosterUrl] = useState(null);
 
   useEffect(() => {
-    // Si on n'a pas d'affiche, on lance la recherche TMDB en tâche de fond
-    if (!afficheInitiale && titre) {
+    // On vérifie si on a un VRAI lien d'image (commence par http)
+    const hasValidUrl = typeof afficheInitiale === 'string' && afficheInitiale.startsWith('http');
+
+    if (hasValidUrl) {
+      // Si on a déjà l'URL, on l'affiche directement
+      setPosterUrl(afficheInitiale);
+    } else if (titre) {
+      // Sinon (case vide, espace, tiret, null...), on lance la recherche TMDB
       getMissingPosterFromTMDB(titre).then((url) => {
         if (url) setPosterUrl(url);
       });
@@ -23,7 +29,6 @@ const SmartPoster = ({ afficheInitiale, titre }) => {
         <img 
           src={posterUrl} 
           alt={titre} 
-          // animate-in fade-in permet une apparition en douceur quand l'image est trouvée
           className="w-full h-full object-cover animate-in fade-in duration-500" 
         />
       ) : (
@@ -32,6 +37,26 @@ const SmartPoster = ({ afficheInitiale, titre }) => {
     </div>
   );
 };
+
+// Nouvel état pour le filtre actif
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  // 1. On extrait les années uniques de l'historique (ex: ["2024", "2023"])
+  const anneesDisponibles = [...new Set(historyData.map(f => {
+    if (!f.date) return null;
+    const parts = f.date.split('/');
+    return parts.length === 3 ? parts[2] : null;
+  }).filter(Boolean))].sort((a, b) => b - a); // Tri décroissant
+
+  // 2. On crée la liste filtrée à afficher
+  const filteredHistory = historyData.filter(film => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'coeur') return film.coupDeCoeur;
+    if (activeFilter === 'capucine') return film.capucine;
+    if (activeFilter === 'top') return Number(film.note) >= 4; // Affiche les notes de 4 et 5
+    if (anneesDisponibles.includes(activeFilter)) return film.date?.endsWith(activeFilter);
+    return true;
+  });
 
 function App() {
   const [userToken, setUserToken] = useState(localStorage.getItem('google_token') || null);
@@ -238,28 +263,80 @@ if (films.length > 0) {
           <div className="animate-in fade-in duration-300">
             
             {/* Header simple pour l'historique */}
-            <header className="pt-[calc(env(safe-area-inset-top)+1rem)] px-6 pb-4 bg-black/80 backdrop-blur-xl z-40 sticky top-0 border-b border-white/5">
-              <h1 className="font-syne text-2xl font-bold leading-none tracking-tight">Mes Billets</h1>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">Historique complet</p>
+            <header className="pt-[calc(env(safe-area-inset-top)+1rem)] bg-black/80 backdrop-blur-xl z-40 sticky top-0 border-b border-white/5">
+              <div className="px-6 pb-2">
+                <h1 className="font-syne text-2xl font-bold leading-none tracking-tight">Mes Billets</h1>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">
+                  {filteredHistory.length} film{filteredHistory.length > 1 ? 's' : ''} trouvé{filteredHistory.length > 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {/* BARRE DE FILTRES HORIZONTALE */}
+              <div className="flex overflow-x-auto gap-2 px-6 pb-4 pt-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                
+                {/* Bouton "Tous" */}
+                <button 
+                  onClick={() => setActiveFilter('all')}
+                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'all' ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                >
+                  Tous
+                </button>
+
+                {/* Bouton "Coups de coeur" */}
+                <button 
+                  onClick={() => setActiveFilter('coeur')}
+                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'coeur' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                >
+                  ❤️ Coups de cœur
+                </button>
+
+                {/* Bouton "Capucines" */}
+                <button 
+                  onClick={() => setActiveFilter('capucine')}
+                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'capucine' ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                >
+                  🌻 Capucines
+                </button>
+
+                {/* Bouton "Top Notes" */}
+                <button 
+                  onClick={() => setActiveFilter('top')}
+                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'top' ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                >
+                  ⭐️ Top 4+
+                </button>
+
+                {/* Boutons dynamiques pour chaque année */}
+                {anneesDisponibles.map(annee => (
+                  <button 
+                    key={annee}
+                    onClick={() => setActiveFilter(annee)}
+                    className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === annee ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                  >
+                    {annee}
+                  </button>
+                ))}
+              </div>
             </header>
 
-            <main className="px-6 pt-6 pb-4 space-y-4">
+            <main className="px-6 pt-4 pb-4 space-y-4">
+              {/* IMPORTANT : Change ici historyData.length par filteredHistory.length */}
               {isLoadingHistory ? (
-                // Loader pendant la récupération
+                // Loader...
                 <div className="flex flex-col items-center justify-center py-20 text-white/40">
                   <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                   <p className="text-xs uppercase tracking-widest font-bold">Chargement des bobines...</p>
                 </div>
-              ) : historyData.length === 0 ? (
+              ) : filteredHistory.length === 0 ? (
                 // Message si vide
-                <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center">
+                <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center animate-in fade-in zoom-in-95 duration-300">
                   <span className="text-6xl mb-4 block opacity-50">🎟️</span>
                   <p className="font-syne text-xl font-bold">Aucun billet trouvé</p>
-                  <p className="text-sm mt-2">Tes films apparaîtront ici.</p>
+                  <p className="text-sm mt-2">Modifie tes filtres pour voir d'autres films.</p>
                 </div>
               ) : (
-                // Liste des films
-                historyData.map((film, index) => (
+                // LISTE DES FILMS : IMPORTANT, remplace historyData.map par filteredHistory.map 👇
+                filteredHistory.map((film, index) => (
                   <div key={index} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden active:scale-[0.98] transition-transform h-28">
                     
                     {/* Badge Numéro (Flottant en haut à droite) */}
