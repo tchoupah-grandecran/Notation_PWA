@@ -375,3 +375,88 @@ export async function getStats(token, spreadsheetId) {
     return { totalFilms: "--", coupsDeCoeur: "--" };
   }
 }
+
+// Récupère l'historique complet pour l'affichage de l'onglet "Billets"
+export const getFullHistory = async (token, spreadsheetId) => {
+  try {
+    // On récupère les colonnes A à P
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:P`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.values || data.values.length <= 1) {
+      return [];
+    }
+
+    const lignes = data.values.slice(1);
+
+    // On transforme les lignes brutes du tableau en jolis objets Javascript
+    const historique = lignes.map((row) => {
+      return {
+        numero: row[0] || "",
+        titre: row[1] || "Film inconnu",
+        date: row[2] || "",
+        heure: row[3] || "",
+        note: row[8] || "",
+        // On vérifie le "1" pour le coup de coeur (comme on a fait pour les stats)
+        coupDeCoeur: row[9] !== undefined && String(row[9]).trim() === "1",
+        genre: row[10] || "Cinéma",
+        affiche: row[14] || null
+      };
+    });
+
+    // On retourne la liste inversée (du plus récent au plus ancien)
+    return historique.reverse();
+
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'historique :", error);
+    return [];
+  }
+};
+
+// Fonction pour récupérer l'affiche d'un ancien film
+export const getMissingPosterFromTMDB = async (titre) => {
+  // Remplace par la façon dont tu récupères ta clé (ex: import.meta.env.VITE_TMDB_API_KEY)
+  const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY; 
+  if (!titre || !TMDB_KEY) return null;
+
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
+    const json = await res.json();
+    
+    if (json.results && json.results.length > 0) {
+      // 1. Filtrer pour avoir le titre exact (insensible à la casse)
+      const exactMatches = json.results.filter(
+        m => m.title.toLowerCase() === titre.toLowerCase() || m.original_title.toLowerCase() === titre.toLowerCase()
+      );
+
+      // S'il y a des correspondances exactes, on les utilise. Sinon, par sécurité, on garde la liste globale.
+      let candidates = exactMatches.length > 0 ? exactMatches : json.results;
+
+      // 2. Trier du plus récent au plus ancien (selon la date de sortie)
+      candidates.sort((a, b) => {
+        const dateA = a.release_date ? new Date(a.release_date).getTime() : 0;
+        const dateB = b.release_date ? new Date(b.release_date).getTime() : 0;
+        return dateB - dateA; // Ordre décroissant
+      });
+
+      // 3. On prend le premier de la liste triée
+      const bestMatch = candidates[0];
+      
+      if (bestMatch && bestMatch.poster_path) {
+        return `https://image.tmdb.org/t/p/w500${bestMatch.poster_path}`;
+      }
+    }
+  } catch (e) {
+    console.error("Erreur récupération TMDB pour :", titre, e);
+  }
+  return null;
+};

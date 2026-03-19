@@ -2,7 +2,36 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useState, useEffect } from 'react';
 import { getFilmsANoter } from './api';
 import Notation from './pages/Notation';
-import { saveFilmToSheet, getProchainNumeroSeance, getStats } from './api';
+import { saveFilmToSheet, getProchainNumeroSeance, getStats, getFullHistory, getMissingPosterFromTMDB } from './api';
+
+// Mini-composant pour gérer les affiches (avec recherche automatique si manquante)
+const SmartPoster = ({ afficheInitiale, titre }) => {
+  const [posterUrl, setPosterUrl] = useState(afficheInitiale);
+
+  useEffect(() => {
+    // Si on n'a pas d'affiche, on lance la recherche TMDB en tâche de fond
+    if (!afficheInitiale && titre) {
+      getMissingPosterFromTMDB(titre).then((url) => {
+        if (url) setPosterUrl(url);
+      });
+    }
+  }, [afficheInitiale, titre]);
+
+  return (
+    <div className="w-20 h-full bg-white/10 flex-shrink-0 relative overflow-hidden">
+      {posterUrl ? (
+        <img 
+          src={posterUrl} 
+          alt={titre} 
+          // animate-in fade-in permet une apparition en douceur quand l'image est trouvée
+          className="w-full h-full object-cover animate-in fade-in duration-500" 
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-2xl opacity-50">🎬</div>
+      )}
+    </div>
+  );
+};
 
 function App() {
   const [userToken, setUserToken] = useState(localStorage.getItem('google_token') || null);
@@ -11,12 +40,25 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [stats, setStats] = useState({ totalFilms: "--", coupsDeCoeur: "--" });
+  const [historyData, setHistoryData] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     // Si on a les accès et qu'on est sur l'accueil, on charge les stats
     if (userToken && spreadsheetId && activeTab === 'home') {
       getStats(userToken, spreadsheetId).then((data) => {
         setStats(data);
+      });
+    }
+  }, [userToken, spreadsheetId, activeTab]);
+
+  // Charge l'historique complet quand on va sur l'onglet Billets
+  useEffect(() => {
+    if (userToken && spreadsheetId && activeTab === 'history') {
+      setIsLoadingHistory(true);
+      getFullHistory(userToken, spreadsheetId).then((data) => {
+        setHistoryData(data);
+        setIsLoadingHistory(false);
       });
     }
   }, [userToken, spreadsheetId, activeTab]);
@@ -191,13 +233,82 @@ if (films.length > 0) {
           </div>
         )}
 
-        {/* ONGLET 2 : HISTORIQUE */}
+        {/* ONGLET 2 : HISTORIQUE (Billets) */}
         {activeTab === 'history' && (
-          <div className="flex items-center justify-center h-full animate-in fade-in duration-300">
-            <div className="text-center text-white/40">
-              <span className="text-6xl mb-4 block">🍿</span>
-              <p className="font-syne text-xl font-bold">Historique à venir</p>
-            </div>
+          <div className="animate-in fade-in duration-300">
+            
+            {/* Header simple pour l'historique */}
+            <header className="pt-[calc(env(safe-area-inset-top)+1rem)] px-6 pb-4 bg-black/80 backdrop-blur-xl z-40 sticky top-0 border-b border-white/5">
+              <h1 className="font-syne text-2xl font-bold leading-none tracking-tight">Mes Billets</h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">Historique complet</p>
+            </header>
+
+            <main className="px-6 pt-6 pb-4 space-y-4">
+              {isLoadingHistory ? (
+                // Loader pendant la récupération
+                <div className="flex flex-col items-center justify-center py-20 text-white/40">
+                  <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-xs uppercase tracking-widest font-bold">Chargement des bobines...</p>
+                </div>
+              ) : historyData.length === 0 ? (
+                // Message si vide
+                <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center">
+                  <span className="text-6xl mb-4 block opacity-50">🎟️</span>
+                  <p className="font-syne text-xl font-bold">Aucun billet trouvé</p>
+                  <p className="text-sm mt-2">Tes films apparaîtront ici.</p>
+                </div>
+              ) : (
+                // Liste des films
+                historyData.map((film, index) => (
+                  <div key={index} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden active:scale-[0.98] transition-transform h-28">
+                    
+                    {/* Badge Numéro (Flottant en haut à droite) */}
+                    {film.numero && (
+                      <div className="absolute top-0 right-0 bg-yellow-500/20 text-yellow-500 border-b border-l border-yellow-500/30 text-[9px] font-black px-2 py-1 rounded-bl-lg z-10">
+                        #{film.numero}
+                      </div>
+                    )}
+
+                    {/* Affiche Intelligente (Recherche TMDB si manquante) */}
+                    <SmartPoster afficheInitiale={film.affiche} titre={film.titre} />
+
+                    {/* Informations (Avec le padding réintégré ici) */}
+                    <div className="flex-1 flex flex-col justify-center py-3 px-4">
+                      {/* Titre avec pr-6 pour ne pas passer sous le badge numéro */}
+                      <h4 className="font-syne font-bold text-lg leading-tight mb-1 pr-6 line-clamp-2">{film.titre}</h4>
+                      
+                      {/* Date sans l'heure */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <p className="text-white/50 text-[11px] font-bold uppercase tracking-wider">{film.date}</p>
+                      </div>
+                      
+                      {/* Badges : Genre, Note, Coup de coeur */}
+                      <div className="flex items-center gap-2 mt-auto">
+                        <span className="bg-white/10 border border-white/10 text-white/70 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
+                          {film.genre}
+                        </span>
+                        
+                        {/* Affichage de la Note si elle existe */}
+                        {film.note && (
+                          <span className="text-yellow-500 font-black text-xs flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20 shadow-sm">
+                            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg> 
+                            {film.note}
+                          </span>
+                        )}
+
+                        {/* Coeur si coup de coeur */}
+                        {film.coupDeCoeur && (
+                          <span className="text-red-500 text-sm drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">❤️</span>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                ))
+              )}
+              {/* Spacer de sécurité pour la bottom bar */}
+              <div className="h-6"></div>
+            </main>
           </div>
         )}
 
