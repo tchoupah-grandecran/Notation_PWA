@@ -54,9 +54,14 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState('newest'); 
   const [selectedFilm, setSelectedFilm] = useState(null); 
+  const [displayCount, setDisplayCount] = useState(15); // NOUVEAU : Pagination Infinite Scroll
+
+  // Réinitialiser le scroll si on change de filtre ou recherche
+  useEffect(() => {
+    setDisplayCount(15);
+  }, [activeFilter, searchQuery, sortOrder]);
 
   useEffect(() => {
-    // Si on a les accès et qu'on est sur l'accueil, on charge les stats
     if (userToken && spreadsheetId && activeTab === 'home') {
       getStats(userToken, spreadsheetId).then((data) => {
         setStats(data);
@@ -64,16 +69,17 @@ function App() {
     }
   }, [userToken, spreadsheetId, activeTab]);
 
-  // Charge l'historique complet quand on va sur l'onglet Billets
+  // Charge l'historique complet (AVEC MISE EN CACHE)
   useEffect(() => {
-    if (userToken && spreadsheetId && activeTab === 'history') {
+    // On ne charge QUE si l'historique est vide
+    if (userToken && spreadsheetId && activeTab === 'history' && historyData.length === 0) {
       setIsLoadingHistory(true);
       getFullHistory(userToken, spreadsheetId).then((data) => {
         setHistoryData(data);
         setIsLoadingHistory(false);
       });
     }
-  }, [userToken, spreadsheetId, activeTab]);
+  }, [userToken, spreadsheetId, activeTab, historyData.length]);
 
   const login = useGoogleLogin({
     onSuccess: (codeResponse) => {
@@ -186,7 +192,10 @@ function App() {
         films={films} 
         token={userToken} 
         spreadsheetId={spreadsheetId} 
-        onSaved={() => setFilms([])} 
+        onSaved={() => {
+          setFilms([]);
+          setHistoryData([]); // On vide le cache pour forcer le rechargement de l'historique !
+        }}
         onSkip={() => setFilms([])}
       />
     );
@@ -205,7 +214,16 @@ function App() {
     <div className="h-[100dvh] w-full bg-black text-white font-sans flex flex-col overflow-hidden">
       
       {/* ZONE DE CONTENU SCROLLABLE */}
-      <div className="flex-1 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))] scrollbar-hide">
+      <div 
+        className="flex-1 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))] scrollbar-hide"
+        onScroll={(e) => {
+          const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+          // Si on est à moins de 150px du bas de l'écran, on charge 15 films de plus
+          if (scrollHeight - scrollTop <= clientHeight + 150) {
+            setDisplayCount(prev => prev + 15);
+          }
+        }}
+      >
         
         {/* ONGLET 1 : DASHBOARD (Accueil) */}
         {activeTab === 'home' && (
@@ -353,11 +371,33 @@ function App() {
 
             <main className="px-6 pt-4 pb-4 space-y-4">
               {isLoadingHistory ? (
-                <div className="flex flex-col items-center justify-center py-20 text-white/40"><div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div><p className="text-xs uppercase tracking-widest font-bold">Chargement des bobines...</p></div>
+                /* LES FAMEUX SKELETONS LOADERS AVEC SHIMMER */
+                <>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden h-28">
+                      {/* Vague de lumière animée */}
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent z-10"></div>
+                      
+                      {/* Fausse affiche */}
+                      <div className="w-20 h-full bg-white/10 flex-shrink-0"></div>
+                      
+                      {/* Fausses lignes de texte */}
+                      <div className="flex-1 flex flex-col justify-center py-3 px-4 gap-3">
+                        <div className="h-4 bg-white/10 rounded-md w-3/4"></div>
+                        <div className="h-3 bg-white/10 rounded-md w-1/3 mb-2"></div>
+                        <div className="flex gap-2 mt-auto">
+                          <div className="h-4 bg-white/10 rounded-full w-12"></div>
+                          <div className="h-4 bg-white/10 rounded-full w-10"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
               ) : filteredHistory.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center animate-in fade-in zoom-in-95 duration-300"><span className="text-6xl mb-4 block opacity-50">🎟️</span><p className="font-syne text-xl font-bold">Aucun billet trouvé</p></div>
               ) : (
-                filteredHistory.map((film, index) => (
+                /* ON COUPE LA LISTE (.slice) POUR L'INFINITE SCROLL */
+                filteredHistory.slice(0, displayCount).map((film, index) => (
                   <div key={index} onClick={() => setSelectedFilm(film)} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden active:scale-[0.98] transition-transform h-28 cursor-pointer">
                     {film.numero && <div className="absolute top-0 right-0 bg-yellow-500/20 text-yellow-500 border-b border-l border-yellow-500/30 text-[9px] font-black px-2 py-1 rounded-bl-lg z-10">#{film.numero}</div>}
                     <SmartPoster afficheInitiale={film.affiche} titre={film.titre} />

@@ -21,11 +21,12 @@ export default {
           '100%': { opacity: '1' },
         }
       },
+      },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' }
+        }
+      },
       animation: {
-        'slide-in-bottom': 'slide-in-bottom 0.4s ease-out forwards',
-        'fade-in': 'fade-in 0.3s ease-out forwards',
-      }
     },
-  },
   plugins: [],
 }
