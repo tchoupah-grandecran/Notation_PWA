@@ -59,11 +59,13 @@ const parsePatheEmail = (htmlBody, plainBody) => {
     if (m) data.heure = m[1].replace('h', ':');
   }
 
-  // Ajout de l'année pour notre PWA
+  // Ajout de l'année et formatage strict DD/MM/YYYY pour notre PWA
   if (data.date) {
     const parts = data.date.split('/');
     if (parts.length === 3) {
       data.annee = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+      // On s'assure que le jour et le mois ont toujours 2 chiffres (ex: "5/4/2023" devient "05/04/2023")
+      data.date = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${data.annee}`;
     }
   }
 
@@ -122,11 +124,13 @@ const parsePatheEmail = (htmlBody, plainBody) => {
   // 1. Extraction de la Salle
   let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i) || plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i);
   if (salleMatch) {
-    data.salle = salleMatch[1].trim();
+    // AJOUT : On préfixe par "Salle "
+    data.salle = "Salle " + salleMatch[1].trim(); 
   } else {
     // Fallback si la 1ère méthode échoue
     let oldRoomMatch = html.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i) || plain.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i);
-    if (oldRoomMatch) data.salle = oldRoomMatch[1].trim();
+    // AJOUT : On préfixe par "Salle "
+    if (oldRoomMatch) data.salle = "Salle " + oldRoomMatch[1].trim();
   }
 
   // 2. Extraction du Siège (Prend en compte Rang, Fauteuil, Place, Siège...)
@@ -141,17 +145,19 @@ const parsePatheEmail = (htmlBody, plainBody) => {
     data.siege = placeMatch[1].trim();
   }
 
-  // ── Langue (Version assouplie) ──────────────────────────────────────────
+  // ── Langue (Version assouplie & VF -> FRA) ──────────────────────────────
   let langMatch = html.match(/\b(VF|VOST|VOSTF|VOSTFR|VO|VFQ)\b/i) || plain.match(/\b(VF|VOST|VOSTF|VOSTFR|VO|VFQ)\b/i);
   if (langMatch) {
-    data.langue = langMatch[1].toUpperCase().replace('VOSTFR', 'VOST').replace('VOSTF', 'VOST');
+    let l = langMatch[1].toUpperCase().replace('VOSTFR', 'VOST').replace('VOSTF', 'VOST');
+    // CONVERSION : VF ou VFQ devient FRA
+    data.langue = (l === 'VF' || l === 'VFQ') ? 'FRA' : l;
   } else {
-    // Fallback: On cherche les lettres même si elles sont collées à un autre mot (ex: "Film(VOST)")
     let fallbackMatch = html.match(/(VF|VOST|VO|VFQ)/i) || plain.match(/(VF|VOST|VO|VFQ)/i);
     if (fallbackMatch) {
-      data.langue = fallbackMatch[1].toUpperCase();
+      let l = fallbackMatch[1].toUpperCase();
+      data.langue = (l === 'VF' || l === 'VFQ') ? 'FRA' : l;
     } else {
-      data.langue = "?"; // Si vraiment introuvable, on met un point d'interrogation pour éviter le champ vide
+      data.langue = "?";
     }
   }
 
@@ -182,7 +188,6 @@ const getMovieDataFromTMDB = async (titre) => {
 // LA FONCTION PRINCIPALE EXPORTÉE
 export const getFilmsANoter = async (token) => {
   try {
-    // 💡 J'ai adapté la requête Gmail pour coller exactement à ton ancien script
     const query = encodeURIComponent('subject:"Confirmation de commande les cinémas Pathé" is:unread');
     const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -200,7 +205,6 @@ export const getFilmsANoter = async (token) => {
       let htmlData = null;
       let plainData = null;
       
-      // On extrait proprement le HTML et le Texte brut pour alimenter ton parseur
       if (mData.payload.parts) {
         htmlData = findEmailPart(mData.payload.parts, 'text/html');
         plainData = findEmailPart(mData.payload.parts, 'text/plain');
@@ -216,12 +220,39 @@ export const getFilmsANoter = async (token) => {
       
       if (parsed) {
         const tmdb = await getMovieDataFromTMDB(parsed.titre);
-        // Si la durée n'a pas été trouvée dans le mail, on prend celle de TMDB
         if (!parsed.duree && tmdb.dureeReelle) parsed.duree = tmdb.dureeReelle;
         
         films.push({ ...parsed, ...tmdb, messageId: msg.id });
       }
     }
+
+    // === NOUVEAU : TRI CHRONOLOGIQUE DES SÉANCES ===
+    films.sort((a, b) => {
+      try {
+        const getTimestamp = (film) => {
+          if (!film.date) return 0;
+          
+          // Sépare "24/10/2023" en jour=24, mois=10, annee=2023
+          const partsDate = film.date.split('/'); 
+          const dateObj = new Date(partsDate[2], partsDate[1] - 1, partsDate[0]);
+          
+          // Ajoute l'heure si elle existe (gère "20:15" et "20h15")
+          if (film.heure) {
+            const partsHeure = film.heure.replace('h', ':').split(':');
+            dateObj.setHours(parseInt(partsHeure[0], 10) || 0, parseInt(partsHeure[1], 10) || 0);
+          }
+          
+          return dateObj.getTime();
+        };
+
+        // Tri du plus ancien au plus récent
+        return getTimestamp(a) - getTimestamp(b);
+        
+      } catch (erreur) {
+        return 0; // En cas de problème de format, on garde l'ordre de base
+      }
+    });
+
     return films;
   } catch (e) { 
     console.error("Erreur Fetch API:", e); 
@@ -265,10 +296,9 @@ export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
 
 export const saveFilmToSheet = async (token, spreadsheetId, data) => {
   try {
-    // Ordre des colonnes selon ton ancien script: 
-    // ID | Titre | Date | Heure | Durée | Langue | Salle | Siège | Note | CoupDeCoeur | Genre | Depense | Capucine | Commentaire | Affiche | TmdbId
+    // Remplacement de Date.now() par data.numeroSeance en première position
     const row = [
-      Date.now(), data.titre, data.date, data.heure, data.duree, data.langue, 
+      data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
       data.salle, data.siege, data.note, data.coupDeCoeur, data.genre, 
       data.depense, data.capucine, data.commentaire, data.affiche, data.tmdbId
     ];
@@ -281,7 +311,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
 
     if (!res.ok) throw new Error("Erreur écriture Sheets");
 
-    // Marquer l'e-mail comme LU pour ne plus le scanner !
+    // Marquer l'e-mail comme LU pour ne plus le scanner
     await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.messageId}/modify`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -294,3 +324,54 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
     return false; 
   }
 };
+
+export async function getStats(token, spreadsheetId) {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:Z`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.error("Erreur de l'API Google :", data.error.message);
+      return { totalFilms: "--", coupsDeCoeur: "--" };
+    }
+
+    if (!data.values || data.values.length <= 1) {
+      return { totalFilms: 0, coupsDeCoeur: 0 };
+    }
+
+    const enTetes = data.values[0];
+    const lignes = data.values.slice(1); 
+
+    const indexCoupDeCoeur = enTetes.findIndex(
+      (titre) => titre && (titre.toLowerCase().includes("coeur") || titre.toLowerCase().includes("cœur"))
+    );
+
+    const totalFilms = lignes.length;
+    let coupsDeCoeur = 0;
+
+    if (indexCoupDeCoeur !== -1) {
+      coupsDeCoeur = lignes.filter((ligne) => {
+        const valeur = ligne[indexCoupDeCoeur];
+        // CORRECTION : On vérifie si la valeur vaut 1 (en convertissant en texte au cas où)
+        return valeur !== undefined && String(valeur).trim() === "1";
+      }).length;
+    } else {
+      console.warn("🚨 Colonne 'Coup de coeur' introuvable dans :", enTetes);
+    }
+
+    return { totalFilms, coupsDeCoeur };
+    
+  } catch (error) {
+    console.error("Erreur technique lors de la récupération des statistiques :", error);
+    return { totalFilms: "--", coupsDeCoeur: "--" };
+  }
+}

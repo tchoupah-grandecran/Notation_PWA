@@ -2,6 +2,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useState, useEffect } from 'react';
 import { getFilmsANoter } from './api';
 import Notation from './pages/Notation';
+import { saveFilmToSheet, getProchainNumeroSeance, getStats } from './api';
 
 function App() {
   const [userToken, setUserToken] = useState(localStorage.getItem('google_token') || null);
@@ -9,6 +10,16 @@ function App() {
   const [films, setFilms] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
+  const [stats, setStats] = useState({ totalFilms: "--", coupsDeCoeur: "--" });
+
+  useEffect(() => {
+    // Si on a les accès et qu'on est sur l'accueil, on charge les stats
+    if (userToken && spreadsheetId && activeTab === 'home') {
+      getStats(userToken, spreadsheetId).then((data) => {
+        setStats(data);
+      });
+    }
+  }, [userToken, spreadsheetId, activeTab]);
 
   const login = useGoogleLogin({
     onSuccess: (codeResponse) => {
@@ -163,11 +174,13 @@ if (films.length > 0) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between aspect-square">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Films vus</span>
-                    <p className="font-syne text-5xl font-bold">--</p>
+                    {/* LA VRAIE DATA ICI 👇 */}
+                    <p className="font-syne text-5xl font-bold">{stats.totalFilms}</p>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between aspect-square">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Coups de ❤️</span>
-                    <p className="font-syne text-5xl font-bold text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">--</p>
+                    {/* LA VRAIE DATA ICI 👇 */}
+                    <p className="font-syne text-5xl font-bold text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">{stats.coupsDeCoeur}</p>
                   </div>
                 </div>
               </div>

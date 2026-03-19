@@ -17,6 +17,19 @@ const GENRE_COLORS = {
   "default": "bg-white/10 border-white/30 text-white"
 };
 
+// Liste des langues pour la modale (Trigrammes + Drapeaux)
+const COMMON_LANGS = [
+  { code: "ENG", flag: "🇬🇧", label: "Anglais" },
+  { code: "JPN", flag: "🇯🇵", label: "Japonais" },
+  { code: "KOR", flag: "🇰🇷", label: "Coréen" },
+  { code: "ESP", flag: "🇪🇸", label: "Espagnol" },
+  { code: "ITA", flag: "🇮🇹", label: "Italien" },
+  { code: "GER", flag: "🇩🇪", label: "Allemand" },
+  { code: "CHI", flag: "🇨🇳", label: "Chinois" },
+  { code: "POR", flag: "🇵🇹", label: "Portugais" },
+  { code: "FRA", flag: "🇫🇷", label: "Français" }
+];
+
 function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   const film = films[0];
   const [rating, setRating] = useState(0);
@@ -29,6 +42,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [numeroSeance, setNumeroSeance] = useState("...");
   const starsRef = useRef(null);
+  const [showLangSelector, setShowLangSelector] = useState(false);
 
   const calculateRating = (e) => {
     if (!starsRef.current) return;
@@ -73,23 +87,38 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
 
   if (!film) return null;
 
-  const handleSave = async () => {
+  // Exécute la sauvegarde finale vers Google Sheets
+  const executeSave = async (langueFinale) => {
     setLoading(true);
     const success = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
+      langue: langueFinale, // On utilise la langue choisie (ou celle d'origine si déjà OK)
       note: rating,
       commentaire: comment,
-      coupDeCoeur: isFavorite ? "OUI" : "NON",
+      coupDeCoeur: isFavorite ? 1 : 0,
       capucine: isCapucine ? 1 : 0,
-      depense: price
+      depense: price,
+      numeroSeance: numeroSeance
     });
 
     if (success) {
+      setShowLangSelector(false); // On cache la modale au cas où elle était ouverte
       setShowConfirmation(true);
       setTimeout(() => onSaved(), 2000);
     } else {
       alert("Erreur de sauvegarde");
       setLoading(false);
+    }
+  };
+
+  // Ce qui se passe quand on clique sur le gros bouton "ENREGISTRER"
+  const handleSaveClick = () => {
+    // Si la langue est floue ("VOST", "VO" ou "?"), on ouvre la modale
+    if (!film.langue || film.langue === "?" || film.langue.includes("VO")) {
+      setShowLangSelector(true);
+    } else {
+      // Sinon (ex: "FRA"), on sauvegarde direct !
+      executeSave(film.langue);
     }
   };
 
@@ -317,7 +346,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
 
           <button
             disabled={loading}
-            onClick={handleSave}
+            onClick={handleSaveClick} // <-- ICI : On appelle la nouvelle fonction
             className="w-full bg-white text-black font-black py-3 rounded-3xl shadow-xl active:scale-95 transition-all text-xl italic uppercase tracking-tighter"
           >
             {loading ? 'CHARGEMENT...' : 'ENREGISTRER'}
@@ -405,6 +434,43 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
           </div>
         </div>
       </div>
+
+{/* MODALE DE SÉLECTION DE LANGUE (Smart Intercept) */}
+      {showLangSelector && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden">
+          
+          {/* Fond flou cliquable pour annuler — Utilise notre animation FADE-IN */}
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+            onClick={() => setShowLangSelector(false)}
+          ></div>
+          
+          {/* Panneau qui glisse du bas — Utilise notre animation SLIDE-IN-BOTTOM */}
+          <div className="relative w-full bg-[#111] rounded-t-[32px] p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-slide-in-bottom border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)]">
+            
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6"></div>
+            
+            <h3 className="font-syne text-2xl font-bold mb-2 text-center leading-none">Langue originale ?</h3>
+            <p className="text-center text-white/40 text-[10px] uppercase tracking-widest font-black mb-6">Sélectionne le trigramme</p>
+            
+            <div className="grid grid-cols-3 gap-3">
+              {COMMON_LANGS.map((l) => (
+                <button 
+                  key={l.code}
+                  // Au clic, on lance l'enregistrement immédiatement avec cette langue !
+                  onClick={() => executeSave(l.code)}
+                  className="flex flex-col items-center justify-center py-4 bg-white/5 rounded-2xl active:bg-yellow-500/20 active:border-yellow-500/50 active:text-yellow-500 transition-all border border-white/5 active:scale-95"
+                >
+                  <span className="text-3xl mb-1 drop-shadow-md">{l.flag}</span>
+                  <span className="text-[10px] font-black tracking-widest">{l.code}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* J'ai supprimé le bouton Annuler pour alléger visuellement, on annule en cliquant en dehors */}
+          </div>
+        </div>
+      )}
 
       {/* CONFIRMATION */}
       {showConfirmation && (
