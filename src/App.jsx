@@ -38,26 +38,6 @@ const SmartPoster = ({ afficheInitiale, titre }) => {
   );
 };
 
-// Nouvel état pour le filtre actif
-  const [activeFilter, setActiveFilter] = useState('all');
-
-  // 1. On extrait les années uniques de l'historique (ex: ["2024", "2023"])
-  const anneesDisponibles = [...new Set(historyData.map(f => {
-    if (!f.date) return null;
-    const parts = f.date.split('/');
-    return parts.length === 3 ? parts[2] : null;
-  }).filter(Boolean))].sort((a, b) => b - a); // Tri décroissant
-
-  // 2. On crée la liste filtrée à afficher
-  const filteredHistory = historyData.filter(film => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'coeur') return film.coupDeCoeur;
-    if (activeFilter === 'capucine') return film.capucine;
-    if (activeFilter === 'top') return Number(film.note) >= 4; // Affiche les notes de 4 et 5
-    if (anneesDisponibles.includes(activeFilter)) return film.date?.endsWith(activeFilter);
-    return true;
-  });
-
 function App() {
   const [userToken, setUserToken] = useState(localStorage.getItem('google_token') || null);
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('grandecran_db_id') || "");
@@ -67,6 +47,13 @@ function App() {
   const [stats, setStats] = useState({ totalFilms: "--", coupsDeCoeur: "--" });
   const [historyData, setHistoryData] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  // --- ÉTATS POUR L'HISTORIQUE ---
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState('newest'); 
+  const [selectedFilm, setSelectedFilm] = useState(null); 
 
   useEffect(() => {
     // Si on a les accès et qu'on est sur l'accueil, on charge les stats
@@ -126,6 +113,47 @@ function App() {
     if (userToken) handleScan(userToken);
   };
 
+  // --- LOGIQUE DE FILTRAGE ET TRI DE L'HISTORIQUE ---
+  // 1. On extrait les années uniques
+  const anneesDisponibles = [...new Set(historyData.map(f => {
+    if (!f.date) return null;
+    const parts = f.date.split('/');
+    return parts.length === 3 ? parts[2] : null;
+  }).filter(Boolean))].sort((a, b) => b - a);
+
+  // 2. Filtrage (Catégorie + Recherche textuelle)
+  let filteredHistory = historyData.filter(film => {
+    // Filtre par catégorie
+    let categoryMatch = true;
+    if (activeFilter === 'coeur') categoryMatch = film.coupDeCoeur;
+    else if (activeFilter === 'capucine') categoryMatch = film.capucine;
+    else if (activeFilter === 'top') categoryMatch = Number(film.note) >= 4;
+    else if (anneesDisponibles.includes(activeFilter)) categoryMatch = film.date?.endsWith(activeFilter);
+    
+    // Filtre par recherche
+    let searchMatch = true;
+    if (searchQuery) {
+      searchMatch = film.titre.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+
+    return categoryMatch && searchMatch;
+  });
+
+  // 3. Tri
+  filteredHistory.sort((a, b) => {
+    if (sortOrder === 'top') return (Number(b.note) || 0) - (Number(a.note) || 0);
+    
+    // Fonction utilitaire pour convertir "24/10/2023" en Timestamp
+    const getTime = (dateStr) => {
+      if (!dateStr) return 0;
+      const p = dateStr.split('/');
+      return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]).getTime() : 0;
+    };
+
+    if (sortOrder === 'oldest') return getTime(a.date) - getTime(b.date);
+    return getTime(b.date) - getTime(a.date); // 'newest' (défaut)
+  });
+
   // --- RENDU ---
 
   if (!userToken) {
@@ -152,17 +180,17 @@ function App() {
   }
 
   // ÉCRAN DE NOTATION (Isolé pour l'immersion iOS)
-if (films.length > 0) {
-  return (
-    <Notation 
-      films={films} 
-      token={userToken} 
-      spreadsheetId={spreadsheetId} 
-      onSaved={() => setFilms([])} 
-      onSkip={() => setFilms([])}
-    />
-  );
-}
+  if (films.length > 0) {
+    return (
+      <Notation 
+        films={films} 
+        token={userToken} 
+        spreadsheetId={spreadsheetId} 
+        onSaved={() => setFilms([])} 
+        onSkip={() => setFilms([])}
+      />
+    );
+  }
 
   if (isSearching) {
     return (
@@ -177,14 +205,12 @@ if (films.length > 0) {
     <div className="h-[100dvh] w-full bg-black text-white font-sans flex flex-col overflow-hidden">
       
       {/* ZONE DE CONTENU SCROLLABLE */}
-      {/* Le pb a été réduit pour s'adapter à la nouvelle taille de la Tab Bar */}
       <div className="flex-1 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))] scrollbar-hide">
         
         {/* ONGLET 1 : DASHBOARD (Accueil) */}
         {activeTab === 'home' && (
           <div className="animate-in fade-in duration-300">
-            
-            {/* HEADER : Espace en haut et en bas réduit */}
+            {/* HEADER */}
             <header className="pt-[calc(env(safe-area-inset-top)+0.5rem)/2] px-6 pb-2 flex justify-between items-center bg-black/80 backdrop-blur-xl z-40 sticky top-0 border-b border-white/5">
               <div className="flex items-center gap-4">
                 <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20 shadow-lg">
@@ -210,7 +236,7 @@ if (films.length > 0) {
 
             {/* CONTENU DASHBOARD */}
             <main className="px-6 pt-6 space-y-8">
-              {/* SECTION 1 : Action principale (Scanner) */}
+              {/* SECTION 1 : Action principale */}
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-[32px] p-8 flex flex-col items-center text-center relative overflow-hidden">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-yellow-500/20 blur-[50px] rounded-full pointer-events-none"></div>
                 <div className="w-14 h-14 bg-yellow-500/20 rounded-full flex items-center justify-center mb-5 text-yellow-500 border border-yellow-500/30 relative z-10">
@@ -241,18 +267,15 @@ if (films.length > 0) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between aspect-square">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Films vus</span>
-                    {/* LA VRAIE DATA ICI 👇 */}
                     <p className="font-syne text-5xl font-bold">{stats.totalFilms}</p>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between aspect-square">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Coups de ❤️</span>
-                    {/* LA VRAIE DATA ICI 👇 */}
                     <p className="font-syne text-5xl font-bold text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">{stats.coupsDeCoeur}</p>
                   </div>
                 </div>
               </div>
               
-              {/* Spacer de sécurité invisible pour forcer le scroll sur les petits écrans lors des tests */}
               <div className="h-4"></div>
             </main>
           </div>
@@ -262,130 +285,148 @@ if (films.length > 0) {
         {activeTab === 'history' && (
           <div className="animate-in fade-in duration-300">
             
-            {/* Header simple pour l'historique */}
             <header className="pt-[calc(env(safe-area-inset-top)+1rem)] bg-black/80 backdrop-blur-xl z-40 sticky top-0 border-b border-white/5">
-              <div className="px-6 pb-2">
-                <h1 className="font-syne text-2xl font-bold leading-none tracking-tight">Mes Billets</h1>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">
-                  {filteredHistory.length} film{filteredHistory.length > 1 ? 's' : ''} trouvé{filteredHistory.length > 1 ? 's' : ''}
-                </p>
+              <div className="px-6 pb-2 flex justify-between items-center min-h-[48px] relative">
+                
+                {/* BLOC TITRE ET TRI (Disparait en fondu quand recherche active) */}
+                <div className={`flex w-full justify-between items-center transition-all duration-300 ease-out ${isSearchOpen ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100 pointer-events-auto'}`}>
+                  <div>
+                    <h1 className="font-syne text-2xl font-bold leading-none tracking-tight">Mes Billets</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1">
+                      {filteredHistory.length} film{filteredHistory.length > 1 ? 's' : ''} trouvé{filteredHistory.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : prev === 'oldest' ? 'top' : 'newest')} className="w-10 h-10 flex items-center justify-center rounded-full text-white/70 active:bg-white/10 transition-colors">
+                      {sortOrder === 'newest' ? <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> : 
+                       sortOrder === 'oldest' ? <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg> :
+                       <span className="text-lg">⭐</span>}
+                    </button>
+                    {/* Faux bouton loupe transparent pour garder la place et l'alignement */}
+                    <div className="w-10 h-10 flex-shrink-0"></div>
+                  </div>
+                </div>
+
+                {/* BULLE DE RECHERCHE ANIMÉE (Étirée ou rétractée) */}
+                <div className={`absolute right-6 flex items-center border transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${isSearchOpen ? 'w-[calc(100%-3rem)] h-10 px-4 rounded-full bg-white/10 border-white/20 shadow-lg' : 'w-10 h-10 px-0 rounded-full bg-transparent border-transparent'}`}>
+                  
+                  {/* Icône Loupe (Cliquable pour ouvrir) */}
+                  <button 
+                    onClick={() => { setIsSearchOpen(true); setTimeout(() => document.getElementById('searchInput')?.focus(), 50); }} 
+                    className={`flex items-center justify-center flex-shrink-0 transition-colors ${isSearchOpen ? 'text-white/50 w-5 h-full cursor-default pointer-events-none' : 'w-10 h-10 text-white/70 active:bg-white/10 rounded-full cursor-pointer'}`}
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </button>
+
+                  {/* Input Texte */}
+                  <input 
+                    id="searchInput"
+                    type="text" 
+                    placeholder="Titre du film..." 
+                    className={`bg-transparent text-sm w-full outline-none text-white placeholder-white/40 font-bold ml-2 transition-all duration-300 ${isSearchOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'}`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+
+                  {/* Croix pour fermer */}
+                  <button 
+                    onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} 
+                    className={`flex-shrink-0 p-1 text-white/50 hover:text-white transition-all duration-300 ${isSearchOpen ? 'opacity-100 delay-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
+
               </div>
 
               {/* BARRE DE FILTRES HORIZONTALE */}
               <div className="flex overflow-x-auto gap-2 px-6 pb-4 pt-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                
-                {/* Bouton "Tous" */}
-                <button 
-                  onClick={() => setActiveFilter('all')}
-                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'all' ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
-                >
-                  Tous
-                </button>
-
-                {/* Bouton "Coups de coeur" */}
-                <button 
-                  onClick={() => setActiveFilter('coeur')}
-                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'coeur' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
-                >
-                  ❤️ Coups de cœur
-                </button>
-
-                {/* Bouton "Capucines" */}
-                <button 
-                  onClick={() => setActiveFilter('capucine')}
-                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'capucine' ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
-                >
-                  🌻 Capucines
-                </button>
-
-                {/* Bouton "Top Notes" */}
-                <button 
-                  onClick={() => setActiveFilter('top')}
-                  className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'top' ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
-                >
-                  ⭐️ Top 4+
-                </button>
-
-                {/* Boutons dynamiques pour chaque année */}
+                <button onClick={() => setActiveFilter('all')} className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'all' ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}>Tous</button>
+                <button onClick={() => setActiveFilter(activeFilter === 'coeur' ? 'all' : 'coeur')} className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'coeur' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}>❤️ Coups de cœur</button>
+                <button onClick={() => setActiveFilter(activeFilter === 'capucine' ? 'all' : 'capucine')} className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'capucine' ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}>🌻 Capucines</button>
+                <button onClick={() => setActiveFilter(activeFilter === 'top' ? 'all' : 'top')} className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'top' ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}>⭐️ Top 4+</button>
                 {anneesDisponibles.map(annee => (
-                  <button 
-                    key={annee}
-                    onClick={() => setActiveFilter(annee)}
-                    className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === annee ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
-                  >
-                    {annee}
-                  </button>
+                  <button key={annee} onClick={() => setActiveFilter(activeFilter === annee ? 'all' : annee)} className={`snap-start whitespace-nowrap px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === annee ? 'bg-white text-black' : 'bg-white/10 text-white/70 active:bg-white/20'}`}>{annee}</button>
                 ))}
               </div>
             </header>
 
             <main className="px-6 pt-4 pb-4 space-y-4">
-              {/* IMPORTANT : Change ici historyData.length par filteredHistory.length */}
               {isLoadingHistory ? (
-                // Loader...
-                <div className="flex flex-col items-center justify-center py-20 text-white/40">
-                  <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                  <p className="text-xs uppercase tracking-widest font-bold">Chargement des bobines...</p>
-                </div>
+                <div className="flex flex-col items-center justify-center py-20 text-white/40"><div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div><p className="text-xs uppercase tracking-widest font-bold">Chargement des bobines...</p></div>
               ) : filteredHistory.length === 0 ? (
-                // Message si vide
-                <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center animate-in fade-in zoom-in-95 duration-300">
-                  <span className="text-6xl mb-4 block opacity-50">🎟️</span>
-                  <p className="font-syne text-xl font-bold">Aucun billet trouvé</p>
-                  <p className="text-sm mt-2">Modifie tes filtres pour voir d'autres films.</p>
-                </div>
+                <div className="flex flex-col items-center justify-center py-20 text-white/40 text-center animate-in fade-in zoom-in-95 duration-300"><span className="text-6xl mb-4 block opacity-50">🎟️</span><p className="font-syne text-xl font-bold">Aucun billet trouvé</p></div>
               ) : (
-                // LISTE DES FILMS : IMPORTANT, remplace historyData.map par filteredHistory.map 👇
                 filteredHistory.map((film, index) => (
-                  <div key={index} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden active:scale-[0.98] transition-transform h-28">
-                    
-                    {/* Badge Numéro (Flottant en haut à droite) */}
-                    {film.numero && (
-                      <div className="absolute top-0 right-0 bg-yellow-500/20 text-yellow-500 border-b border-l border-yellow-500/30 text-[9px] font-black px-2 py-1 rounded-bl-lg z-10">
-                        #{film.numero}
-                      </div>
-                    )}
-
-                    {/* Affiche Intelligente (Recherche TMDB si manquante) */}
+                  <div key={index} onClick={() => setSelectedFilm(film)} className="flex bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden active:scale-[0.98] transition-transform h-28 cursor-pointer">
+                    {film.numero && <div className="absolute top-0 right-0 bg-yellow-500/20 text-yellow-500 border-b border-l border-yellow-500/30 text-[9px] font-black px-2 py-1 rounded-bl-lg z-10">#{film.numero}</div>}
                     <SmartPoster afficheInitiale={film.affiche} titre={film.titre} />
-
-                    {/* Informations (Avec le padding réintégré ici) */}
                     <div className="flex-1 flex flex-col justify-center py-3 px-4">
-                      {/* Titre avec pr-6 pour ne pas passer sous le badge numéro */}
                       <h4 className="font-syne font-bold text-lg leading-tight mb-1 pr-6 line-clamp-2">{film.titre}</h4>
-                      
-                      {/* Date sans l'heure */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-white/50 text-[11px] font-bold uppercase tracking-wider">{film.date}</p>
-                      </div>
-                      
-                      {/* Badges : Genre, Note, Coup de coeur */}
+                      <div className="flex items-center gap-2 mb-2"><p className="text-white/50 text-[11px] font-bold uppercase tracking-wider">{film.date}</p></div>
                       <div className="flex items-center gap-2 mt-auto">
-                        <span className="bg-white/10 border border-white/10 text-white/70 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
-                          {film.genre}
-                        </span>
-                        
-                        {/* Affichage de la Note si elle existe */}
-                        {film.note && (
-                          <span className="text-yellow-500 font-black text-xs flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20 shadow-sm">
-                            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg> 
-                            {film.note}
-                          </span>
-                        )}
-
-                        {/* Coeur si coup de coeur */}
-                        {film.coupDeCoeur && (
-                          <span className="text-red-500 text-sm drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">❤️</span>
-                        )}
+                        <span className="bg-white/10 border border-white/10 text-white/70 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">{film.genre}</span>
+                        {film.note && <span className="text-yellow-500 font-black text-xs flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20 shadow-sm"><svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>{film.note}</span>}
+                        {film.coupDeCoeur && <span className="text-red-500 text-sm drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]">❤️</span>}
                       </div>
                     </div>
-
                   </div>
                 ))
               )}
-              {/* Spacer de sécurité pour la bottom bar */}
               <div className="h-6"></div>
             </main>
+
+            {/* MODALE DE DÉTAILS DU FILM */}
+            {selectedFilm && (
+              <div className="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedFilm(null)}></div>
+                
+                <div className="relative w-full bg-[#111] rounded-t-[32px] p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-slide-in-bottom border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] max-h-[85vh] overflow-y-auto">
+                  <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6"></div>
+                  
+                  <div className="flex gap-5 mb-6">
+                    <div className="w-24 h-36 rounded-xl overflow-hidden bg-white/5 flex-shrink-0 border border-white/10">
+                       <SmartPoster afficheInitiale={selectedFilm.affiche} titre={selectedFilm.titre} />
+                    </div>
+                    <div className="flex flex-col justify-center flex-1">
+                      {selectedFilm.numero && <span className="text-yellow-500 text-[10px] font-black uppercase tracking-widest mb-1">Séance #{selectedFilm.numero}</span>}
+                      <h2 className="font-syne text-2xl font-bold leading-tight mb-3">{selectedFilm.titre}</h2>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFilm.note && <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-1 rounded-md text-[10px] font-black tracking-widest flex items-center gap-1">⭐ {selectedFilm.note}/5</span>}
+                        {selectedFilm.langue && <span className="bg-white/10 text-white/70 px-2 py-1 rounded-md text-[10px] font-black tracking-widest uppercase">{selectedFilm.langue}</span>}
+                        {selectedFilm.duree && <span className="bg-white/10 text-white/70 px-2 py-1 rounded-md text-[10px] font-black tracking-widest uppercase">{selectedFilm.duree}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedFilm.commentaire && (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-5 relative">
+                      <span className="absolute -top-3 left-4 text-3xl opacity-20">"</span>
+                      <p className="text-sm italic text-white/90 leading-relaxed relative z-10">{selectedFilm.commentaire}</p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                      <span className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">Salle & Siège</span>
+                      <span className="font-bold text-base block">{selectedFilm.salle || "?"}</span>
+                      <span className="font-bold text-sm text-white/60">Place {selectedFilm.siege || "?"}</span>
+                    </div>
+                    
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 flex flex-col justify-center">
+                      <span className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">Dépense</span>
+                      <span className="font-bold text-2xl text-emerald-400">
+                        {selectedFilm.depense ? `${selectedFilm.depense}` : '--'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button onClick={() => setSelectedFilm(null)} className="w-full py-4 mt-2 bg-white/10 rounded-2xl font-black text-xs uppercase tracking-widest active:bg-white/20 transition-all">
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -405,7 +446,6 @@ if (films.length > 0) {
       <nav className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/10 pb-[env(safe-area-inset-bottom)/2] z-50">
         <div className="flex justify-around items-center h-16 px-4">
           
-          {/* Bouton Home : CORRECTION OPACITÉ globale sur le bouton (opacity-40 au lieu de text-white/40) */}
           <button 
             onClick={() => setActiveTab('home')}
             className={`flex flex-col items-center justify-center w-16 gap-1 transition-all duration-200 ${activeTab === 'home' ? 'text-yellow-500 opacity-100' : 'text-white opacity-40 hover:opacity-70'}`}
@@ -417,7 +457,6 @@ if (films.length > 0) {
             <span className="text-[9px] font-bold tracking-widest uppercase mt-0.5">Accueil</span>
           </button>
 
-          {/* Bouton History */}
           <button 
             onClick={() => setActiveTab('history')}
             className={`flex flex-col items-center justify-center w-16 gap-1 transition-all duration-200 ${activeTab === 'history' ? 'text-yellow-500 opacity-100' : 'text-white opacity-40 hover:opacity-70'}`}
@@ -431,7 +470,6 @@ if (films.length > 0) {
             <span className="text-[9px] font-bold tracking-widest uppercase mt-0.5">Billets</span>
           </button>
 
-          {/* Bouton Profile */}
           <button 
             onClick={() => setActiveTab('profile')}
             className={`flex flex-col items-center justify-center w-16 gap-1 transition-all duration-200 ${activeTab === 'profile' ? 'text-yellow-500 opacity-100' : 'text-white opacity-40 hover:opacity-70'}`}
