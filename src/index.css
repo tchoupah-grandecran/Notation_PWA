@@ -28,7 +28,7 @@ body {
   min-height: 100dvh;
   overflow: hidden;
 }
-
+.bg-capucine-pale { background-color: rgba(255, 192, 203, 0.05); }
 .pt-safe { padding-top: var(--sat); }
 .pb-safe { padding-bottom: var(--sab); }
 .pl-safe { padding-left: var(--sal); }
@@ -45,4 +45,14 @@ body {
     -ms-overflow-style: none;  /* IE et Edge */
     scrollbar-width: none;  /* Firefox */
   }
+}
+
+@keyframes bubble-in {
+  0% { transform: scale(0.5) translateY(10px); opacity: 0; }
+  70% { transform: scale(1.05) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.animate-bubble {
+  animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

@@ -150,7 +150,7 @@ const COMMON_LANGS = [
   { code: "FRA", flag: "🇫🇷", label: "Français" }
 ];
 
-function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
+function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting, ratingScale = 5 }) {
   // --- CHARGEMENT DU THÈME ---
   const currentThemeKey = localStorage.getItem('grandecran_theme') || 'dark-grey';
   const theme = THEME_COLORS[currentThemeKey] || THEME_COLORS['dark-grey'];
@@ -174,7 +174,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
     let x = e.clientX - rect.left;
     x = Math.max(0, Math.min(x, rect.width));
     const percent = x / rect.width;
-    const rawRating = percent * 10;
+    const rawRating = percent * ratingScale; 
     setRating(Math.round(rawRating * 2) / 2);
   };
 
@@ -236,9 +236,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
 
   return (
     <div 
-      // h-[100dvh] z-50 et fixed inset-0 pour couvrir l'application
-      // Gestion dynamique de translate-y-full (Slide down) et opacité pour révéler le fond
-      className={`fixed inset-0 h-[100dvh] w-full font-sans overflow-hidden transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] z-50 ${isExiting ? 'translate-y-full' : 'translate-y-0 opacity-100 animate-in fade-in zoom-in-95 duration-300'}`}
+      className={`fixed inset-x-0 bottom-0 h-[100dvh] w-full font-sans overflow-hidden transition-transform duration-500 ease-in-out z-50 rounded-t-[32px] shadow-[0_-20px_60px_rgba(0,0,0,0.9)] border-t border-white/10 ${isExiting ? 'translate-y-full' : 'translate-y-0 animate-in slide-in-from-bottom-full duration-500'}`}
       style={{ 
         background: theme.bgGradient, 
         color: theme.text,
@@ -249,17 +247,18 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
       }}
     >
 
-      {/* 1. AFFICHE */}
-      {film.affiche && (
-        <img
-          src={film.affiche}
-          className="absolute top-0 left-0 w-full object-cover opacity-100 z-0"
-          style={{ height: 'calc(100dvh + env(safe-area-inset-bottom))' }}
-          alt=""
-        />
-      )}
+{/* 1. AFFICHE - CORRIGÉE POUR LE BUG DES 3 PIXELS */}
+{film.affiche && (
+<img
+src={film.affiche}
+className="fixed inset-x-0 -top-[env(safe-area-inset-top)] w-full object-cover opacity-100 z-0"
+// On s'assure que l'image fait au moins la hauteur de l'écran + safe area top
+style={{ height: 'calc(100vh + env(safe-area-inset-top) + env(safe-area-inset-bottom))' }}
+alt=""
+/>
+)}
 
-      {/* 2. BOUTON "Plus tard" (Assombri légèrement pour plus de lisibilité sur fonds clairs) */}
+      {/* 2. BOUTON "Plus tard" */}
       <div className="fixed top-0 left-0 right-0 pt-[env(safe-area-inset-top)] z-50 px-6 flex justify-end">
         <button
           onClick={onSkip}
@@ -279,7 +278,7 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
       >
         <div style={{ height: '82dvh' }} onClick={onSkip} />
 
-        {/* Overlay glassmorphism : Assombri et flou augmenté pour garantir le contraste */}
+        {/* Overlay glassmorphism */}
         <div
           className="w-full bg-black/50 backdrop-blur-2xl rounded-t-[32px] border-t border-white/10 px-8 pt-3 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
           style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
@@ -309,11 +308,12 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting }) {
                 {rating}
               </div>
 
-              <div className="absolute inset-0 flex justify-between items-center pointer-events-none w-full">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => {
+              {/* ÉTOILES DYNAMIQUES (5 ou 10) */}
+              <div className={`absolute inset-0 flex items-center pointer-events-none w-full ${ratingScale === 5 ? 'justify-center gap-1.5' : 'justify-between'}`}>
+                {Array.from({ length: ratingScale }, (_, i) => i + 1).map((index) => {
                   const fillPercent = Math.max(0, Math.min(1, rating - (index - 1))) * 100;
                   return (
-                    <div key={index} className="relative w-[22px] h-[22px] flex-shrink-0">
+                    <div key={index} className={`relative flex-shrink-0 ${ratingScale === 5 ? 'w-8 h-8' : 'w-[22px] h-[22px]'}`}>
                       <svg className="absolute inset-0 w-full h-full text-white/20" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
                       </svg>

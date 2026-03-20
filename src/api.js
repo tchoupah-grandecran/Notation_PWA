@@ -466,3 +466,100 @@ export const getMissingPosterFromTMDB = async (titre) => {
   }
   return null;
 };
+
+// ✅ Sauvegarder les préférences dans un onglet dédié
+export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
+  try {
+    const range = "Config!A2:E2"; // Colonnes : Nom, Avatar, Theme, Notation, LastUpdated
+    const values = [[
+      prefs.userName, 
+      prefs.userAvatar, 
+      prefs.themeKey, 
+      prefs.ratingScale, 
+      new Date().toISOString()
+    ]];
+    
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values })
+    });
+  } catch (error) {
+    console.error("Erreur synchro cloud:", error);
+  }
+};
+
+// ✅ Récupérer les préférences au démarrage
+export const getPreferencesFromSheet = async (token, spreadsheetId) => {
+  try {
+    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:D2`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (data.values && data.values[0]) {
+      return {
+        userName: data.values[0][0],
+        userAvatar: data.values[0][1],
+        themeKey: data.values[0][2],
+        ratingScale: parseInt(data.values[0][3])
+      };
+    }
+  } catch (e) { return null; }
+};
+
+export const createAutoSpreadsheet = async (token) => {
+  try {
+    // 1. Création du fichier
+    const createRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties: { title: "Mon Journal Grand Écran 🍿" }
+      })
+    });
+    const sheet = await createRes.json();
+    const spreadsheetId = sheet.spreadsheetId;
+
+    // 2. Configuration des onglets (Films et Config)
+    // On va renommer la "Feuille 1" en "Films" et créer "Config"
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          { updateSheetProperties: { properties: { sheetId: 0, title: "Films" }, fields: "title" } },
+          { addSheet: { properties: { title: "Config" } } },
+          // Initialisation des Headers pour Films
+          {
+            updateCells: {
+              range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+              rows: [{
+                values: [
+                  { userEnteredValue: { stringValue: "Titre" } },
+                  { userEnteredValue: { stringValue: "Note" } },
+                  { userEnteredValue: { stringValue: "Date" } },
+                  { userEnteredValue: { stringValue: "Genre" } },
+                  { userEnteredValue: { stringValue: "Affiche" } },
+                  { userEnteredValue: { stringValue: "Commentaire" } },
+                  { userEnteredValue: { stringValue: "Coup de Coeur" } },
+                  { userEnteredValue: { stringValue: "Capucine" } },
+                  { userEnteredValue: { stringValue: "Depense" } },
+                  { userEnteredValue: { stringValue: "Langue" } },
+                  { userEnteredValue: { stringValue: "Annee" } },
+                  { userEnteredValue: { stringValue: "Séance #" } }
+                ]
+              }],
+              fields: "userEnteredValue"
+            }
+          },
+          // Initialisation des Headers pour Config (sur l'onglet 2, on récupère son ID via l'API si besoin, mais souvent c'est séquentiel)
+        ]
+      })
+    });
+
+    return spreadsheetId;
+  } catch (error) {
+    console.error("Erreur création Sheet:", error);
+    return null;
+  }
+};
