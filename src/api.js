@@ -467,16 +467,24 @@ export const getMissingPosterFromTMDB = async (titre) => {
   return null;
 };
 
-// ✅ Sauvegarder les préférences dans un onglet dédié
+// ==========================================
+// CONFIGURATION (Sauvegarde des Préférences)
+// ==========================================
+
+// ✅ Sauvegarder les préférences dans l'onglet "Config"
 export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
   try {
-    const range = "Config!A2:E2"; // Colonnes : Nom, Avatar, Theme, Notation, LastUpdated
+    // Conversion de l'objet de prix en chaîne de texte JSON (si existant)
+    const pricingString = prefs.pricing ? JSON.stringify(prefs.pricing) : "";
+
+    // On cible désormais les colonnes de A à E (A2:E2)
+    const range = "Config!A2:E2"; 
     const values = [[
-      prefs.userName, 
-      prefs.userAvatar, 
-      prefs.themeKey, 
-      prefs.ratingScale, 
-      new Date().toISOString()
+      prefs.userName || "", 
+      prefs.userAvatar || "", 
+      prefs.themeKey || "", 
+      prefs.ratingScale || "", 
+      pricingString // <-- La magie opère ici (Colonne E)
     ]];
     
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
@@ -492,19 +500,37 @@ export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
 // ✅ Récupérer les préférences au démarrage
 export const getPreferencesFromSheet = async (token, spreadsheetId) => {
   try {
-    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:D2`, {
+    // On lit les colonnes A à E
+    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:E2`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const data = await response.json();
+
     if (data.values && data.values[0]) {
+      const row = data.values[0];
+      let pricingObj = null;
+
+      // On tente de retransformer le texte de la colonne E (index 4) en objet
+      if (row[4]) {
+        try {
+          pricingObj = JSON.parse(row[4]);
+        } catch (e) {
+          console.error("Erreur décodage de l'historique des prix", e);
+        }
+      }
+
       return {
-        userName: data.values[0][0],
-        userAvatar: data.values[0][1],
-        themeKey: data.values[0][2],
-        ratingScale: parseInt(data.values[0][3])
+        userName: row[0] || null,
+        userAvatar: row[1] || null,
+        themeKey: row[2] || null,
+        ratingScale: row[3] ? parseInt(row[3], 10) : null,
+        pricing: pricingObj // Objet récupéré et prêt à l'emploi
       };
     }
-  } catch (e) { return null; }
+  } catch (e) { 
+    console.error("Erreur lecture des préférences :", e);
+    return null; 
+  }
 };
 
 export const createAutoSpreadsheet = async (token) => {
@@ -552,7 +578,22 @@ export const createAutoSpreadsheet = async (token) => {
               fields: "userEnteredValue"
             }
           },
-          // Initialisation des Headers pour Config (sur l'onglet 2, on récupère son ID via l'API si besoin, mais souvent c'est séquentiel)
+          // Initialisation des Headers pour Config
+          {
+            updateCells: {
+              range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 5 }, // <- Mis à jour à 5 colonnes
+              rows: [{
+                values: [
+                  { userEnteredValue: { stringValue: "Pseudo" } },
+                  { userEnteredValue: { stringValue: "Avatar URL" } },
+                  { userEnteredValue: { stringValue: "Thème" } },
+                  { userEnteredValue: { stringValue: "Échelle de Note" } },
+                  { userEnteredValue: { stringValue: "Historique des Tarifs (JSON)" } }
+                ]
+              }],
+              fields: "userEnteredValue"
+            }
+          }
         ]
       })
     });
