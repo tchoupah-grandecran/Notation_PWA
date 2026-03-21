@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { THEME_COLORS } from './constants';
+import { THEME_COLORS, AVATAR_PRESETS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
-import { getFilmsANoter } from './api';
+import { getFilmsANoter, createAutoSpreadsheet } from './api';
 
 import { NavBar } from './components/NavBar';
 import { FilmDetailModal } from './components/FilmDetailModal';
@@ -70,19 +70,339 @@ function WelcomeScreen({ theme, login }) {
   );
 }
 
-function SpreadsheetSetupScreen({ theme, onSubmit }) {
+// ── Onboarding 3 étapes (nouvelle première connexion) ─────────────────────────
+
+function OnboardingScreen({ theme, userToken, onComplete, onThemePreview }) {
+  const [step, setStep] = useState(0); // 0=avatar, 1=thème, 2=spreadsheet
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_PRESETS[0]);
+  const [selectedThemeKey, setSelectedThemeKey] = useState('dark-grey');
+  const [isCreating, setIsCreating] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualId, setManualId] = useState('');
+  const [error, setError] = useState('');
+
+  // Prévisualise le thème en live dès la sélection
+  const handleThemeSelect = (key) => {
+    setSelectedThemeKey(key);
+    onThemePreview(key);
+  };
+
+  const handleCreateSpreadsheet = async () => {
+    setIsCreating(true);
+    setError('');
+    try {
+      const id = await createAutoSpreadsheet(userToken);
+      if (id) {
+        // Sauvegarde avatar + thème avant de terminer
+        localStorage.setItem('grandecran_avatar', selectedAvatar);
+        localStorage.setItem('grandecran_theme', selectedThemeKey);
+        localStorage.setItem('grandecran_db_id', id);
+        onComplete({ spreadsheetId: id, avatar: selectedAvatar, themeKey: selectedThemeKey });
+      } else {
+        setError("Impossible de créer le fichier. Vérifie les permissions Google Drive.");
+      }
+    } catch (e) {
+      setError("Une erreur est survenue. Réessaie ou renseigne ton ID manuellement.");
+      console.error(e);
+    }
+    setIsCreating(false);
+  };
+
+  const handleManualSubmit = (e) => {
+    e.preventDefault();
+    const id = manualId.trim();
+    if (!id) return;
+    localStorage.setItem('grandecran_avatar', selectedAvatar);
+    localStorage.setItem('grandecran_theme', selectedThemeKey);
+    localStorage.setItem('grandecran_db_id', id);
+    onComplete({ spreadsheetId: id, avatar: selectedAvatar, themeKey: selectedThemeKey });
+  };
+
+  const activeTheme = THEME_COLORS[selectedThemeKey] || THEME_COLORS['dark-grey'];
+
+  const STEPS = [
+    { label: 'Avatar',        icon: '👤' },
+    { label: 'Thème',         icon: '🎨' },
+    { label: 'Mon espace',    icon: '📂' },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ background: theme.bgGradient, color: theme.text }}>
-      <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4">Configuration</h2>
-      <form
-        onSubmit={(e) => { e.preventDefault(); onSubmit(e.target.sheetId.value); }}
-        className="w-full max-w-sm flex flex-col gap-4"
-      >
-        <input name="sheetId" type="text" placeholder="ID du Spreadsheet" required className="bg-white/10 border border-white/20 p-4 rounded-2xl outline-none text-center" />
-        <button type="submit" className="font-black py-4 rounded-2xl uppercase tracking-widest" style={{ background: theme.primary, color: theme.textOnAccent }}>
-          Enregistrer l'ID
-        </button>
-      </form>
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-500"
+      style={{ background: activeTheme.bgGradient, color: activeTheme.text }}
+    >
+      {/* Safe area top */}
+      <div style={{ paddingTop: 'env(safe-area-inset-top)' }} />
+
+      {/* Stepper */}
+      <div className="px-8 pt-6 pb-2">
+        <div className="flex items-center gap-0">
+          {STEPS.map((s, i) => (
+            <div key={i} className="flex items-center flex-1">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all duration-300 ${
+                    i < step  ? 'text-black scale-90 opacity-80' :
+                    i === step ? 'scale-110 shadow-[0_0_16px_var(--glow)]' :
+                    'bg-white/10 text-white/40 scale-90'
+                  }`}
+                  style={{
+                    background: i <= step ? activeTheme.primary : undefined,
+                    color:      i <= step ? activeTheme.textOnAccent : undefined,
+                    '--glow':   activeTheme.primaryMuted,
+                  }}
+                >
+                  {i < step ? '✓' : i + 1}
+                </div>
+                <span className={`text-[9px] font-bold uppercase tracking-widest transition-all ${i === step ? 'opacity-100' : 'opacity-30'}`}
+                  style={{ color: i === step ? activeTheme.primary : undefined }}>
+                  {s.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div className="flex-1 h-px mx-2 mb-4 rounded-full transition-all duration-500"
+                  style={{ background: i < step ? activeTheme.primary : 'rgba(255,255,255,0.12)' }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Contenu par étape */}
+      <div className="flex-1 flex flex-col px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+
+        {/* ── ÉTAPE 0 : AVATAR ── */}
+        {step === 0 && (
+          <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-4 duration-400">
+            <div className="mb-8">
+              <h2 className="font-syne font-black text-3xl leading-tight mb-2">
+                Choisis ton<br/><span style={{ color: activeTheme.primary }}>portrait</span>
+              </h2>
+              <p className="text-sm font-medium opacity-60">Il t'identifiera dans l'application.</p>
+            </div>
+
+            {/* Avatar sélectionné — grand */}
+            <div className="flex justify-center mb-8">
+              <div
+                className="w-28 h-28 rounded-full overflow-hidden border-4 shadow-[0_0_30px_rgba(0,0,0,0.4)] transition-all duration-300"
+                style={{ borderColor: activeTheme.primary, boxShadow: `0 0 24px ${activeTheme.primaryMuted}` }}
+              >
+                <img src={selectedAvatar} alt="Avatar" className="w-full h-full object-contain object-bottom scale-110" />
+              </div>
+            </div>
+
+            {/* Grille de sélection */}
+            <div className="grid grid-cols-4 gap-3 mb-auto">
+              {AVATAR_PRESETS.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedAvatar(url)}
+                  className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all duration-200 active:scale-90 ${
+                    selectedAvatar === url ? 'scale-105' : 'opacity-50 border-white/10'
+                  }`}
+                  style={{ borderColor: selectedAvatar === url ? activeTheme.primary : undefined }}
+                >
+                  <img src={url} alt="" className="w-full h-full object-contain object-bottom bg-white/5" />
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setStep(1)}
+              className="mt-8 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all"
+              style={{ background: activeTheme.primary, color: activeTheme.textOnAccent }}
+            >
+              Continuer →
+            </button>
+          </div>
+        )}
+
+        {/* ── ÉTAPE 1 : THÈME ── */}
+        {step === 1 && (
+          <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-4 duration-400">
+            <div className="mb-8">
+              <h2 className="font-syne font-black text-3xl leading-tight mb-2">
+                Choisis ton<br/><span style={{ color: activeTheme.primary }}>ambiance</span>
+              </h2>
+              <p className="text-sm font-medium opacity-60">Le thème s'applique en temps réel.</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-auto">
+              {Object.entries(THEME_COLORS).map(([key, t]) => (
+                <button
+                  key={key}
+                  onClick={() => handleThemeSelect(key)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-200 active:scale-95 ${
+                    selectedThemeKey === key
+                      ? 'border-opacity-100 scale-105'
+                      : 'border-white/10 opacity-60'
+                  }`}
+                  style={{
+                    borderColor: selectedThemeKey === key ? activeTheme.primary : undefined,
+                    background:  selectedThemeKey === key ? activeTheme.primaryMuted : 'rgba(255,255,255,0.04)',
+                  }}
+                >
+                  {/* Preview cercle */}
+                  <div
+                    className="w-12 h-12 rounded-full shadow-md flex-shrink-0"
+                    style={{ background: t.bgGradient }}
+                  >
+                    {/* Accent dot */}
+                    <div className="w-full h-full rounded-full flex items-end justify-end p-1.5">
+                      <div className="w-3 h-3 rounded-full" style={{ background: t.primary }} />
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest leading-tight text-center"
+                    style={{ color: selectedThemeKey === key ? activeTheme.primary : undefined }}>
+                    {key.replace('-', ' ').replace('-', ' ')}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setStep(0)}
+                className="flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest border border-white/10 bg-white/5 active:scale-95 transition-all"
+              >
+                ← Retour
+              </button>
+              <button
+                onClick={() => setStep(2)}
+                className="flex-[2] py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all"
+                style={{ background: activeTheme.primary, color: activeTheme.textOnAccent }}
+              >
+                Continuer →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── ÉTAPE 2 : SPREADSHEET ── */}
+        {step === 2 && (
+          <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-4 duration-400">
+            <div className="mb-8">
+              <h2 className="font-syne font-black text-3xl leading-tight mb-2">
+                Ton espace<br/><span style={{ color: activeTheme.primary }}>personnel</span>
+              </h2>
+              <p className="text-sm font-medium opacity-60">
+                Toutes tes séances sont stockées dans un Google Sheets qui t'appartient.
+              </p>
+            </div>
+
+            {/* Illustration */}
+            <div
+              className="rounded-3xl p-6 mb-6 border flex items-center gap-4"
+              style={{ background: activeTheme.primaryMuted, borderColor: `${activeTheme.primary}30` }}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center flex-shrink-0 text-2xl">
+                📊
+              </div>
+              <div>
+                <p className="font-syne font-bold text-base mb-0.5">Google Sheets</p>
+                <p className="text-xs opacity-60 leading-relaxed">
+                  Un fichier créé dans ton Drive, que tu peux consulter et partager librement.
+                </p>
+              </div>
+            </div>
+
+            {/* CTA principal */}
+            <button
+              onClick={handleCreateSpreadsheet}
+              disabled={isCreating}
+              className="w-full py-5 rounded-2xl font-black text-base uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3 mb-3 shadow-lg disabled:opacity-60"
+              style={{ background: activeTheme.primary, color: activeTheme.textOnAccent }}
+            >
+              {isCreating ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path d="M12 2v4" />
+                  </svg>
+                  Création en cours…
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Créer mon espace
+                </>
+              )}
+            </button>
+
+            {/* Erreur */}
+            {error && (
+              <p className="text-red-400 text-xs font-bold text-center mb-3 bg-red-400/10 rounded-xl px-4 py-3 border border-red-400/20">
+                {error}
+              </p>
+            )}
+
+            {/* Lien discret "j'ai déjà un spreadsheet" */}
+            {!showManualInput ? (
+              <button
+                onClick={() => setShowManualInput(true)}
+                className="w-full py-3 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-70 transition-opacity active:scale-95"
+              >
+                J'ai déjà un spreadsheet →
+              </button>
+            ) : (
+              <form
+                onSubmit={handleManualSubmit}
+                className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
+              >
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="ID du Google Sheets…"
+                    value={manualId}
+                    onChange={(e) => setManualId(e.target.value)}
+                    autoFocus
+                    className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3.5 text-sm font-bold outline-none pr-12 transition-colors"
+                    style={{ borderColor: manualId ? activeTheme.primary : undefined }}
+                  />
+                  {manualId && (
+                    <button
+                      type="button"
+                      onClick={() => setManualId('')}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowManualInput(false); setManualId(''); }}
+                    className="flex-1 py-3 rounded-2xl text-xs font-black uppercase border border-white/10 bg-white/5 active:scale-95 transition-all"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!manualId.trim()}
+                    className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase active:scale-95 transition-all disabled:opacity-40"
+                    style={{ background: activeTheme.primary, color: activeTheme.textOnAccent }}
+                  >
+                    Utiliser cet ID
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <button
+              onClick={() => setStep(1)}
+              className="w-full py-3 text-xs font-bold uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity mt-2 active:scale-95"
+            >
+              ← Retour
+            </button>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
@@ -193,7 +513,22 @@ function App() {
 
   // ── Écrans de démarrage ──────────────────────────────────────────────────
   if (!userToken) return <WelcomeScreen theme={theme} login={login} />;
-  if (!spreadsheetId) return <SpreadsheetSetupScreen theme={theme} onSubmit={handleSetupSpreadsheet} />;
+
+  if (!spreadsheetId) return (
+    <OnboardingScreen
+      theme={theme}
+      userToken={userToken}
+      onThemePreview={(key) => prefs.updateTheme(key)}
+      onComplete={({ spreadsheetId: id, avatar, themeKey }) => {
+        // Applique les préférences choisies pendant l'onboarding
+        prefs.updateAvatar(avatar);
+        prefs.updateTheme(themeKey);
+        setSpreadsheetId(id);
+        handleScan(userToken);
+      }}
+    />
+  );
+
   if (isSearching) return <ScanningScreen theme={theme} />;
 
   // ── Application principale ───────────────────────────────────────────────
