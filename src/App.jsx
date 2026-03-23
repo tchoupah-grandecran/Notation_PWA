@@ -7,6 +7,7 @@ import { getFilmsANoter, createAutoSpreadsheet } from './api';
 
 import { NavBar } from './components/NavBar';
 import { FilmDetailModal } from './components/FilmDetailModal';
+import { Avatar3D } from './components/Avatar3D';
 import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
 import { Profile } from './pages/Profile';
@@ -120,48 +121,6 @@ function OnboardingScreen({ theme, userToken, onComplete, onThemePreview }) {
 
   const STEPS = ['Portrait', 'Ambiance', 'Mon espace'];
 
-  // ── Composant avatar 3D — identique à la page Profil ──────────────────────
-  function Avatar3D({ url, size = 28, primary }) {
-    const px = `${size * 4}px`; // taille en px (size = unités Tailwind)
-    return (
-      <div className="relative flex-shrink-0" style={{ width: px, height: px }}>
-        {/* Couche 1 : fond cercle + image dedans (overflow hidden) */}
-        <div
-          className="absolute inset-0 rounded-full overflow-hidden bg-white/5"
-          style={{ zIndex: 0 }}
-        >
-          <img
-            src={url}
-            alt=""
-            className="w-full h-full object-contain object-bottom origin-bottom"
-            style={{ transform: 'scale(1.15)' }}
-          />
-        </div>
-        {/* Couche 2 : bordure colorée */}
-        <div
-          className="absolute inset-0 rounded-full pointer-events-none"
-          style={{
-            border: `3px solid ${primary}`,
-            boxShadow: `0 0 20px ${activeTheme.primaryMuted}`,
-            zIndex: 10,
-          }}
-        />
-        {/* Couche 3 : image dupliquée qui dépasse par le haut (tête 3D) */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ clipPath: 'inset(-60% -60% 78% -60%)', zIndex: 20 }}
-        >
-          <img
-            src={url}
-            alt=""
-            className="w-full h-full object-contain object-bottom origin-bottom"
-            style={{ transform: 'scale(1.15)' }}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className="h-[100dvh] w-full overflow-y-auto scrollbar-hide flex flex-col transition-colors duration-500"
@@ -225,54 +184,40 @@ function OnboardingScreen({ theme, userToken, onComplete, onThemePreview }) {
               <p className="text-sm font-medium opacity-60">Il t'identifiera dans l'application.</p>
             </div>
 
-            {/* Avatar sélectionné — effet 3D grand format */}
+            {/* Avatar sélectionné — grand, effet pop-out 3D */}
             <div className="flex justify-center mb-8">
-              <Avatar3D url={selectedAvatar} size={32} primary={activeTheme.primary} />
+              <Avatar3D
+                src={selectedAvatar}
+                size={128}
+                primary={activeTheme.primary}
+                glow={activeTheme.primaryMuted}
+                borderWidth={3}
+              />
             </div>
 
-            {/* Grille de sélection — avatar 3D miniature */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
+            {/* Grille de sélection */}
+            <div className="grid grid-cols-4 gap-x-4 gap-y-6 mb-8">
               {AVATAR_PRESETS.map((url, i) => (
                 <button
                   key={i}
                   onClick={() => setSelectedAvatar(url)}
-                  className="flex flex-col items-center gap-0 active:scale-90 transition-transform"
+                  className="flex flex-col items-center active:scale-90 transition-transform"
                   style={{ outline: 'none' }}
                 >
-                  {/* Mini avatar 3D */}
-                  <div className="relative" style={{ width: '56px', height: '56px' }}>
-                    {/* Fond cercle */}
-                    <div
-                      className="absolute inset-0 rounded-full overflow-hidden transition-all duration-200"
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        opacity: selectedAvatar === url ? 1 : 0.45,
-                      }}
-                    >
-                      <img src={url} alt="" className="w-full h-full object-contain object-bottom" style={{ transform: 'scale(1.15)', transformOrigin: 'bottom' }} />
-                    </div>
-                    {/* Bordure */}
-                    <div
-                      className="absolute inset-0 rounded-full pointer-events-none transition-all duration-200"
-                      style={{
-                        border: `2.5px solid ${selectedAvatar === url ? activeTheme.primary : 'rgba(255,255,255,0.12)'}`,
-                        boxShadow: selectedAvatar === url ? `0 0 12px ${activeTheme.primaryMuted}` : 'none',
-                      }}
+                  {/* Avatar3D miniature — le pt-3 donne de l'espace pour la tête qui dépasse */}
+                  <div className="pt-3 relative">
+                    <Avatar3D
+                      src={url}
+                      size={56}
+                      primary={selectedAvatar === url ? activeTheme.primary : 'rgba(255,255,255,0.15)'}
+                      glow={selectedAvatar === url ? activeTheme.primaryMuted : 'transparent'}
+                      opacity={selectedAvatar === url ? 1 : 0.5}
+                      borderWidth={2}
                     />
-                    {/* Tête qui dépasse */}
-                    <div
-                      className="absolute inset-0 pointer-events-none transition-all duration-200"
-                      style={{
-                        clipPath: 'inset(-60% -60% 78% -60%)',
-                        opacity: selectedAvatar === url ? 1 : 0.4,
-                      }}
-                    >
-                      <img src={url} alt="" className="w-full h-full object-contain object-bottom" style={{ transform: 'scale(1.15)', transformOrigin: 'bottom' }} />
-                    </div>
-                    {/* Check actif */}
+                    {/* Badge check */}
                     {selectedAvatar === url && (
                       <div
-                        className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black z-30"
+                        className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black z-30 shadow-md"
                         style={{ background: activeTheme.primary, color: activeTheme.textOnAccent }}
                       >
                         ✓

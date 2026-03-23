@@ -1,4 +1,5 @@
 import { THEME_COLORS, AVATAR_PRESETS } from '../constants';
+import { Avatar3D } from '../components/Avatar3D';
 
 export function Profile({
   isScrolled,
@@ -61,14 +62,15 @@ export function Profile({
       <main className="px-6 pt-6 pb-24 space-y-10">
         {/* Avatar + nom */}
         <div className="flex items-center gap-5 bg-white/5 p-5 rounded-3xl border border-white/10 shadow-lg">
-          <div className="relative w-20 h-20 mt-2 flex-shrink-0">
-            <div className="absolute inset-0 rounded-full overflow-hidden z-0 bg-white/5">
-              <img src={userAvatar} alt="" className="w-full h-full object-contain object-bottom origin-bottom scale-[1.15]" />
-            </div>
-            <div className="absolute inset-0 rounded-full border-[3px] border-[var(--color-primary)] z-10 pointer-events-none" style={{ boxShadow: `0 0 20px var(--color-primary-muted)` }} />
-            <div className="absolute inset-0 z-20 pointer-events-none" style={{ clipPath: 'inset(-50% -50% 80% -50%)' }}>
-              <img src={userAvatar} alt="Avatar" className="w-full h-full object-contain object-bottom origin-bottom scale-[1.15]" />
-            </div>
+          {/* mt-3 pour laisser de l'espace à la tête qui dépasse */}
+          <div className="mt-3 flex-shrink-0">
+            <Avatar3D
+              src={userAvatar}
+              size={80}
+              primary="var(--color-primary)"
+              glow="var(--color-primary-muted)"
+              borderWidth={3}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 group relative">
@@ -121,7 +123,7 @@ export function Profile({
                     onChange={(e) => handlePricingChange(key, e.target.value)}
                     className="w-16 bg-transparent outline-none text-right font-bold text-sm text-white"
                   />
-                  <span className={`font-bold text-sm ${key === 'ticket' ? 'text-[var(--color-primary)]' : 'text-white/40'}`}>€</span>
+                  <span className={`font-bold text-sm ${key === 'ticket' ? 'text-[var(--color-primary)]' : 'text-[var(--color-primary)]'}`}>€</span>
                 </div>
               </div>
             ))}
@@ -135,14 +137,23 @@ export function Profile({
           </div>
           <div>
             <h4 className="text-[10px] font-bold uppercase text-white/30 mb-3 ml-2 italic">Choisir un portrait</h4>
-            <div className="bg-white/5 border border-white/10 rounded-3xl py-3 px-6 flex items-center gap-4 overflow-x-auto scrollbar-hide">
+            {/* pt-3 sur le conteneur pour que la tête de chaque avatar puisse dépasser */}
+            <div className="bg-white/5 border border-white/10 rounded-3xl pt-4 pb-3 px-6 flex items-end gap-4 overflow-x-auto scrollbar-hide">
               {AVATAR_PRESETS.map((url, idx) => (
                 <button
                   key={idx}
                   onClick={() => updateAvatar(url)}
-                  className={`flex-shrink-0 w-14 h-14 rounded-full transition-all duration-300 overflow-hidden ${userAvatar === url ? 'ring-2 ring-[var(--color-primary)] scale-110 opacity-100' : 'opacity-40 grayscale-[0.5] bg-white/5'}`}
+                  className="flex-shrink-0 active:scale-90 transition-transform"
+                  style={{ outline: 'none', background: 'none', border: 'none', padding: 0 }}
                 >
-                  <img src={url} alt="" className="w-full h-full object-contain object-bottom origin-bottom scale-100" />
+                  <Avatar3D
+                    src={url}
+                    size={56}
+                    primary={userAvatar === url ? 'var(--color-primary)' : 'rgba(255,255,255,0.15)'}
+                    glow={userAvatar === url ? 'var(--color-primary-muted)' : 'transparent'}
+                    opacity={userAvatar === url ? 1 : 0.45}
+                    borderWidth={2}
+                  />
                 </button>
               ))}
             </div>

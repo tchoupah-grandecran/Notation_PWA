@@ -2,8 +2,10 @@ import { useState } from 'react';
 import {
   LineChart, Line, ComposedChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import { SmartPoster } from '../components/SmartPoster';
+import { Avatar3D } from '../components/Avatar3D';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,84 @@ const parseDuration = (duree) => {
   const fallback = parseInt(str, 10);
   return isNaN(fallback) ? 110 : fallback;
 };
+
+// ── Overlay : liste de films filtrée par langue ─────────────────────────────
+function LangFilmsOverlay({ lang, films, onClose }) {
+  const matchingFilms = films.filter((f) => {
+    const l = (f.langue || 'VF').toUpperCase().trim();
+    // VF regroupe FRA, VF, VFQ
+    if (lang === 'VF') return l === 'VF' || l === 'FRA' || l === 'VFQ';
+    return l === lang;
+  });
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-200">
+      {/* Overlay sombre */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panneau slide-up */}
+      <div className="relative w-full rounded-t-[32px] bg-[#111] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom duration-300 flex flex-col"
+        style={{ maxHeight: '85dvh' }}>
+
+        {/* Handle + header fixe */}
+        <div className="flex-shrink-0 px-6 pt-4 pb-3">
+          <div className="w-12 h-1 bg-white/10 rounded-full mx-auto mb-5" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] mb-0.5">
+                {matchingFilms.length} film{matchingFilms.length > 1 ? 's' : ''}
+              </p>
+              <h3 className="font-syne font-black text-2xl text-white leading-none">
+                {lang === 'VF' ? 'Version Française' : `VO — ${lang}`}
+              </h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/60 active:scale-90 transition-all border border-white/10"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Liste scrollable */}
+        <div className="overflow-y-auto scrollbar-hide px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-3 pt-2">
+          {matchingFilms.length === 0 ? (
+            <p className="text-white/40 text-sm font-bold text-center py-10">Aucun film trouvé.</p>
+          ) : (
+            matchingFilms.map((film, i) => (
+              <div key={i} className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                {/* Affiche */}
+                <div className="w-14 h-20 flex-shrink-0">
+                  <SmartPoster
+                    afficheInitiale={film.affiche}
+                    titre={film.titre}
+                    className="w-full h-full"
+                  />
+                </div>
+                {/* Infos */}
+                <div className="flex-1 min-w-0 py-3 pr-4">
+                  <p className="font-syne font-bold text-white text-sm leading-tight mb-1 truncate">{film.titre}</p>
+                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{film.date}</p>
+                  {film.note && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-[var(--color-primary)] bg-[var(--color-primary-muted)] px-2 py-0.5 rounded-full border border-[var(--color-primary)]/20">
+                      <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                      </svg>
+                      {film.note}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const parseDateToMs = (dateStr, heureStr) => {
   if (!dateStr) return 0;
@@ -197,6 +277,18 @@ export function Dashboard({
   const [dashView, setDashView] = useState('all');
   const [dashValue, setDashValue] = useState('');
   const [showDetailedLang, setShowDetailedLang] = useState(false);
+  const [langOverlay, setLangOverlay] = useState(null); // code langue ou null
+  const [showAllRooms, setShowAllRooms] = useState(false);
+
+  // Résolution des CSS variables du thème pour recharts
+  // (recharts ne supporte pas var(--...) dans les props JS)
+  const colorPrimary = typeof window !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#D4AF37'
+    : '#D4AF37';
+  // Couleur secondaire : blanc à 50% — neutre, lisible sur tous les thèmes
+  const colorSecondary = 'rgba(255,255,255,0.45)';
+  // Couleur d'accentuation atténuée pour les fills
+  const colorPrimaryFaded = colorPrimary + '33'; // ~20% opacité
 
   const now = new Date();
   const currentYear = now.getFullYear().toString();
@@ -275,8 +367,9 @@ export function Dashboard({
   });
 
   const favoriteSeat = Object.entries(seatCounts).sort((a, b) => b[1] - a[1])[0] || null;
-  const topRooms = Object.entries(roomCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const maxRoomCount = topRooms.length > 0 ? topRooms[0][1] : 1;
+  const allRooms = Object.entries(roomCounts).sort((a, b) => b[1] - a[1]); // toutes les salles
+  const topRooms = allRooms.slice(0, 3);
+  const maxRoomCount = allRooms.length > 0 ? allRooms[0][1] : 1;
   const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const favDayIndex = dayCounts.indexOf(Math.max(...dayCounts));
   const favDay = Math.max(...dayCounts) > 0 ? dayNames[favDayIndex] : '--';
@@ -285,6 +378,10 @@ export function Dashboard({
   const voPct = totalLang > 0 ? Math.round((voCount / totalLang) * 100) : 0;
   const vfPct = totalLang > 0 ? 100 - voPct : 0;
   const topVoDetails = Object.entries(voDetails).sort((a, b) => b[1] - a[1]);
+  // Toutes les langues incluant VF, pour les gélules cliquables
+  const allLangDetails = vfCount > 0
+    ? [['VF', vfCount], ...topVoDetails]
+    : topVoDetails;
 
   // Graphiques
   const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -360,8 +457,21 @@ export function Dashboard({
             <button onClick={() => handleScan()} className={`flex items-center justify-center rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)] active:scale-90 transition-all flex-shrink-0 shadow-lg ${isScrolled ? 'w-10 h-10' : 'w-12 h-12'}`}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M12 12v9M8 17l4 4 4-4" /></svg>
             </button>
-            <button onClick={() => setActiveTab('profile')} className={`rounded-full border-2 border-[var(--color-primary)] overflow-hidden shadow-[0_0_20px_var(--color-primary-muted)] active:scale-95 transition-all duration-500 bg-black flex-shrink-0 ${isScrolled ? 'w-10 h-10 border' : 'w-14 h-14'}`}>
-              <img src={userAvatar} alt="Profil" className="w-full h-full object-contain object-bottom scale-[1.15]" />
+            {/* Bouton avatar — effet pop-out 3D.
+                Pas de overflow-hidden sur le bouton, sinon la tête est coupée.
+                Le clip est géré internement par Avatar3D. */}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`relative active:scale-95 transition-all duration-500 flex-shrink-0 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`}
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
+              <Avatar3D
+                src={userAvatar}
+                size={isScrolled ? 40 : 56}
+                primary="var(--color-primary)"
+                glow="var(--color-primary-muted)"
+                borderWidth={isScrolled ? 2 : 2.5}
+              />
             </button>
           </div>
         </header>
@@ -388,6 +498,8 @@ export function Dashboard({
                   onClick={() => {
                     setDashView(view);
                     setDashValue(view === 'year' ? (availableYears[availableYears.length - 1] || '') : view === 'month' ? (availableMonthsRaw[availableMonthsRaw.length - 1] || '') : '');
+                    setShowAllRooms(false);
+                    setShowDetailedLang(false);
                   }}
                   className={`flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all ${dashView === view ? 'bg-white/20 text-white shadow' : 'text-white/50'}`}
                 >
@@ -526,8 +638,8 @@ export function Dashboard({
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }} allowDecimals={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '11px' }} itemStyle={{ color: 'white' }} labelStyle={{ display: 'none' }} formatter={chartTooltipFormatter} />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', paddingTop: '10px', color: 'rgba(255,255,255,0.5)' }} />
-                  <Area type="stepAfter" dataKey="Valeur Billets" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.2} strokeWidth={2} animationDuration={1500} />
-                  <Line type="monotone" dataKey="Coût Abo" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1000} />
+                  <Area type="stepAfter" dataKey="Valeur Billets" stroke={colorPrimary} fill={colorPrimary} fillOpacity={0.2} strokeWidth={2} animationDuration={1500} />
+                  <Line type="monotone" dataKey="Coût Abo" stroke={colorSecondary} strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1000} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -540,54 +652,102 @@ export function Dashboard({
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
               <h2 className="text-xs font-bold text-white uppercase tracking-widest">Habitudes</h2>
             </div>
-            {dashView !== 'month' && favDay !== '--' && (
-              <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex items-center justify-between mb-3 relative overflow-hidden">
-                <div className="flex flex-col z-10">
-                  <span className="text-[9px] uppercase font-bold tracking-widest text-white/60 mb-1">Moment Préféré</span>
-                  <span className="font-syne font-black text-xl text-white leading-tight capitalize">Le {favDay}</span>
-                  <span className="text-[11px] font-bold text-[var(--color-primary)] uppercase tracking-widest">en {favTime}</span>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center shadow-inner z-10 border border-white/5">
-                  {favTime === 'Matin' && <svg className="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>}
-                  {favTime === 'Après-midi' && <svg className="w-6 h-6 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>}
-                  {(favTime === 'Soirée' || favTime === 'Nuit') && <svg className="w-6 h-6 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>}
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col justify-between relative overflow-hidden">
-                <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
-                  <h3 className="text-[9px] font-bold uppercase tracking-widest text-white/60">Place VIP</h3>
-                </div>
-                <div className="relative z-10 text-center py-2">
-                  {favoriteSeat ? (
-                    <>
-                      <p className="font-syne text-4xl font-black text-[var(--color-primary)] drop-shadow-[0_0_15px_var(--color-primary-muted)] leading-none mb-1">{favoriteSeat[0]}</p>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Réservée {favoriteSeat[1]} fois</p>
-                    </>
-                  ) : <p className="text-xs font-bold text-white/30 italic py-2">Sans attache</p>}
-                </div>
-              </div>
-              <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col justify-between">
-                <div className="flex items-center gap-1.5 mb-3">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                  <h3 className="text-[9px] font-bold uppercase tracking-widest text-white/60">Top Salles</h3>
-                </div>
-                <div className="space-y-2.5">
-                  {topRooms.length > 0 ? topRooms.map(([room, count], idx) => (
-                    <div key={room}>
-                      <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-[10px] font-bold text-white truncate pr-2"><span className="text-white/30 mr-1">#{idx + 1}</span>{room}</span>
-                        <span className="text-[8px] font-black text-white/50">{count}x</span>
+
+            {/* Card Rituels — Moment préféré + Siège favori côte à côte */}
+            {dashView !== 'month' && (favDay !== '--' || favoriteSeat) && (
+              <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex items-stretch gap-0 mb-3 overflow-hidden">
+
+                {/* Moment préféré */}
+                {favDay !== '--' && (
+                  <div className={`flex flex-col justify-center ${favoriteSeat ? 'flex-1 pr-4 border-r border-white/8' : 'w-full'}`}>
+                    <span className="text-[9px] uppercase font-bold tracking-widest text-white/50 mb-1">Moment préféré</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center flex-shrink-0 border border-white/5">
+                        {favTime === 'Matin' && <svg className="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>}
+                        {favTime === 'Après-midi' && <svg className="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>}
+                        {(favTime === 'Soirée' || favTime === 'Nuit') && <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
                       </div>
-                      <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-400/80 rounded-full" style={{ width: `${(count / maxRoomCount) * 100}%` }} />
+                      <div>
+                        <p className="font-syne font-black text-base text-white leading-tight capitalize">Le {favDay}</p>
+                        <p className="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest">en {favTime}</p>
                       </div>
                     </div>
-                  )) : <p className="text-xs font-bold text-white/30 italic text-center py-2">Aucune donnée</p>}
-                </div>
+                  </div>
+                )}
+
+                {/* Séparateur vertical */}
+                {favDay !== '--' && favoriteSeat && (
+                  <div className="w-px bg-white/8 mx-4 self-stretch" />
+                )}
+
+                {/* Siège favori */}
+                {favoriteSeat && (
+                  <div className={`flex flex-col justify-center items-center ${favDay !== '--' ? 'pl-0 w-24 flex-shrink-0' : 'w-full'}`}>
+                    <span className="text-[9px] uppercase font-bold tracking-widest text-white/50 mb-1.5">Place VIP</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse flex-shrink-0" />
+                      <p className="font-syne text-2xl font-black text-[var(--color-primary)] drop-shadow-[0_0_10px_var(--color-primary-muted)] leading-none">{favoriteSeat[0]}</p>
+                    </div>
+                    <p className="text-[8px] font-bold uppercase tracking-widest text-white/35 mt-1">{favoriteSeat[1]}x réservée</p>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Card Top Salles — pleine largeur, expandable */}
+            <div
+              className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col cursor-pointer active:scale-[0.98] transition-all"
+              onClick={() => setShowAllRooms(!showAllRooms)}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
+                  <h3 className="text-[9px] font-bold uppercase tracking-widest text-white/60">
+                    {showAllRooms ? `Toutes les salles (${allRooms.length})` : 'Top Salles'}
+                  </h3>
+                </div>
+                <svg
+                  className={`w-3.5 h-3.5 text-white/20 transition-transform duration-300 ${showAllRooms ? 'rotate-180' : ''}`}
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+
+              {/* Liste des salles */}
+              <div className="space-y-2.5">
+                {allRooms.length > 0 ? (showAllRooms ? allRooms : topRooms).map(([room, count], idx) => {
+                  const pct = Math.round((count / maxRoomCount) * 100);
+                  const sharePct = totalFilms > 0 ? Math.round((count / totalFilms) * 100) : 0;
+                  return (
+                    <div key={room}>
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-[10px] font-bold text-white truncate pr-2 flex items-center gap-1.5">
+                          <span className="text-white/30 font-black">#{idx + 1}</span>
+                          {room}
+                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[8px] font-black text-[var(--color-primary)]/80">{sharePct}%</span>
+                          <span className="text-[8px] font-bold text-white/35">{count} visite{count > 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[var(--color-primary)] opacity-80 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                }) : <p className="text-xs font-bold text-white/30 italic text-center py-2">Aucune donnée</p>}
+              </div>
+
+              {/* Hint expand */}
+              {!showAllRooms && allRooms.length > 3 && (
+                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest text-center mt-3">
+                  + {allRooms.length - 3} autre{allRooms.length - 3 > 1 ? 's' : ''} · tap pour tout voir
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -598,7 +758,10 @@ export function Dashboard({
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
               <h2 className="text-xs font-bold text-white uppercase tracking-widest">Préférence Linguistique</h2>
             </div>
-            <div onClick={() => setShowDetailedLang(!showDetailedLang)} className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden">
+            <div
+              onClick={() => setShowDetailedLang(!showDetailedLang)}
+              className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden"
+            >
               <div className="flex justify-between items-end mb-4">
                 <div>
                   <p className="font-syne text-2xl font-black text-[var(--color-primary)] leading-none">{voPct}%</p>
@@ -609,26 +772,57 @@ export function Dashboard({
                   <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">Version Française</p>
                 </div>
               </div>
+
+              {/* Barre de répartition */}
               <div className="h-4 w-full bg-white/10 rounded-full overflow-hidden flex shadow-inner">
                 <div className="h-full bg-[var(--color-primary)] transition-all duration-1000" style={{ width: `${voPct}%` }} />
                 <div className="h-full bg-white/40 transition-all duration-1000" style={{ width: `${vfPct}%` }} />
               </div>
-              <div className={`transition-all duration-500 overflow-hidden ${showDetailedLang ? 'max-h-40 opacity-100 mt-5' : 'max-h-0 opacity-0 mt-0'}`}>
+
+              {/* Détail expandable avec gélules cliquables */}
+              <div className={`transition-all duration-500 overflow-hidden ${showDetailedLang ? 'max-h-48 opacity-100 mt-5' : 'max-h-0 opacity-0 mt-0'}`}>
                 <div className="pt-4 border-t border-white/5">
-                  <p className="text-[9px] uppercase font-bold tracking-widest text-[var(--color-primary)] mb-3">Détail VO ({voCount})</p>
+                  <p className="text-[9px] uppercase font-bold tracking-widest text-[var(--color-primary)] mb-3">
+                    Tap une langue pour voir les films
+                  </p>
                   <div className="flex flex-wrap gap-2">
-                    {topVoDetails.map(([lang, count]) => (
-                      <span key={lang} className="bg-black/40 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-inner">
-                        <span className="text-white">{lang}</span>
+                    {allLangDetails.map(([lang, count]) => (
+                      <button
+                        key={lang}
+                        onClick={(e) => {
+                          e.stopPropagation(); // ne pas refermer le détail
+                          setLangOverlay(lang);
+                        }}
+                        className="bg-black/40 border border-white/10 hover:border-[var(--color-primary)]/40 px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-inner active:scale-95 transition-all group"
+                      >
+                        <span className="text-white group-hover:text-[var(--color-primary)] transition-colors">{lang}</span>
                         <span className="text-[var(--color-primary)]">{count}</span>
-                      </span>
+                        <svg className="w-2.5 h-2.5 text-white/30 group-hover:text-[var(--color-primary)]/60 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </button>
                     ))}
                   </div>
                 </div>
               </div>
-              <svg className={`absolute top-5 right-5 w-4 h-4 text-white/20 transition-transform duration-500 ${showDetailedLang ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+
+              <svg
+                className={`absolute top-5 right-5 w-4 h-4 text-white/20 transition-transform duration-500 ${showDetailedLang ? 'rotate-180' : ''}`}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </div>
           </div>
+        )}
+
+        {/* Overlay liste films par langue */}
+        {langOverlay && (
+          <LangFilmsOverlay
+            lang={langOverlay}
+            films={dashData}
+            onClose={() => setLangOverlay(null)}
+          />
         )}
 
         {/* Derniers billets */}
@@ -659,25 +853,95 @@ export function Dashboard({
           </div>
         )}
 
-        {/* Genres */}
-        <div>
-          <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest">Genres Dominants</h2>
+        {/* Genres — Donut chart */}
+        {topGenres.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Genres Dominants</h2>
+            </div>
+            <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg">
+              {(() => {
+                // Palette de teintes dérivées de la couleur primaire
+                // On génère des variantes en jouant sur l'opacité et la luminosité
+                const OPACITIES = [1, 0.75, 0.55, 0.38, 0.25, 0.15];
+                const genreColors = topGenres.map((_, i) =>
+                  i === 0
+                    ? colorPrimary
+                    : `${colorPrimary}${Math.round(OPACITIES[Math.min(i, OPACITIES.length - 1)] * 255).toString(16).padStart(2, '0')}`
+                );
+
+                const pieData = topGenres.map(([genre, count]) => ({ name: genre, value: count }));
+                const topGenre = topGenres[0]?.[0] || '';
+                const topCount = topGenres[0]?.[1] || 0;
+                const totalGenreFilms = topGenres.reduce((acc, [, c]) => acc + c, 0);
+
+                return (
+                  <div className="flex items-center gap-4">
+                    {/* Donut */}
+                    <div className="relative flex-shrink-0" style={{ width: 140, height: 140 }}>
+                      <ResponsiveContainer width={140} height={140}>
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={44}
+                            outerRadius={66}
+                            paddingAngle={2}
+                            dataKey="value"
+                            strokeWidth={0}
+                            animationBegin={0}
+                            animationDuration={1200}
+                          >
+                            {pieData.map((_, i) => (
+                              <Cell key={i} fill={genreColors[i]} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Label central */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span
+                          className="font-syne font-black leading-none text-center px-2"
+                          style={{
+                            fontSize: topGenre.length > 8 ? '9px' : '11px',
+                            color: colorPrimary,
+                            textShadow: `0 0 12px ${colorPrimary}60`,
+                          }}
+                        >
+                          {topGenre}
+                        </span>
+                        <span className="text-[9px] font-bold text-white/40 mt-0.5">
+                          {Math.round((topCount / totalGenreFilms) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Légende */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-0">
+                      {topGenres.slice(0, 6).map(([genre, count], i) => (
+                        <div key={genre} className="flex items-center gap-2 min-w-0">
+                          {/* Pastille couleur */}
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ background: genreColors[i] }}
+                          />
+                          <span className="text-[10px] font-bold text-white truncate flex-1">{genre}</span>
+                          <span className="text-[9px] font-black text-white/40 flex-shrink-0">{count}</span>
+                        </div>
+                      ))}
+                      {topGenres.length > 6 && (
+                        <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest">
+                          + {topGenres.length - 6} autre{topGenres.length - 6 > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
-          <div className="space-y-4 bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg">
-            {topGenres.map(([genre, count]) => (
-              <div key={genre} className="space-y-1.5">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-xs font-bold text-white truncate pr-2">{genre}</span>
-                  <span className="text-[10px] font-black text-white/50">{count} films</span>
-                </div>
-                <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                  <div className="h-full bg-[var(--color-primary)] rounded-full transition-all duration-1000 delay-300 shadow-[0_0_10px_var(--color-primary-muted)]" style={{ width: `${maxGenreCount > 0 ? (count / maxGenreCount) * 100 : 0}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Graphique annuel */}
         {dashView === 'year' && chartData.length > 0 && (
@@ -687,14 +951,14 @@ export function Dashboard({
             </div>
             <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -35, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} allowDecimals={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '11px' }} itemStyle={{ color: 'white' }} cursor={{ stroke: 'rgba(255,255,255,0.2)' }} formatter={chartTooltipFormatter} />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '10px', color: 'rgba(255,255,255,0.6)' }} />
-                  <Line type="monotone" dataKey="Films vus" stroke="#22d3ee" strokeWidth={3} dot={{ r: 4, strokeWidth: 3, fill: '#08090F' }} activeDot={{ r: 6 }} animationDuration={1500} />
-                  <Line type="monotone" dataKey="Cumulé" stroke="var(--color-primary)" strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1500} animationBegin={500} />
+                  <Line type="monotone" dataKey="Films vus" stroke={colorSecondary} strokeWidth={3} dot={{ r: 4, strokeWidth: 3, fill: 'rgba(0,0,0,0.8)', stroke: colorSecondary }} activeDot={{ r: 6 }} animationDuration={1500} />
+                  <Line type="monotone" dataKey="Cumulé" stroke={colorPrimary} strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1500} animationBegin={500} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -712,12 +976,12 @@ export function Dashboard({
                 <ComposedChart data={globalChartData} margin={{ top: 10, right: -45, left: -35, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} />
-                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#22d3ee', fontWeight: 'bold' }} allowDecimals={false} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, ratingScale]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-primary)', fontWeight: 'bold' }} />
+                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: colorSecondary, fontWeight: 'bold' }} allowDecimals={false} />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, ratingScale]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: colorPrimary, fontWeight: 'bold' }} />
                   <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '11px' }} itemStyle={{ color: 'white' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={chartTooltipFormatter} />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '10px', color: 'rgba(255,255,255,0.6)' }} />
-                  <Bar yAxisId="left" dataKey="Films vus" fill="#22d3ee" radius={[4, 4, 0, 0]} barSize={24} animationDuration={1500} />
-                  <Line yAxisId="right" type="monotone" dataKey="Note moy." stroke="var(--color-primary)" strokeWidth={3} dot={{ r: 4, strokeWidth: 3, fill: '#08090F' }} activeDot={{ r: 6 }} animationDuration={1500} animationBegin={500} />
+                  <Bar yAxisId="left" dataKey="Films vus" fill={colorSecondary} radius={[4, 4, 0, 0]} barSize={24} animationDuration={1500} />
+                  <Line yAxisId="right" type="monotone" dataKey="Note moy." stroke={colorPrimary} strokeWidth={3} dot={{ r: 4, strokeWidth: 3, fill: 'rgba(0,0,0,0.8)', stroke: colorPrimary }} activeDot={{ r: 6 }} animationDuration={1500} animationBegin={500} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
