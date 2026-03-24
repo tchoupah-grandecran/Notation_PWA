@@ -84,14 +84,21 @@ export function History({
             {/* ── État FERMÉ : boutons normaux ── */}
             {!isSearchOpen && (
               <>
-                <button
-                  onClick={() => handleScan()}
-                  className={`flex items-center justify-center rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)] active:scale-90 transition-all flex-shrink-0 shadow-lg ${isScrolled ? 'w-10 h-10' : 'w-12 h-12'}`}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M12 12v9M8 17l4 4 4-4" />
-                  </svg>
-                </button>
+                {/* Bouton SYNC (Autres pages - Header fixe) */}
+<button 
+  onClick={() => handleScan()} 
+  className="group flex items-center justify-center gap-2 h-10 px-4 rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)] active:scale-95 transition-all flex-shrink-0 shadow-lg"
+>
+  <svg className="w-4 h-4 flex-shrink-0 transition-transform duration-500 group-active:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 2v6h-6" />
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+    <path d="M3 22v-6h6" />
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+  </svg>
+  <span className="font-black uppercase tracking-widest text-[10px]">
+    Sync
+  </span>
+</button>
 
                 {isScrolled && (
                   <button
@@ -166,23 +173,36 @@ export function History({
         {/* Filtres */}
         <div className={`overflow-hidden transition-all duration-500 ${isScrolled || isSearchOpen ? 'max-h-0 opacity-0 mt-0' : 'max-h-20 opacity-100 mt-4'}`}>
           <div className="flex overflow-x-auto gap-2 px-6 pb-2 scrollbar-hide snap-x scroll-px-6">
-            <button onClick={() => setActiveFilter('all')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase ${activeFilter === 'all' ? 'bg-white text-black shadow-md' : 'bg-white/5 border border-white/10 text-white/60'}`}>Tous</button>
+            
+            {/* Bouton TOUS (Reste fixe) */}
+            <button onClick={() => setActiveFilter('all')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase ${activeFilter === 'all' ? 'bg-white text-black shadow-md' : 'bg-white/5 border border-white/10 text-white/60'}`}>
+              Tous
+            </button>
+            
+            {/* Bouton CAPUCINES (Déjà correct) */}
             <button onClick={() => setActiveFilter(activeFilter === 'capucine' ? 'all' : 'capucine')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase flex items-center gap-2 ${activeFilter === 'capucine' ? 'bg-[#FFD1DC] text-[#4A1040] shadow-md' : 'bg-white/5 border border-[#FFD1DC]/20 text-[#FFD1DC]/60'}`}>
               <img src="https://i.imgur.com/lg1bkrO.png" alt="" className="w-3.5 h-3.5" />Capucines
             </button>
-            <button onClick={() => setActiveFilter('coeur')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase flex items-center gap-1.5 ${activeFilter === 'coeur' ? 'bg-red-500 text-white shadow-md' : 'bg-white/5 border border-white/10 text-white/60'}`}>
+            
+            {/* Bouton FAVORIS (Corrigé) */}
+            <button onClick={() => setActiveFilter(activeFilter === 'coeur' ? 'all' : 'coeur')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase flex items-center gap-1.5 ${activeFilter === 'coeur' ? 'bg-red-500 text-white shadow-md' : 'bg-white/5 border border-white/10 text-white/60'}`}>
               <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
               Favoris
             </button>
-            <button onClick={() => setActiveFilter('top')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase flex items-center gap-1.5 ${activeFilter === 'top' ? 'bg-[var(--color-primary)] text-black' : 'bg-white/5 border border-white/10 text-white/60'}`}>
+            
+            {/* Bouton TOP (Corrigé) */}
+            <button onClick={() => setActiveFilter(activeFilter === 'top' ? 'all' : 'top')} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase flex items-center gap-1.5 ${activeFilter === 'top' ? 'bg-[var(--color-primary)] text-black' : 'bg-white/5 border border-white/10 text-white/60'}`}>
               <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
               Top
             </button>
+            
+            {/* Boutons ANNÉES (Corrigés) */}
             {anneesDisponibles.map((annee) => (
-              <button key={annee} onClick={() => setActiveFilter(annee)} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase ${activeFilter === annee ? 'bg-[var(--color-primary)] text-black' : 'bg-white/5 border border-white/10 text-white/60'}`}>
+              <button key={annee} onClick={() => setActiveFilter(activeFilter === annee ? 'all' : annee)} className={`snap-start flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase ${activeFilter === annee ? 'bg-[#FFF] text-black' : 'bg-white/5 border border-white/10 text-white/60'}`}>
                 {annee}
               </button>
             ))}
+            
             <div className="flex-shrink-0 w-6 h-1" />
           </div>
         </div>
