@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
+import { ImaxTag } from '../components/ImaxTag';
 
 // --- DICTIONNAIRE DES THÈMES ---
 const THEME_COLORS = {
@@ -291,6 +292,7 @@ alt=""
           </h2>
 
           <div className="flex gap-2 mb-10">
+            <ImaxTag salle={film.salle} commentaire={film.commentaire} />
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}>
               {film.genre || "Cinéma"}
             </span>

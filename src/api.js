@@ -296,14 +296,14 @@ export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
 
 export const saveFilmToSheet = async (token, spreadsheetId, data) => {
   try {
-    // Remplacement de Date.now() par data.numeroSeance en première position
     const row = [
       data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
       data.salle, data.siege, data.note, data.coupDeCoeur, data.genre, 
       data.depense, data.capucine, data.commentaire, data.affiche, data.tmdbId
     ];
 
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P:append?valueInputOption=USER_ENTERED`, {
+    // AJOUT : insertDataOption=INSERT_ROWS force l'insertion après la vraie dernière ligne de texte
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [row] })
@@ -311,12 +311,14 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
 
     if (!res.ok) throw new Error("Erreur écriture Sheets");
 
-    // Marquer l'e-mail comme LU pour ne plus le scanner
-    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.messageId}/modify`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
-    });
+    // AJOUT : Sécurité. On ne marque l'e-mail comme lu QUE s'il y a un messageId (scan d'e-mail)
+    if (data.messageId) {
+      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.messageId}/modify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
+      });
+    }
 
     return true;
   } catch (e) { 

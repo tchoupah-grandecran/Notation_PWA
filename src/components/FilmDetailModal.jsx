@@ -1,5 +1,6 @@
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from './SmartPoster';
+import { ImaxTag } from '../components/ImaxTag';
 
 /**
  * Modale de détail d'un film (slide-up depuis le bas).
@@ -35,7 +36,7 @@ export function FilmDetailModal({ film, onClose }) {
             {/* Badges haut */}
             <div className="flex items-center gap-2 mb-2">
               {film.numero && (
-                <span className="text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest bg-[var(--color-primary-muted)] px-3 py-0.5 rounded-full border border-[var(--color-primary)]/10">
+                <span className="text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest bg-[var(--color-primary-muted)] px-3 py-1 rounded-full border border-[var(--color-primary)]/10">
                   Séance #{film.numero}
                 </span>
               )}
@@ -49,9 +50,10 @@ export function FilmDetailModal({ film, onClose }) {
             <h2 className="font-syne text-2xl font-black leading-tight mb-4 text-white drop-shadow-xl">
               {film.titre}
             </h2>
-
+            
             {/* Tags */}
             <div className="flex flex-wrap gap-2 items-center">
+              <ImaxTag salle={film.salle} commentaire={film.commentaire} />
               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}>
                 {film.genre}
               </span>

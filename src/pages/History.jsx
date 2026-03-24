@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from '../components/SmartPoster';
+import { ImaxTag } from '../components/ImaxTag';
 
 export function History({
   historyData,
@@ -222,7 +223,8 @@ export function History({
                   <p className="text-white/50 text-[10px] font-bold uppercase tracking-wider">{film.date}</p>
                 </div>
                 <div className="flex items-center gap-2 mt-auto pt-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}>
+                  <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+                  <span className={`whitespace-nowrap px-2 py-1 rounded-full text-[10px] font-black uppercase border ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}>
                     {film.genre}
                   </span>
                   {film.capucine && (
@@ -231,7 +233,7 @@ export function History({
                     </div>
                   )}
                   {film.note && (
-                    <span className="text-[var(--color-primary)] font-black text-[11px] bg-[var(--color-primary-muted)] px-2 py-0.5 rounded-full border border-[var(--color-primary-muted)] shadow-sm flex items-center gap-1">
+                    <span className="text-[var(--color-primary)] font-black text-[11px] bg-[var(--color-primary-muted)] px-2 py-1 rounded-full border border-[var(--color-primary-muted)] shadow-sm flex items-center gap-1">
                       <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
                       {film.note}
                     </span>
