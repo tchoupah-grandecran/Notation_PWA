@@ -46,17 +46,20 @@ export function NavBar({ activeTab, setActiveTab }) {
     },
   ];
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[80] bg-black/10 backdrop-blur-2xl border-t border-white/5">
-      <div className="flex justify-around items-end h-[calc(40px+env(safe-area-inset-bottom))] pb-[calc(env(safe-area-inset-bottom)-12px)] pt-[10px]">
+return (
+    <nav className="fixed bottom-0 left-0 right-0 z-[80] bg-black/10 backdrop-blur-2xl border-t border-white/5 pb-[env(safe-area-inset-bottom)]">
+      
+      {/* 2. La div enfant a une hauteur fixe (ex: h-14 ou 56px) et centre son contenu */}
+      <div className="flex justify-around items-center h-8 pt-8">
+        
         {tabs.map(({ id, label, icon }) => {
           const active = activeTab === id;
           return (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex flex-col items-center w-16 transition-all ${
-                active ? 'text-[var(--color-primary)]' : 'text-white opacity-40'
+              className={`flex flex-col items-center justify-center w-16 transition-all duration-300 ${
+                active ? 'text-[var(--color-primary)] scale-105' : 'text-white opacity-40'
               }`}
             >
               {icon(active)}

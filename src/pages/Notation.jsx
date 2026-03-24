@@ -430,7 +430,7 @@ alt=""
           </button>
 
           {/* RÉCAP TECHNIQUE (Repensé en 2 colonnes pour plus de lisibilité) */}
-          <div className="mt-8 mb-10 px-1">
+          <div className="mt-8 mb-20 px-1">
             <div className="flex items-center justify-center gap-2 mb-4 pb-4 border-b border-white/10 mx-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)]">#{numeroSeance}</span>
               <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Séance de l'année</span>

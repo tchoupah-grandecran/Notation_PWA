@@ -34,9 +34,9 @@ const formatDurationChart = (value) => {
 // ── Overlay : liste de films filtrée par langue ─────────────────────────────
 function LangFilmsOverlay({ lang, films, onClose }) {
   const matchingFilms = films.filter((f) => {
-    const l = (f.langue || 'VF').toUpperCase().trim();
+    const l = (f.langue || 'FRA').toUpperCase().trim();
     // VF regroupe FRA, VF, VFQ
-    if (lang === 'VF') return l === 'VF' || l === 'FRA' || l === 'VFQ';
+    if (lang === 'VF') return l === 'FRA' || l === 'FRA' || l === 'VFQ';
     return l === lang;
   });
 
@@ -78,9 +78,9 @@ function LangFilmsOverlay({ lang, films, onClose }) {
             <p className="text-white/40 text-sm font-bold text-center py-10">Aucun film trouvé.</p>
           ) : (
             matchingFilms.map((film, i) => (
-              <div key={i} className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl overflow-hidden p-1 pr-3">
+              <div key={i} className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl overflow-hidden p-0 pr-3">
                 {/* Affiche */}
-                <div className="w-16 h-24 flex-shrink-0 rounded-xl overflow-hidden shadow-inner">
+                <div className="w-16 h-24 flex-shrink-0 overflow-hidden shadow-inner">
                   <SmartPoster
                     afficheInitiale={film.affiche}
                     titre={film.titre}
@@ -411,7 +411,7 @@ export function Dashboard({
   const topVoDetails = Object.entries(voDetails).sort((a, b) => b[1] - a[1]);
   // Toutes les langues incluant VF, pour les gélules cliquables
   const allLangDetails = vfCount > 0
-    ? [['VF', vfCount], ...topVoDetails]
+    ? [['FRA', vfCount], ...topVoDetails]
     : topVoDetails;
 
 // --- Calcul du jour moyen de rentabilité (pour vues Global & Annuel) ---
@@ -515,7 +515,7 @@ export function Dashboard({
   };
 
   return (
-    <div className="animate-in fade-in duration-500 min-h-screen">
+    <div className="animate-in fade-in duration-500 min-h-[100dvh]">
       {/* HEADER STICKY */}
       <div className={`sticky top-0 z-40 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden bg-[var(--color-bg)] w-full ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-4' : 'pt-[calc(env(safe-area-inset-top)+1rem)] pb-6'}`}>
         {latestPoster && (
@@ -660,7 +660,7 @@ export function Dashboard({
               <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col">
                 
                 {/* Le Graphique */}
-                <div className="h-60 w-full">
+                <div className="h-60 w-full relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={globalChartData} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
                       <defs>
@@ -683,7 +683,37 @@ export function Dashboard({
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} itemStyle={{ color: 'white', fontWeight: 'bold', padding: '3px 0' }} cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 8 }} formatter={chartTooltipFormatter} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '15px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} />
                       <Bar yAxisId="left" dataKey="Temps Total" fill="url(#colorTotal)" barSize={12} radius={[10, 10, 10, 10]} animationDuration={1500} />
-                      <Line yAxisId="right" type="monotone" dataKey="Durée Moyenne" stroke={colorPrimary} strokeWidth={4} filter="url(#glow)" dot={{ r: 5, fill: '#111', stroke: colorPrimary, strokeWidth: 3 }} activeDot={{ r: 7, fill: colorPrimary, stroke: '#fff', strokeWidth: 2 }} animationDuration={1500} animationBegin={500} />
+
+                      {/* --- CORRECTION ICI --- */}
+                      
+                      {/* LIGNE 1 (DESSOUS) : La ligne pure avec effet GLOW, mais SANS les points */}
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="Durée Moyenne" 
+                        stroke={colorPrimary} 
+                        strokeWidth={4} 
+                        filter="url(#glow)" /* Glow appliqué ici */
+                        dot={false} /* PAS DE POINTS */
+                        activeDot={false}
+                        legendType="none" /* On cache de la légende pour ne pas doubler */
+                        animationDuration={1500} 
+                        animationBegin={500} 
+                      />
+
+                      {/* LIGNE 2 (DESSUS) : La ligne transparente, mais AVEC les points nets (sans glow) */}
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="Durée Moyenne" 
+                        stroke="transparent" /* Ligne invisible */
+                        strokeWidth={0}
+                        dot={{ r: 5, fill: colorPrimary, stroke: colorPrimary, strokeWidth: 3 }} /* Points nets appliqué ici */
+                        activeDot={{ r: 7, fill: colorPrimary, stroke: '#fff', strokeWidth: 2 }} 
+                        // Mêmes timings d'animation pour qu'elles se superposent parfaitement
+                        animationDuration={1500} 
+                        animationBegin={500} 
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -737,14 +767,14 @@ export function Dashboard({
                     {Math.floor(totalMinutes / 60)}H{' '}
                     <span className="text-xl text-white/60">{String(totalMinutes % 60).padStart(2, '0')}M</span>
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] mt-1.5">Devant l'écran</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] mt-1.5">au total</p>
                 </div>
                 <div>
                   <p className="font-syne text-l font-black text-white leading-none tracking-tight uppercase mt-2">
                     {Math.floor(avgDuration / 60)}H{' '}
                     <span className="text-sm text-white/60">{String(avgDuration % 60).padStart(2, '0')}M</span>
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1.5">Durée moyenne</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1.5">en moyenne</p>
                 </div>
               </div>
             </div>
@@ -830,7 +860,7 @@ export function Dashboard({
 
               <ResponsiveContainer width="100%" height="100%">
                 {/* On augmente la marge "top" (de 10 à 35) pour que la gélule ne cache pas la courbe */}
-                <ComposedChart data={dailyBreakEvenData} margin={{ top: 35, right: 0, left: -20, bottom: 0 }}>
+                <ComposedChart data={dailyBreakEvenData} margin={{ top: 35, right: 0, left: -40, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }} interval="preserveStartEnd" minTickGap={20} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }} allowDecimals={false} />
@@ -850,7 +880,7 @@ export function Dashboard({
                           y={bePoint['Coût Abo']} 
                           r={5} 
                           fill="#10b981" 
-                          stroke="rgba(0,0,0,0.8)" 
+                          stroke= 'none'
                           strokeWidth={2} 
                           isFront={true} 
                         />
@@ -988,11 +1018,11 @@ export function Dashboard({
               <div className="flex justify-between items-end mb-4">
                 <div>
                   <p className="font-syne text-2xl font-black text-[var(--color-primary)] leading-none">{voPct}%</p>
-                  <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">Version Originale</p>
+                  <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">En langue étrangère</p>
                 </div>
                 <div className="text-right">
                   <p className="font-syne text-2xl font-black text-white leading-none">{vfPct}%</p>
-                  <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">Version Française</p>
+                  <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">En français</p>
                 </div>
               </div>
 
@@ -1213,8 +1243,7 @@ export function Dashboard({
               </div>
 
               <ResponsiveContainer width="100%" height="100%">
-                {/* Augmentation de la marge bottom à 40 pour laisser de la place au label de volume */}
-                <LineChart data={globalChartData} margin={{ top: 50, right: 20, left: 20, bottom: 40 }}>
+                <LineChart data={globalChartData} margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
                   
                   {/* Axe X épuré avec dy={15} pour pousser l'année plus bas et éviter le conflit */}
