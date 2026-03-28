@@ -105,6 +105,80 @@ function ScanningScreen({ theme }) {
   );
 }
 
+function OnboardingScreen({ theme, userToken, onThemePreview, onComplete }) {
+  const [step, setStep] = useState(1);
+  const [sheetId, setSheetId] = useState('');
+  const [avatar, setAvatar] = useState(AVATAR_PRESETS[0]);
+  const [themeKey, setThemeKey] = useState('dark-grey');
+
+  const handleNext = () => setStep(s => s + 1);
+
+  if (step === 1) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-fade-in" style={{ background: theme.bgGradient, color: theme.text }}>
+      <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4">La Base de Données</h2>
+      <p className="text-white/60 mb-8 max-w-xs text-sm">Grand Écran utilise Google Sheets comme base de données. Colle l'ID de ton fichier ci-dessous.</p>
+      <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="w-full max-w-sm flex flex-col gap-4">
+        <input 
+          type="text" 
+          placeholder="ID du Spreadsheet" 
+          value={sheetId}
+          onChange={(e) => setSheetId(e.target.value)}
+          required 
+          className="bg-white/10 border border-white/20 p-4 rounded-2xl outline-none text-center font-mono text-sm focus:border-[var(--color-primary)] transition-colors" 
+        />
+        <button type="submit" className="font-black py-4 rounded-2xl uppercase tracking-widest active:scale-95 transition-transform" style={{ background: theme.primary, color: theme.textOnAccent }}>
+          Continuer
+        </button>
+      </form>
+    </div>
+  );
+
+  if (step === 2) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-fade-in" style={{ background: theme.bgGradient, color: theme.text }}>
+      <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4">Ton Avatar</h2>
+      <div className="flex flex-wrap justify-center gap-4 mb-10 max-w-xs">
+        {AVATAR_PRESETS.map((preset) => (
+          <img 
+            key={preset} 
+            src={preset} 
+            alt="Avatar" 
+            className={`w-16 h-16 rounded-full object-cover cursor-pointer transition-all ${avatar === preset ? 'ring-4 ring-offset-2 ring-offset-[#0C0C0E] scale-110' : 'opacity-50 hover:opacity-100'}`}
+            style={{ '--tw-ring-color': theme.primary }}
+            onClick={() => setAvatar(preset)}
+          />
+        ))}
+      </div>
+      <button onClick={handleNext} className="w-full max-w-sm font-black py-4 rounded-2xl uppercase tracking-widest active:scale-95 transition-transform" style={{ background: theme.primary, color: theme.textOnAccent }}>
+        Continuer
+      </button>
+    </div>
+  );
+
+  if (step === 3) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-fade-in" style={{ background: theme.bgGradient, color: theme.text }}>
+      <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4">Le Thème</h2>
+      <div className="grid grid-cols-2 gap-4 mb-10 w-full max-w-sm">
+        {Object.entries(THEME_COLORS).map(([key, t]) => (
+          <button
+            key={key}
+            onClick={() => { setThemeKey(key); onThemePreview(key); }}
+            className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${themeKey === key ? 'border-white scale-105 shadow-xl' : 'border-white/10 opacity-60 hover:opacity-100'}`}
+            style={{ background: t.bgGradient }}
+          >
+            <div className="w-6 h-6 rounded-full shadow-inner" style={{ background: t.primary }}></div>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: t.text }}>{t.name}</span>
+          </button>
+        ))}
+      </div>
+      <button onClick={() => onComplete({ spreadsheetId: sheetId, avatar, themeKey })} className="w-full max-w-sm font-black py-4 rounded-2xl uppercase tracking-widest active:scale-95 transition-transform" style={{ background: theme.primary, color: theme.textOnAccent }}>
+        Terminer la configuration
+      </button>
+    </div>
+  );
+
+  return null;
+}
+
 // ── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
