@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { RW_ARCHETYPES } from '../constants';
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
 
 // ── 1. Écran de verrouillage ────────────────────────────────────────────────────
 function LockScreen({ onUnlock }) {
@@ -99,61 +99,137 @@ function StudioHub({ isScrolled, onSelectTool, onLock }) {
   );
 }
 
+// ── Composant d'affichage de la Story (réutilisable) ────────────────────────
+const StoryContent = ({ poster, userAvatar, formattedScreeningLabel, title, date, time, lang, expectations, expectation }) => (
+  <div className="relative w-full h-full overflow-hidden bg-[#0A0000] font-sans">
+    {/* Arrière-plan flou */}
+    {poster ? (
+      <img src={poster} className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-150" alt="fond" />
+    ) : (
+      <div className="absolute inset-0 bg-gradient-to-br from-[#7E0000] to-[#2A0000]" />
+    )}
+    
+    {/* Affiche Nette */}
+    {poster && (
+      <img src={poster} className="absolute inset-0 w-full h-full object-cover opacity-90" alt="affiche" />
+    )}
+    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+
+    {/* CONTENU */}
+    <div className="absolute inset-0 p-16 flex flex-col justify-between z-10">
+      
+      {/* En-tête : Numéro de séance */}
+      <div className="flex justify-between items-start mt-12">
+        <div className="bg-[#1C1C1E]/90 border border-white/20 text-white px-8 py-5 rounded-full font-bold text-3xl tracking-widest shadow-2xl flex items-center justify-center uppercase">
+          {formattedScreeningLabel}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-10 mb-12">
+        {/* Titre */}
+        <h1 className="font-syne font-black text-white text-[100px] leading-[0.95]" style={{ textShadow: '0 10px 40px rgba(0,0,0,0.8)' }}>
+          {title || "Titre du film"}
+        </h1>
+
+        {/* Badges infos avec Flexbox Moderne */}
+        <div className="flex flex-wrap gap-4">
+          {/* Date */}
+          <div className="bg-[#1C1C1E]/90 border border-white/20 text-white px-8 h-[80px] rounded-[100px] shadow-2xl flex items-center gap-4">
+            <svg className="w-10 h-10 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span className="font-bold text-[38px] leading-none -translate-y-[2px]">{date}</span>
+          </div>
+
+          {/* Heure */}
+          <div className="bg-[#1C1C1E]/90 border border-white/20 text-white px-8 h-[80px] rounded-[100px] shadow-2xl flex items-center gap-4">
+            <svg className="w-10 h-10 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span className="font-bold text-[38px] leading-none -translate-y-[2px]">{time.replace(':', 'h')}</span>
+          </div>
+
+          {/* Langue */}
+          <div className="bg-[#1C1C1E]/90 border border-white/20 text-white] px-8 h-[80px] rounded-[100px] shadow-2xl flex items-center gap-4">
+            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span className="font-black text-[38px] leading-none -translate-y-[2px]">{lang.toUpperCase()}</span>
+          </div>
+        </div>
+
+        {/* HYPE METER */}
+        <div className="bg-black/40 backdrop-blur-3xl border border-white/20 rounded-[2rem] p-8 mt-6 relative overflow-hidden shadow-2xl">
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <p className="text-white/60 text-2xl font-bold uppercase tracking-[0.2em] mb-2">Hype Meter</p>
+              <p className="text-white text-5xl font-black italic leading-none">{expectations[expectation].label}</p>
+            </div>
+            <div className="text-white/30 font-black text-6xl italic leading-none">
+              {expectation + 1}<span className="text-4xl">/5</span>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full h-4">
+            {expectations.map((exp, i) => (
+              <div key={i} className={`flex-1 rounded-full transition-all duration-500 ${i <= expectation ? `${exp.color} ${exp.glow}` : 'bg-white/10'}`} />
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+);
+
 // ── Outil Story Séance ──────────────────────────────────────────────────────
 function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) {
-  // On pré-remplit avec pendingFilm (qui correspond à films[0] dans App.jsx)
   const [title, setTitle] = useState(pendingFilm?.titre || '');
   const [date, setDate] = useState(pendingFilm?.date || new Date().toLocaleDateString('fr-FR'));
-  
-  // Si on a l'heure dans les données du film, on formate. Sinon 20:00.
   const defaultTime = pendingFilm?.heure ? pendingFilm.heure.replace('h', ':') : '20:00';
   const [time, setTime] = useState(defaultTime);
-  
   const [lang, setLang] = useState(pendingFilm?.langue || 'VOSTFR');
   const [poster, setPoster] = useState(null);
-  
   const [expectation, setExpectation] = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
   
   const wrapperRef = useRef(null);
   const [scale, setScale] = useState(0.3);
 
-  const screeningNumber = (historyData?.length || 0) + 1;
+  const currentYear = date ? date.split('/')[2] : new Date().getFullYear().toString();
+  const filmsThisYear = (historyData || []).filter(f => f.date && f.date.endsWith(currentYear)).length;
+  const yearlyScreeningNumber = filmsThisYear + 1;
+  const formattedScreeningLabel = `${currentYear} — Séance #${yearlyScreeningNumber}`;
 
-  // NOUVEAU : Vocabulaire plus classe et couleurs premium (façon néon)
   const expectations = [
     { label: "Sceptique",      color: "bg-white/40",       glow: "shadow-[0_0_15px_rgba(255,255,255,0.3)]" },
-    { label: "Curieux(se)",    color: "bg-blue-400",       glow: "shadow-[0_0_15px_rgba(96,165,250,0.6)]" },
-    { label: "Intrigué(e)",    color: "bg-purple-400",     glow: "shadow-[0_0_15px_rgba(192,132,252,0.6)]" },
+    { label: "Curieux",        color: "bg-blue-400",       glow: "shadow-[0_0_15px_rgba(96,165,250,0.6)]" },
+    { label: "Intrigué",       color: "bg-purple-400",     glow: "shadow-[0_0_15px_rgba(192,132,252,0.6)]" },
     { label: "Très impatient", color: "bg-orange-400",     glow: "shadow-[0_0_15px_rgba(251,146,60,0.6)]" },
     { label: "Hype absolue",   color: "bg-[#E8B200]",      glow: "shadow-[0_0_20px_#E8B200]" }
   ];
 
   useEffect(() => {
-    if (pendingFilm?.affiche) {
-      // On force le navigateur à ignorer son cache en ajoutant un paramètre aléatoire
-      const url = new URL(pendingFilm.affiche);
-      url.searchParams.append('cors-bypass', Date.now());
-
-      fetch(url.toString(), { mode: 'cors' })
-        .then(res => res.blob())
-        .then(blob => {
-          const reader = new FileReader();
-          reader.onloadend = () => setPoster(reader.result);
-          reader.readAsDataURL(blob);
-        })
-        .catch(err => {
-          console.error("Erreur CORS lors du fetch, fallback sur l'URL", err);
-          setPoster(pendingFilm.affiche); // Fallback
+    const loadPoster = async () => {
+      if (!pendingFilm?.affiche) return;
+      try {
+        const response = await fetch(`${pendingFilm.affiche}?t=${new Date().getTime()}`, { 
+          mode: 'cors',
+          headers: { 'Cache-Control': 'no-cache' }
         });
-    }
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setPoster(reader.result);
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        setPoster(pendingFilm.affiche);
+      }
+    };
+    loadPoster();
   }, [pendingFilm]);
 
   useEffect(() => {
     const updateScale = () => {
-      if (wrapperRef.current) {
-        setScale(wrapperRef.current.offsetWidth / 1080);
-      }
+      if (wrapperRef.current) setScale(wrapperRef.current.offsetWidth / 1080);
     };
     updateScale();
     window.addEventListener('resize', updateScale);
@@ -173,28 +249,26 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
     if (isDownloading) return;
     setIsDownloading(true);
     try {
-      const slideEl = document.getElementById('story-export-node');
-      const canvas = await html2canvas(slideEl, { 
-        scale: 2, 
-        useCORS: true, 
-        allowTaint: true,
-        backgroundColor: '#000000',
-        onclone: (clonedDoc) => {
-          // html2canvas déteste les flous d'arrière plan (backdrop-filter)
-          const elements = clonedDoc.querySelectorAll('*');
-          elements.forEach(el => {
-            el.style.backdropFilter = 'none';
-            el.style.webkitBackdropFilter = 'none';
-          });
-        }
-      });
+      // On cible directement le noeud visible avec le scale
+      const slideEl = document.getElementById('story-visible-node');
       
-      const dataUrl = canvas.toDataURL('image/png');
+      const dataUrl = await htmlToImage.toPng(slideEl, { 
+        quality: 1,
+        pixelRatio: 1,
+        width: 1080,
+        height: 1920,
+        backgroundColor: '#000000',
+        style: {
+          transform: 'none', // MAGIE : On retire le zoom au moment de la photo !
+          transformOrigin: 'top left',
+          margin: 0
+        },
+        skipFonts: false
+      });
 
-      // Tentative de partage natif (iOS / Android)
       try {
         const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `seance_${screeningNumber}.png`, { type: 'image/png' });
+        const file = new File([blob], `seance_${yearlyScreeningNumber}.png`, { type: 'image/png' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -206,25 +280,24 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
         }
       } catch (shareError) {
         console.log("Partage annulé ou échoué", shareError);
-        setIsDownloading(false);
-        return; 
       }
       
-      // Fallback: téléchargement PC
       const link = document.createElement('a');
-      link.download = `seance_${screeningNumber}.png`;
+      link.download = `seance_${currentYear}_${yearlyScreeningNumber}.png`;
       link.href = dataUrl;
       link.click();
 
     } catch (err) {
-      console.error("Erreur html2canvas:", err);
+      console.error("Erreur html-to-image:", err);
       alert("Erreur lors de la génération. Assure-toi d'être en réseau.");
     }
     setIsDownloading(false);
   };
 
+  const storyProps = { poster, userAvatar, formattedScreeningLabel, title, date, time, lang, expectations, expectation };
+
   return (
-    <div className="animate-in fade-in duration-500 pb-24 flex flex-col min-h-screen bg-[#0C0C0E]">
+    <div className="animate-in fade-in duration-500 pb-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden">
       <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center">
         <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white active:scale-90 transition-all">
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
@@ -237,129 +310,29 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
       </header>
 
       <div className="px-6 py-6 flex flex-col gap-8">
-        {/* PRÉVISUALISATION */}
+        
+        {/* --- PRÉVISUALISATION STORY --- */}
         <div className="w-full relative bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl" ref={wrapperRef} style={{ aspectRatio: '9/16' }}>
+          {/* L'identifiant est placé sur la div qui a le transform ! */}
           <div 
-            id="story-export-node" 
-            className="absolute top-0 left-0 origin-top-left overflow-hidden bg-black font-sans"
+            id="story-visible-node" 
+            className="absolute top-0 left-0 origin-top-left" 
             style={{ width: '1080px', height: '1920px', transform: `scale(${scale})` }}
           >
-            {/* Fond flouté dynamique : On zoom x4 pour cacher les écritures de l'affiche et on assombrit */}
-            {poster ? (
-              <div className="absolute inset-0 overflow-hidden bg-[#0A0000]">
-                <img 
-                  src={poster} 
-                  crossOrigin="anonymous" 
-                  className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl" 
-                  style={{ transform: 'scale(4)' }}
-                  alt="fond" 
-                />
-              </div>
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#7E0000] to-[#2A0000]" />
-            )}
-
-            {/* Affiche principale */}
-            {poster && (
-              <img 
-                src={poster} 
-                crossOrigin="anonymous" 
-                className="absolute inset-0 w-full h-full object-cover opacity-90" 
-                alt="affiche" 
-              />
-            )}
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-
-            <div className="absolute inset-0 p-16 flex flex-col justify-between z-10">
-              <div className="flex justify-between items-start mt-12">
-                <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-4 rounded-full font-bold text-3xl tracking-widest uppercase shadow-lg">
-                  Séance #{screeningNumber}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-10 mb-12">
-                {/* On remplace drop-shadow-2xl par du textShadow en dur (mieux géré par html2canvas) */}
-                <h1 
-                  className="font-syne font-black text-white text-[100px] leading-[0.95]"
-                  style={{ textShadow: '0 10px 40px rgba(0,0,0,0.8)' }}
-                >
-                  {title || "Titre du film"}
-                </h1>
-
-                {/* Badges infos (Corrections d'alignement SVG sans "gap") */}
-                <div className="flex flex-wrap gap-4">
-                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    <span className="block mt-1">{date}</span>
-                  </div>
-                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span className="block mt-1">{time.replace(':', 'h')}</span>
-                  </div>
-                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-black text-4xl flex items-center">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="2" y1="12" x2="22" y2="12"></line>
-                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                    </svg>
-                    <span className="block mt-1">{lang.toUpperCase()}</span>
-                  </div>
-                </div>
-
-                {/* Jauge d'attente (HYPE METER minimaliste) */}
-                <div className="bg-black/30 backdrop-blur-3xl border border-white/20 rounded-[2rem] p-8 mt-6 relative overflow-hidden">
-                  <div className="flex justify-between items-end mb-8">
-                    <div>
-                      <p className="text-white/60 text-xl font-bold uppercase tracking-[0.2em] mb-2">Hype Meter</p>
-                      <p className="text-white text-5xl font-black italic">
-                        {expectations[expectation].label}
-                      </p>
-                    </div>
-                    <div className="text-white/20 font-black text-6xl italic leading-none">
-                      {expectation + 1}<span className="text-3xl">/5</span>
-                    </div>
-                  </div>
-                  
-                  {/* Barres lumineuses segmentées */}
-                  <div className="flex gap-3 w-full h-4">
-                    {expectations.map((exp, i) => (
-                      <div 
-                        key={i} 
-                        className={`flex-1 rounded-full transition-all duration-500 ${i <= expectation ? `${exp.color} ${exp.glow}` : 'bg-white/10'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StoryContent {...storyProps} />
           </div>
         </div>
 
+        {/* --- FORMULAIRE D'ÉDITION --- */}
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-5">
           <div>
             <div className="flex justify-between items-end mb-3">
               <label className="text-xs font-bold text-white/50 uppercase tracking-widest">Niveau d'attente</label>
-              <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">
-                {expectations[expectation].label}
-              </span>
+              <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">{expectations[expectation].label}</span>
             </div>
-            
             <div className="flex gap-2 bg-black/40 border border-white/10 rounded-2xl p-4">
               {expectations.map((exp, i) => (
-                <button
-                  key={i}
-                  onClick={() => setExpectation(i)}
-                  className="flex-1 h-8 flex items-center justify-center relative group"
-                >
-                  {/* Segment cliquable */}
+                <button key={i} onClick={() => setExpectation(i)} className="flex-1 h-8 flex items-center justify-center relative group">
                   <div className={`w-full h-2 rounded-full transition-all duration-300 group-hover:scale-y-150 ${i <= expectation ? exp.color : 'bg-white/10'}`} />
                 </button>
               ))}
@@ -374,9 +347,8 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
              </label>
           </div>
+        </div>
 
-
-        {/* BOUTON D'EXPORT */}
         <button onClick={downloadStory} disabled={isDownloading || !title} className="w-full h-16 rounded-2xl bg-[var(--color-primary)] text-[#0A0A0A] font-syne font-black text-lg tracking-wide flex items-center justify-center gap-3 shadow-[0_4px_20px_var(--color-primary-muted)] hover:shadow-[0_8px_30px_var(--color-primary-muted)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {isDownloading ? (
             <svg className="w-6 h-6 animate-spin text-[#0A0A0A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" /></svg>
@@ -473,27 +445,19 @@ function RecapTool({ historyData = [], ratingScale = 5, userAvatar, onBack }) {
     setIsDownloading(true);
     try {
       const slideEl = document.getElementById(`rw-slide-${currentSlide + 1}`);
-      const canvas = await html2canvas(slideEl, { 
-        scale: 3, 
-        useCORS: true, 
-        allowTaint: true,
-        backgroundColor: null, 
-        logging: false,
-        onclone: (clonedDoc) => {
-          const elements = clonedDoc.querySelectorAll('*');
-          elements.forEach(el => {
-            el.style.backdropFilter = 'none';
-            el.style.webkitBackdropFilter = 'none';
-          });
-        }
+      
+      const dataUrl = await htmlToImage.toPng(slideEl, { 
+        pixelRatio: 3, 
+        backgroundColor: null,
+        skipFonts: false
       });
       
       const link = document.createElement('a');
       link.download = `recap_${activeMonth}_slide${currentSlide + 1}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
     } catch (err) {
-      console.error("Erreur html2canvas:", err);
+      console.error("Erreur html-to-image:", err);
       alert("Erreur lors de la génération. Assure-toi que les images autorisent le CORS.");
     }
     setIsDownloading(false);
