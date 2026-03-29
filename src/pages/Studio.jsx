@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { RW_ARCHETYPES } from '../constants';
 import html2canvas from 'html2canvas';
 
@@ -82,20 +82,240 @@ function StudioHub({ isScrolled, onSelectTool, onLock }) {
           <p className="text-xs text-white/50 font-medium">Génère un carrousel de 6 slides avec tes statistiques et coups de cœur du mois.</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {['Séance', 'Critique'].map((tool) => (
-            <div key={tool} className="bg-white/5 border border-white/5 rounded-3xl p-5 relative overflow-hidden grayscale opacity-50 cursor-not-allowed">
-              <span className="bg-white/10 text-white/50 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full mb-3 inline-block">Story 9:16</span>
-              <h3 className="font-syne font-black text-lg text-white mb-1">{tool}</h3>
-              <p className="text-[10px] text-white/40">Bientôt</p>
-            </div>
-          ))}
-          <div className="bg-white/5 border border-white/5 rounded-3xl p-5 relative overflow-hidden grayscale opacity-50 cursor-not-allowed col-span-2">
+          <div onClick={() => onSelectTool('seance')} className="bg-gradient-to-tr from-white/10 to-transparent border border-white/10 rounded-3xl p-5 relative overflow-hidden cursor-pointer active:scale-[0.98] transition-all group">
+            <span className="bg-white/10 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full mb-3 inline-block">Story 9:16</span>
+            <h3 className="font-syne font-black text-lg text-white mb-1">Séance</h3>
+            <p className="text-[10px] text-white/50 font-medium">Annonce ton film</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/5 rounded-3xl p-5 relative overflow-hidden grayscale opacity-50 cursor-not-allowed">
             <span className="bg-white/10 text-white/50 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full mb-3 inline-block">Post 4:5</span>
-            <h3 className="font-syne font-black text-lg text-white mb-1">Saison des Festivals</h3>
+            <h3 className="font-syne font-black text-lg text-white mb-1">Critique</h3>
             <p className="text-[10px] text-white/40">Bientôt</p>
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// ── Outil Story Séance ──────────────────────────────────────────────────────
+function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) {
+  // On pré-remplit avec pendingFilm (qui correspond à films[0] dans App.jsx)
+  const [title, setTitle] = useState(pendingFilm?.titre || '');
+  const [date, setDate] = useState(pendingFilm?.date || new Date().toLocaleDateString('fr-FR'));
+  
+  // Si on a l'heure dans les données du film, on formate. Sinon 20:00.
+  const defaultTime = pendingFilm?.heure ? pendingFilm.heure.replace('h', ':') : '20:00';
+  const [time, setTime] = useState(defaultTime);
+  
+  const [lang, setLang] = useState(pendingFilm?.langue || 'VOSTFR');
+  const [poster, setPoster] = useState(pendingFilm?.affiche || null);
+  
+  const [expectation, setExpectation] = useState(2);
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  const wrapperRef = useRef(null);
+  const [scale, setScale] = useState(0.3);
+
+  const screeningNumber = (historyData?.length || 0) + 1;
+
+  // NOUVEAU : Vocabulaire plus classe et couleurs premium (façon néon)
+  const expectations = [
+    { label: "Sceptique",      color: "bg-white/40",       glow: "shadow-[0_0_15px_rgba(255,255,255,0.3)]" },
+    { label: "Curieux(se)",    color: "bg-blue-400",       glow: "shadow-[0_0_15px_rgba(96,165,250,0.6)]" },
+    { label: "Intrigué(e)",    color: "bg-purple-400",     glow: "shadow-[0_0_15px_rgba(192,132,252,0.6)]" },
+    { label: "Très impatient", color: "bg-orange-400",     glow: "shadow-[0_0_15px_rgba(251,146,60,0.6)]" },
+    { label: "Hype absolue",   color: "bg-[#E8B200]",      glow: "shadow-[0_0_20px_#E8B200]" }
+  ];
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (wrapperRef.current) {
+        setScale(wrapperRef.current.offsetWidth / 1080);
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => setPoster(event.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const downloadStory = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const slideEl = document.getElementById('story-export-node');
+      const canvas = await html2canvas(slideEl, { 
+        scale: 2, 
+        useCORS: true, 
+        allowTaint: false,
+        backgroundColor: '#000000',
+      });
+      
+      const link = document.createElement('a');
+      link.download = `seance_${screeningNumber}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error("Erreur html2canvas:", err);
+      alert("Erreur lors de la génération. Assure-toi d'être en réseau.");
+    }
+    setIsDownloading(false);
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500 pb-24 flex flex-col min-h-screen bg-[#0C0C0E]">
+      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center">
+        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white active:scale-90 transition-all">
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest">Story 9:16</span>
+          <h2 className="font-syne font-black text-white text-lg">Prochaine Séance</h2>
+        </div>
+        <div className="w-10" />
+      </header>
+
+      <div className="px-6 py-6 flex flex-col gap-8">
+        {/* PRÉVISUALISATION */}
+        <div className="w-full relative bg-white/5 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl" ref={wrapperRef} style={{ aspectRatio: '9/16' }}>
+          <div 
+            id="story-export-node" 
+            className="absolute top-0 left-0 origin-top-left overflow-hidden bg-black font-sans"
+            style={{ width: '1080px', height: '1920px', transform: `scale(${scale})` }}
+          >
+            {poster ? (
+              <img src={poster} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover scale-110 blur-3xl opacity-50" alt="" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#7E0000] to-[#2A0000]" />
+            )}
+
+            {poster && (
+              <img src={poster} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover opacity-90" alt="" />
+            )}
+            
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+            <div className="absolute inset-0 p-16 flex flex-col justify-between z-10">
+              <div className="flex justify-between items-start mt-12">
+                <div className="bg-black/70 backdrop-blur-xl border border-white/30 text-white px-8 py-4 rounded-full font-bold text-3xl tracking-widest uppercase shadow-lg">
+                  Séance #{screeningNumber}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-10 mb-12">
+                <h1 className="font-syne font-black text-white text-[100px] leading-[0.95] drop-shadow-2xl">
+                  {title || "Titre du film"}
+                </h1>
+
+                {/* Badges infos */}
+                <div className="flex flex-wrap gap-4">
+                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center gap-4">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                      <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    {date}
+                  </div>
+                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center gap-4">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    {time.replace(':', 'h')}
+                  </div>
+                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-black text-4xl flex items-center gap-4">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="2" y1="12" x2="22" y2="12"></line>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    {lang.toUpperCase()}
+                  </div>
+                </div>
+
+                {/* Jauge d'attente (HYPE METER minimaliste) */}
+                <div className="bg-black/30 backdrop-blur-3xl border border-white/20 rounded-[2rem] p-8 mt-6 relative overflow-hidden">
+                  <div className="flex justify-between items-end mb-8">
+                    <div>
+                      <p className="text-white/60 text-xl font-bold uppercase tracking-[0.2em] mb-2">Hype Meter</p>
+                      <p className="text-white text-5xl font-black italic">
+                        {expectations[expectation].label}
+                      </p>
+                    </div>
+                    <div className="text-white/20 font-black text-6xl italic leading-none">
+                      {expectation + 1}<span className="text-3xl">/5</span>
+                    </div>
+                  </div>
+                  
+                  {/* Barres lumineuses segmentées */}
+                  <div className="flex gap-3 w-full h-4">
+                    {expectations.map((exp, i) => (
+                      <div 
+                        key={i} 
+                        className={`flex-1 rounded-full transition-all duration-500 ${i <= expectation ? `${exp.color} ${exp.glow}` : 'bg-white/10'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+          <div>
+            <div className="flex justify-between items-end mb-3">
+              <label className="text-xs font-bold text-white/50 uppercase tracking-widest">Niveau d'attente</label>
+              <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">
+                {expectations[expectation].label}
+              </span>
+            </div>
+            
+            <div className="flex gap-2 bg-black/40 border border-white/10 rounded-2xl p-4">
+              {expectations.map((exp, i) => (
+                <button
+                  key={i}
+                  onClick={() => setExpectation(i)}
+                  className="flex-1 h-8 flex items-center justify-center relative group"
+                >
+                  {/* Segment cliquable */}
+                  <div className={`w-full h-2 rounded-full transition-all duration-300 group-hover:scale-y-150 ${i <= expectation ? exp.color : 'bg-white/10'}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+             <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-2 block mt-2">Affiche / Photo perso</label>
+             <label className="w-full bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 text-[var(--color-primary)] rounded-2xl p-4 font-bold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all">
+               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+               {poster && poster !== pendingFilm?.affiche ? "Changer la photo" : "Remplacer l'affiche"}
+               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+             </label>
+          </div>
+
+
+        {/* BOUTON D'EXPORT */}
+        <button onClick={downloadStory} disabled={isDownloading || !title} className="w-full h-16 rounded-2xl bg-[var(--color-primary)] text-[#0A0A0A] font-syne font-black text-lg tracking-wide flex items-center justify-center gap-3 shadow-[0_4px_20px_var(--color-primary-muted)] hover:shadow-[0_8px_30px_var(--color-primary-muted)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {isDownloading ? (
+            <svg className="w-6 h-6 animate-spin text-[#0A0A0A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" /></svg>
+          ) : (
+            <svg className="w-6 h-6 stroke-[#0A0A0A]" viewBox="0 0 24 24" fill="none" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          )}
+          {isDownloading ? 'Génération...' : 'Sauvegarder la Story'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -599,7 +819,7 @@ function RecapTool({ historyData = [], ratingScale = 5, userAvatar, onBack }) {
 }
 
 // ── 4. Composant principal Studio ───────────────────────────────────────────────
-export function Studio({ historyData, ratingScale, userName, userAvatar, isScrolled }) {
+export function Studio({ historyData, ratingScale, userName, userAvatar, isScrolled, pendingFilm }) {
   const [isUnlocked, setIsUnlocked] = useState(
     localStorage.getItem('grandecran_studio_unlocked') === 'true'
   );
@@ -618,14 +838,11 @@ export function Studio({ historyData, ratingScale, userName, userAvatar, isScrol
   if (!isUnlocked) return <LockScreen onUnlock={handleUnlock} />;
   
   if (activeTool === 'recap') {
-    return (
-      <RecapTool
-        historyData={historyData}
-        ratingScale={ratingScale}
-        userAvatar={userAvatar}
-        onBack={() => setActiveTool(null)}
-      />
-    );
+    return <RecapTool historyData={historyData} ratingScale={ratingScale} userAvatar={userAvatar} onBack={() => setActiveTool(null)} />;
+  }
+
+  if (activeTool === 'seance') {
+    return <SeanceStoryTool historyData={historyData} userAvatar={userAvatar} pendingFilm={pendingFilm} onBack={() => setActiveTool(null)} />;
   }
   
   return <StudioHub isScrolled={isScrolled} onSelectTool={setActiveTool} onLock={handleLock} />;

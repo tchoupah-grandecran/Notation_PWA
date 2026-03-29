@@ -192,6 +192,7 @@ function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedFilm, setSelectedFilm] = useState(null);
   const [displayCount, setDisplayCount] = useState(15);
+  const [nextFilm, setNextFilm] = useState(null);
 
   // Hooks métier
   const { userToken, setUserToken, login, logout: authLogout } = useAuth((token) => {
@@ -229,9 +230,14 @@ function App() {
     try {
       const found = await getFilmsANoter(token);
       setFilms(found);
+      
+      // NOUVEAU : On mémorise le premier film pour le Studio, 
+      // même si l'utilisateur clique sur "Plus tard" et vide l'état 'films'.
+      if (found && found.length > 0) {
+        setNextFilm(found[0]);
+      }
     } catch (err) {
       console.error('Erreur scan:', err);
-      // Token expiré → déconnexion propre
       authLogout();
     }
     setIsSearching(false);
@@ -286,15 +292,12 @@ function App() {
 
   if (isSearching) return <ScanningScreen theme={theme} />;
 
-  // ── Application principale ───────────────────────────────────────────────
+ // ── Application principale ───────────────────────────────────────────────
   return (
     <div
       className="h-[100dvh] w-full font-sans flex flex-col overflow-hidden transition-colors duration-500 relative"
       style={{ background: theme.bgGradient, color: theme.text, ...cssVars }}
     >
-      {/* Zone scrollable principale
-          — padding-bottom en style inline pour que env() soit réévalué
-            par le browser à chaque rendu, pas seulement au build Tailwind  */}
       <div
         id="main-scroll-container"
         className="flex-1 overflow-y-auto scrollbar-hide"
@@ -302,13 +305,12 @@ function App() {
         onScroll={(e) => {
           const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
           setIsScrolled(scrollTop > 20);
-          // Pagination infinie
           if (scrollHeight - scrollTop <= clientHeight + 150) {
             setDisplayCount((prev) => prev + 15);
           }
         }}
       >
-        {activeTab === 'home' && (
+        {activeTab === 'home' && films.length === 0 && (
           <Dashboard
             historyData={historyData}
             ratingScale={prefs.ratingScale}
@@ -364,11 +366,13 @@ function App() {
             userName={prefs.userName}
             userAvatar={prefs.userAvatar}
             isScrolled={isScrolled}
+            // On utilise notre mémoire persistante !
+            pendingFilm={nextFilm} 
           />
         )}
       </div>
 
-      {/* Barre de navigation (cachée si notation en cours) */}
+      {/* Barre de navigation (CACHÉE si notation en cours, on restaure ta règle !) */}
       {films.length === 0 && (
         <NavBar activeTab={activeTab} setActiveTab={setActiveTab} />
       )}
@@ -378,7 +382,7 @@ function App() {
         <FilmDetailModal film={selectedFilm} onClose={() => setSelectedFilm(null)} />
       )}
 
-      {/* Écran de notation */}
+      {/* Écran de notation (BLOQUANT) */}
       {films.length > 0 && (
         <Notation
           key={films[0].titre || films.length}
@@ -388,13 +392,21 @@ function App() {
           isExiting={isExitingNotation}
           ratingScale={prefs.ratingScale}
           onSaved={() => {
-            setFilms((prev) => prev.slice(1));
+            setFilms((prev) => {
+              const remaining = prev.slice(1);
+              // Met à jour la mémoire si on passe au film suivant
+              if (remaining.length > 0) setNextFilm(remaining[0]);
+              return remaining;
+            });
             invalidate();
             loadHistory();
           }}
           onSkip={() => {
             setIsExitingNotation(true);
-            setTimeout(() => { setFilms([]); setIsExitingNotation(false); }, 500);
+            setTimeout(() => { 
+              setFilms([]); // Cache la notation, mais 'nextFilm' garde sa valeur !
+              setIsExitingNotation(false); 
+            }, 500);
           }}
         />
       )}
