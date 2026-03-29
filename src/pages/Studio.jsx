@@ -110,7 +110,7 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
   const [time, setTime] = useState(defaultTime);
   
   const [lang, setLang] = useState(pendingFilm?.langue || 'VOSTFR');
-  const [poster, setPoster] = useState(pendingFilm?.affiche || null);
+  const [poster, setPoster] = useState(null);
   
   const [expectation, setExpectation] = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -128,6 +128,23 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
     { label: "Très impatient", color: "bg-orange-400",     glow: "shadow-[0_0_15px_rgba(251,146,60,0.6)]" },
     { label: "Hype absolue",   color: "bg-[#E8B200]",      glow: "shadow-[0_0_20px_#E8B200]" }
   ];
+
+  useEffect(() => {
+    if (pendingFilm?.affiche) {
+      fetch(pendingFilm.affiche)
+        .then(res => res.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onloadend = () => setPoster(reader.result);
+          reader.readAsDataURL(blob);
+        })
+        .catch(err => {
+          console.error("Erreur CORS lors du fetch, fallback sur l'URL", err);
+          setPoster(pendingFilm.affiche); // Fallback au cas où
+        });
+    }
+  }, [pendingFilm]);
+  // -------------------------------------------------------------------------
 
   useEffect(() => {
     const updateScale = () => {
@@ -161,10 +178,38 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
         backgroundColor: '#000000',
       });
       
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // --- NOUVEAU : Tentative de partage natif (iOS / Android) ---
+      try {
+        // On reconvertit le dataUrl en fichier (Blob)
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], `seance_${screeningNumber}.png`, { type: 'image/png' });
+
+        // Vérifie si l'appareil supporte le partage de fichiers
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Ma prochaine séance',
+            text: 'Prêt(e) pour la séance !'
+          });
+          setIsDownloading(false);
+          return; // On s'arrête là si le partage natif a fonctionné !
+        }
+      } catch (shareError) {
+        // L'utilisateur a peut-être annulé le partage, on l'ignore silencieusement
+        console.log("Partage annulé ou échoué :", shareError);
+        setIsDownloading(false);
+        return; 
+      }
+      // ----------------------------------------------------------
+      
+      // FALLBACK : Si on est sur PC ou navigateur non compatible, on lance un téléchargement normal
       const link = document.createElement('a');
       link.download = `seance_${screeningNumber}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
+
     } catch (err) {
       console.error("Erreur html2canvas:", err);
       alert("Erreur lors de la génération. Assure-toi d'être en réseau.");
@@ -313,7 +358,7 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
           ) : (
             <svg className="w-6 h-6 stroke-[#0A0A0A]" viewBox="0 0 24 24" fill="none" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
           )}
-          {isDownloading ? 'Génération...' : 'Sauvegarder la Story'}
+          {isDownloading ? 'Génération...' : 'Partager la Story'}
         </button>
       </div>
     </div>
