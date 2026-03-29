@@ -131,7 +131,11 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
 
   useEffect(() => {
     if (pendingFilm?.affiche) {
-      fetch(pendingFilm.affiche)
+      // On force le navigateur à ignorer son cache en ajoutant un paramètre aléatoire
+      const url = new URL(pendingFilm.affiche);
+      url.searchParams.append('cors-bypass', Date.now());
+
+      fetch(url.toString(), { mode: 'cors' })
         .then(res => res.blob())
         .then(blob => {
           const reader = new FileReader();
@@ -140,11 +144,10 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
         })
         .catch(err => {
           console.error("Erreur CORS lors du fetch, fallback sur l'URL", err);
-          setPoster(pendingFilm.affiche); // Fallback au cas où
+          setPoster(pendingFilm.affiche); // Fallback
         });
     }
   }, [pendingFilm]);
-  // -------------------------------------------------------------------------
 
   useEffect(() => {
     const updateScale = () => {
@@ -174,37 +177,40 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
       const canvas = await html2canvas(slideEl, { 
         scale: 2, 
         useCORS: true, 
-        allowTaint: false,
+        allowTaint: true,
         backgroundColor: '#000000',
+        onclone: (clonedDoc) => {
+          // html2canvas déteste les flous d'arrière plan (backdrop-filter)
+          const elements = clonedDoc.querySelectorAll('*');
+          elements.forEach(el => {
+            el.style.backdropFilter = 'none';
+            el.style.webkitBackdropFilter = 'none';
+          });
+        }
       });
       
       const dataUrl = canvas.toDataURL('image/png');
 
-      // --- NOUVEAU : Tentative de partage natif (iOS / Android) ---
+      // Tentative de partage natif (iOS / Android)
       try {
-        // On reconvertit le dataUrl en fichier (Blob)
         const blob = await (await fetch(dataUrl)).blob();
         const file = new File([blob], `seance_${screeningNumber}.png`, { type: 'image/png' });
 
-        // Vérifie si l'appareil supporte le partage de fichiers
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
             title: 'Ma prochaine séance',
-            text: 'Prêt(e) pour la séance !'
           });
           setIsDownloading(false);
-          return; // On s'arrête là si le partage natif a fonctionné !
+          return;
         }
       } catch (shareError) {
-        // L'utilisateur a peut-être annulé le partage, on l'ignore silencieusement
-        console.log("Partage annulé ou échoué :", shareError);
+        console.log("Partage annulé ou échoué", shareError);
         setIsDownloading(false);
         return; 
       }
-      // ----------------------------------------------------------
       
-      // FALLBACK : Si on est sur PC ou navigateur non compatible, on lance un téléchargement normal
+      // Fallback: téléchargement PC
       const link = document.createElement('a');
       link.download = `seance_${screeningNumber}.png`;
       link.href = dataUrl;
@@ -238,55 +244,74 @@ function SeanceStoryTool({ historyData = [], userAvatar, onBack, pendingFilm }) 
             className="absolute top-0 left-0 origin-top-left overflow-hidden bg-black font-sans"
             style={{ width: '1080px', height: '1920px', transform: `scale(${scale})` }}
           >
+            {/* Fond flouté dynamique : On zoom x4 pour cacher les écritures de l'affiche et on assombrit */}
             {poster ? (
-              <img src={poster} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover scale-110 blur-3xl opacity-50" alt="" />
+              <div className="absolute inset-0 overflow-hidden bg-[#0A0000]">
+                <img 
+                  src={poster} 
+                  crossOrigin="anonymous" 
+                  className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl" 
+                  style={{ transform: 'scale(4)' }}
+                  alt="fond" 
+                />
+              </div>
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#7E0000] to-[#2A0000]" />
             )}
 
+            {/* Affiche principale */}
             {poster && (
-              <img src={poster} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover opacity-90" alt="" />
+              <img 
+                src={poster} 
+                crossOrigin="anonymous" 
+                className="absolute inset-0 w-full h-full object-cover opacity-90" 
+                alt="affiche" 
+              />
             )}
             
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
 
             <div className="absolute inset-0 p-16 flex flex-col justify-between z-10">
               <div className="flex justify-between items-start mt-12">
-                <div className="bg-black/70 backdrop-blur-xl border border-white/30 text-white px-8 py-4 rounded-full font-bold text-3xl tracking-widest uppercase shadow-lg">
+                <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-4 rounded-full font-bold text-3xl tracking-widest uppercase shadow-lg">
                   Séance #{screeningNumber}
                 </div>
               </div>
 
               <div className="flex flex-col gap-10 mb-12">
-                <h1 className="font-syne font-black text-white text-[100px] leading-[0.95] drop-shadow-2xl">
+                {/* On remplace drop-shadow-2xl par du textShadow en dur (mieux géré par html2canvas) */}
+                <h1 
+                  className="font-syne font-black text-white text-[100px] leading-[0.95]"
+                  style={{ textShadow: '0 10px 40px rgba(0,0,0,0.8)' }}
+                >
                   {title || "Titre du film"}
                 </h1>
 
-                {/* Badges infos */}
+                {/* Badges infos (Corrections d'alignement SVG sans "gap") */}
                 <div className="flex flex-wrap gap-4">
-                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center gap-4">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                       <line x1="16" y1="2" x2="16" y2="6"></line>
                       <line x1="8" y1="2" x2="8" y2="6"></line>
                       <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
-                    {date}
+                    <span className="block mt-1">{date}</span>
                   </div>
-                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center gap-4">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-bold text-4xl flex items-center">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="10"></circle>
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    {time.replace(':', 'h')}
+                    <span className="block mt-1">{time.replace(':', 'h')}</span>
                   </div>
-                  <div className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-5 rounded-3xl font-black text-4xl flex items-center gap-4">
-                    <svg className="w-8 h-8 opacity-80 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="bg-[#1C1C1E]/80 border border-white/20 text-white px-8 py-5 rounded-3xl font-black text-4xl flex items-center">
+                    <svg className="w-8 h-8 opacity-80 flex-shrink-0 mr-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="10"></circle>
                       <line x1="2" y1="12" x2="22" y2="12"></line>
                       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                     </svg>
-                    {lang.toUpperCase()}
+                    <span className="block mt-1">{lang.toUpperCase()}</span>
                   </div>
                 </div>
 
