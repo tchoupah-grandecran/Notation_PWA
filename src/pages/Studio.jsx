@@ -290,17 +290,16 @@ function computeMonthlyRewindData(history) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CANVAS RECAP RENDERERS
-// Each function draws one slide onto a 1080×1920 canvas and returns it.
-// All images are pre-loaded via loadImageForCanvas so no CORS issue at capture.
+// Modification : RECAP_H = 1440 pour format Post Instagram Portrait
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RECAP_W    = 1080;
-const RECAP_H    = 1920;
+const RECAP_H    = 1440; // <-- Changé pour format 4:5 (Post IG)
 const GOLD_COLOR = '#E8B200';
 const DARK_BG    = '#0A0A0A';
 const LIGHT_BG   = '#F5F2EC';
 const FONT_SANS  = 'system-ui,-apple-system,sans-serif';
-const FONT_SYNE  = 'system-ui,-apple-system,sans-serif'; // fallback; same as DOM
+const FONT_SYNE  = 'system-ui,-apple-system,sans-serif';
 
 function makeCanvas() {
   const c = document.createElement('canvas');
@@ -328,7 +327,7 @@ function drawDateBadge(ctx, monthLabel, x, y, dark = false) {
   ctx.globalAlpha = 1;
   ctx.fillStyle   = dark ? 'rgba(255,255,255,0.85)' : 'rgba(30,30,30,0.85)';
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  // calendar icon (mini)
+  
   ctx.strokeStyle  = dark ? 'rgba(255,200,0,0.9)' : 'rgba(30,30,30,0.55)';
   ctx.lineWidth    = 2;
   const ic = 22, ix = x + padX - 2, iy = y + (bh - ic) / 2;
@@ -367,11 +366,9 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
 
-  // Background
   ctx.fillStyle = DARK_BG;
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
-  // Glows
   const g1 = ctx.createRadialGradient(RECAP_W * 0.75, RECAP_H * 0.2, 0, RECAP_W * 0.75, RECAP_H * 0.2, 600);
   g1.addColorStop(0, 'rgba(232,178,0,0.18)'); g1.addColorStop(1, 'transparent');
   ctx.fillStyle = g1; ctx.fillRect(0, 0, RECAP_W, RECAP_H);
@@ -382,7 +379,6 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
 
   const LEFT = 80;
 
-  // Top left title
   ctx.font = `800 52px ${FONT_SYNE}`;
   ctx.fillStyle = GOLD_COLOR;
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -391,11 +387,9 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillText('CINÉ DU MOIS', LEFT, 156);
 
-  // Logo top right
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 90, 80);
 
-  // Big number in center
-  const centerY = RECAP_H * 0.45;
+  const centerY = RECAP_H * 0.45; 
   ctx.textAlign = 'center';
 
   if (s1DataType === 'hours' || !s1DataType) {
@@ -434,7 +428,7 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
     ctx.fillText(`de séances en VO en ${monthLabel}`, RECAP_W / 2, centerY + 190);
   }
 
-  // Bottom bar
+  // Bar et dates bien placées en bas
   ctx.fillStyle = GOLD_COLOR;
   ctx.fillRect(RECAP_W / 2 - 60, RECAP_H - 220, 120, 4);
   ctx.font = `500 26px ${FONT_SANS}`;
@@ -458,14 +452,12 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
 
   const films = (currentData.films || []).filter(f => f.affiche);
 
-  // Load all poster images
   const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
   const posterImgs = await Promise.all(
     films.map(f => loadImageForCanvas(`${proxyBase}?url=${encodeURIComponent(f.affiche)}`))
   );
   const filmPool = films.map((f, i) => ({ film: f, img: posterImgs[i] })).filter(x => x.img);
 
-  // Build mosaic grid: 8 strips × 7 cells, rotated 12°
   const STRIPS = 8, CELLS = 7;
   const totalNeeded = STRIPS * CELLS;
   let pool = [];
@@ -503,7 +495,6 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
   }
   ctx.restore();
 
-  // Gradient overlay
   const grad = ctx.createLinearGradient(0, 0, 0, RECAP_H);
   grad.addColorStop(0,    'rgba(245,242,236,0.08)');
   grad.addColorStop(0.45, 'rgba(245,242,236,0.18)');
@@ -513,25 +504,21 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
-  // Date badge top left
   drawDateBadge(ctx, monthLabel, 80, 80, false);
-
-  // Logo top right
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  // Bottom text
-  const BL = 80, BB = RECAP_H - 80;
+  // Remonté pour tenir dans 1440
+  const BL = 80, BB = RECAP_H - 300; 
 
   ctx.font = `800 120px ${FONT_SYNE}`;
   ctx.fillStyle = '#1E1E1E';
   ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
-  ctx.fillText(`${currentData.totalFilms || 0} films`, BL, BB - 180);
+  ctx.fillText(`${currentData.totalFilms || 0} films`, BL, BB - 150);
 
   ctx.fillStyle = '#c49a10';
-  ctx.fillText('ce mois', BL, BB - 50);
+  ctx.fillText('ce mois', BL, BB - 40);
 
-  // Film title pills
-  let pillX = BL, pillY = BB + 10;
+  let pillX = BL, pillY = BB + 30;
   const pillH = 52, pillR = pillH / 2;
   ctx.font = `600 24px ${FONT_SANS}`;
 
@@ -570,12 +557,12 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   const LEFT = 80, RIGHT = RECAP_W - 80;
   let y = 80;
 
-  // Header
   drawDateBadge(ctx, monthLabel, LEFT, y, false);
   drawLogo(ctx, logoImg, RIGHT - 80, y, 80);
-  y = 260;
+  
+  // Condensé pour le 1440px
+  y = 240;
 
-  // Divider helper
   const divider = (yy) => {
     ctx.strokeStyle = 'rgba(30,30,30,0.12)';
     ctx.lineWidth   = 1.5;
@@ -596,7 +583,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.font = `400 80px ${FONT_SYNE}`;
   ctx.fillStyle = GOLD_COLOR;
   ctx.fillText('/ 5', LEFT + 240, y + 60);
-  // sub: notes sup
   ctx.font = `900 120px ${FONT_SYNE}`;
   ctx.fillStyle = 'rgba(30,30,30,0.12)';
   ctx.textAlign = 'right';
@@ -605,8 +591,8 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.fillStyle = 'rgba(30,30,30,0.4)';
   ctx.fillText('notes ≥ 4', RIGHT, y + 130);
   ctx.textAlign = 'left';
-  y += 240;
-  divider(y); y += 50;
+  y += 180;
+  divider(y); y += 40;
 
   // --- Durée moyenne ---
   labelStyle();
@@ -620,8 +606,8 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.fillText('h', LEFT + (h > 0 ? ctx.measureText(String(h)).width + 20 : 120), y + 60);
   ctx.font = `900 200px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E';
   ctx.fillText(m, LEFT + 280, y);
-  y += 240;
-  divider(y); y += 50;
+  y += 180;
+  divider(y); y += 40;
 
   // --- Siège / Salle ---
   const colW = (RIGHT - LEFT - 40) / 2;
@@ -636,11 +622,10 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.fillText(`${currentData.favSeat?.share || 0}% des séances`, LEFT, y + 120);
   ctx.fillText(`${currentData.favRoom?.share || 0}% des séances`, LEFT + colW + 40, y + 120);
 
-  // Vertical divider between cols
   ctx.strokeStyle = 'rgba(30,30,30,0.1)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(LEFT + colW + 20, y - 10); ctx.lineTo(LEFT + colW + 20, y + 150); ctx.stroke();
-  y += 180;
-  divider(y); y += 50;
+  y += 150;
+  divider(y); y += 40;
 
   // --- Capucines ---
   if (currentData.capucinesCount > 0) {
@@ -656,7 +641,6 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
 
-  // Dark top, light bottom strip
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
   ctx.fillStyle = LIGHT_BG;
@@ -664,11 +648,9 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
 
   const LEFT = 80;
 
-  // Header
   drawDateBadge(ctx, monthLabel, LEFT, 80, true);
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  // Section title
   ctx.font = `700 28px ${FONT_SANS}`;
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -680,7 +662,6 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
   ctx.fillStyle = GOLD_COLOR;
   ctx.fillText('du mois', LEFT, 370);
 
-  // Genre bars
   const genresArray = Object.entries(currentData?.genreDistribution || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -689,8 +670,8 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
 
   const BAR_X   = LEFT;
   const BAR_MAX = RECAP_W - LEFT * 2;
-  let gy        = 520;
-  const barGap  = 130;
+  let gy        = 480; // Remonté
+  const barGap  = 120; // Rétréci
 
   const barStyles = [
     { h: 38, grad: ['#c49a10', '#FFD341'] },
@@ -706,24 +687,20 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     const tSize  = [44, 38, 32, 28, 24][i] || 24;
     const tAlpha = [1, 0.8, 0.7, 0.5, 0.35][i];
 
-    // Medal + name
     ctx.font = `900 ${tSize}px ${FONT_SYNE}`;
     ctx.fillStyle = `rgba(255,255,255,${tAlpha})`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     const medal = MEDALS[i] ? `${MEDALS[i]} ` : '';
     ctx.fillText(`${medal}${genreName}`, BAR_X, gy);
 
-    // Count
     ctx.font = `600 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
     ctx.fillText(`${count} film${count > 1 ? 's' : ''}`, RECAP_W - LEFT, gy);
     ctx.textAlign = 'left';
 
-    // Track
     const barY = gy + 30;
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     roundRect(ctx, BAR_X, barY, BAR_MAX, style.h, style.h / 2); ctx.fill();
 
-    // Fill
     const gFill = ctx.createLinearGradient(BAR_X, 0, BAR_X + BAR_MAX, 0);
     gFill.addColorStop(0, style.grad[0]); gFill.addColorStop(1, style.grad[1]);
     ctx.fillStyle = gFill;
@@ -732,8 +709,7 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     gy += barGap;
   });
 
-  // Language strip (light zone)
-  const langY    = Math.round(RECAP_H * 0.84);
+  const langY     = Math.round(RECAP_H * 0.84);
   const langEntries = Object.entries(currentData?.languageDistribution || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
@@ -768,7 +744,6 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
   const MID    = RECAP_H / 2;
   const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
 
-  // Load best/worst poster images
   const [bestImg, worstImg] = await Promise.all([
     currentData.bestMovie?.affiche  ? loadImageForCanvas(`${proxyBase}?url=${encodeURIComponent(currentData.bestMovie.affiche)}`)  : Promise.resolve(null),
     currentData.worstMovie?.affiche ? loadImageForCanvas(`${proxyBase}?url=${encodeURIComponent(currentData.worstMovie.affiche)}`) : Promise.resolve(null),
@@ -790,21 +765,20 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     ctx.fillStyle = gg; ctx.fillRect(0, 0, RECAP_W, MID);
   }
 
-  // TOP text
   const LEFT = 80;
   ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
-  ctx.fillText('── COUP DE CŒUR', LEFT, MID - 250);
+  ctx.fillText('── COUP DE CŒUR', LEFT, MID - 220); // Ajusté
 
   const bestTitle = currentData.bestMovie?.titre || '—';
   ctx.font = `900 72px ${FONT_SYNE}`; ctx.fillStyle = '#FFF';
   const bestLines = wrapText(ctx, bestTitle, RECAP_W - LEFT * 2);
   bestLines.slice(0, 2).forEach((l, i) => {
-    ctx.fillText(l, LEFT, MID - 155 + i * 82);
+    ctx.fillText(l, LEFT, MID - 140 + i * 76);
   });
 
   const bestNote = parseFloat(String(currentData.bestMovie?.note || 0).replace(',', '.'));
-  drawCanvasStars(ctx, bestNote, LEFT, MID - 90, 36, 6);
+  drawCanvasStars(ctx, bestNote, LEFT, MID - 40, 36, 6);
 
   // FLOP half (light)
   ctx.fillStyle = LIGHT_BG;
@@ -825,22 +799,21 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
 
   ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.45)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillText('── À OUBLIER', LEFT, MID + 150);
+  ctx.fillText('── À OUBLIER', LEFT, MID + 100); // Ajusté
 
   const worstTitle = currentData.worstMovie?.titre || '—';
   ctx.font = `900 72px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E';
   const worstLines = wrapText(ctx, worstTitle, RECAP_W - LEFT * 2);
   worstLines.slice(0, 2).forEach((l, i) => {
-    ctx.fillText(l, LEFT, MID + 230 + i * 82);
+    ctx.fillText(l, LEFT, MID + 160 + i * 76);
   });
 
   const worstNote = parseFloat(String(currentData.worstMovie?.note || 0).replace(',', '.'));
-  // Draw dark stars on light bg
   const EMPTY_LIGHT = 'rgba(30,30,30,0.12)';
   for (let i = 0; i < 5; i++) {
     const filled = i < Math.floor(worstNote);
     const cx2 = LEFT + i * (36 + 6) + 18;
-    const cy2 = MID + 420;
+    const cy2 = MID + 320; // Ajusté
     ctx.save();
     ctx.translate(cx2, cy2);
     ctx.scale(18, 18);
@@ -850,11 +823,9 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     ctx.restore();
   }
 
-  // Divider line
   ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, MID); ctx.lineTo(RECAP_W, MID); ctx.stroke();
 
-  // Header badges (over everything)
   drawDateBadge(ctx, monthLabel, LEFT, 70, true);
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 70, 80);
 
@@ -869,19 +840,16 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.fillStyle = '#0A0A0A';
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
-  // Glow
   const g1 = ctx.createRadialGradient(RECAP_W * 0.75, RECAP_H * 0.25, 0, RECAP_W * 0.75, RECAP_H * 0.25, 700);
   g1.addColorStop(0, 'rgba(232,178,0,0.14)'); g1.addColorStop(1, 'transparent');
   ctx.fillStyle = g1; ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
   const LEFT = 80;
 
-  // Header
   drawDateBadge(ctx, monthLabel, LEFT, 80, true);
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 80, 80);
 
-  // Card background
-  const CARD_X = LEFT - 20, CARD_Y = 230, CARD_W = RECAP_W - (LEFT - 20) * 2, CARD_H = RECAP_H - 500;
+  const CARD_X = LEFT - 20, CARD_Y = 220, CARD_W = RECAP_W - (LEFT - 20) * 2, CARD_H = RECAP_H - 420;
   ctx.save();
   ctx.globalAlpha = 0.08;
   ctx.fillStyle = '#fff';
@@ -891,18 +859,16 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.restore();
 
   const CX = CARD_X + 60;
-  let cy = CARD_Y + 70;
+  let cy = CARD_Y + 60;
 
-  // Card header
   ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.2)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   ctx.fillText('PROFIL CINÉ DU MOIS', CX, cy);
   ctx.textAlign = 'right';
   ctx.fillText(`— ${monthLabel_short}`, CARD_X + CARD_W - 60, cy);
   ctx.textAlign = 'left';
-  cy += 70;
+  cy += 60;
 
-  // Archetype
   const genresArray  = Object.entries(currentData?.genreDistribution || {}).sort((a, b) => b[1] - a[1]);
   const topGenre     = genresArray.length > 0 ? genresArray[0][0] : 'Inconnu';
   const archetype    = getArchetype(topGenre, currentData?.averageRating || 0);
@@ -910,27 +876,24 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
 
   ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillText('ARCHÉTYPE DU MOIS', CX, cy);
-  cy += 48;
+  cy += 40;
 
   ctx.font = `900 120px ${FONT_SYNE}`; ctx.fillStyle = '#fff';
-  ctx.fillText(archParts[0] || '', CX, cy); cy += 120;
+  ctx.fillText(archParts[0] || '', CX, cy); cy += 100;
   if (archParts[1]) {
     ctx.fillStyle = GOLD_COLOR;
-    ctx.fillText(archParts[1], CX, cy); cy += 130;
+    ctx.fillText(archParts[1], CX, cy); cy += 110;
   } else cy += 20;
 
-  // Description
   ctx.font = `400 32px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.4)';
   const descLines = wrapText(ctx, archetype.desc, CARD_W - 120);
-  descLines.forEach(l => { ctx.fillText(l, CX, cy); cy += 46; });
-  cy += 30;
+  descLines.forEach(l => { ctx.fillText(l, CX, cy); cy += 42; });
+  cy += 20;
 
-  // Divider
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(CX, cy); ctx.lineTo(CARD_X + CARD_W - 60, cy); ctx.stroke();
-  cy += 50;
+  cy += 40;
 
-  // Genre dominant / Note moyenne
   const colW2 = (CARD_W - 120) / 2;
   ctx.font = `700 24px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.fillText('GENRE DOMINANT', CX, cy);
@@ -943,34 +906,29 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.fillText((currentData?.averageRating || 0).toFixed(1), CX + colW2, cy);
   ctx.font = `400 36px ${FONT_SYNE}`; ctx.fillStyle = GOLD_COLOR;
   ctx.fillText('/ 5', CX + colW2 + 90, cy + 18);
-  cy += 80;
+  cy += 70;
 
   drawCanvasStars(ctx, currentData?.averageRating || 0, CX + colW2, cy - 20, 28, 5);
 
-  // CTA footer
   const [year, monthNum] = monthLabel_short.split(' / ');
   const nextDate   = new Date(parseInt(year, 10), parseInt(monthNum, 10), 1);
   const nextLabel  = `${MONTH_NAMES[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
 
   ctx.font = `500 34px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(`Rendez-vous début `, LEFT, RECAP_H - 80);
+  ctx.fillText(`Rendez-vous début `, LEFT, RECAP_H - 60);
   ctx.font = `800 34px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.65)';
   const rdvW = ctx.measureText('Rendez-vous début ').width;
-  ctx.fillText(nextLabel, LEFT + rdvW, RECAP_H - 80);
+  ctx.fillText(nextLabel, LEFT + rdvW, RECAP_H - 60);
 
   return canvas;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MASTER RECAP CANVAS EXPORT
-// Renders all 6 slides off-screen and returns an array of Blobs.
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderAllRecapSlidesToBlobs(currentData, monthLabel, monthNum, year, s1DataType) {
-  // Pre-load logo once
   const logoImg = await loadImageForCanvas(INSTA_LOGO_URL);
-
-  // monthLabel_short = "MM / YYYY" used for footer calc in slide 6
   const monthLabel_short = `${year} / ${monthNum}`;
 
   const canvases = await Promise.all([
@@ -983,7 +941,7 @@ async function renderAllRecapSlidesToBlobs(currentData, monthLabel, monthNum, ye
   ]);
 
   return Promise.all(
-    canvases.map(
+    canases.map(
       canvas =>
         new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'))
     )
@@ -1065,7 +1023,6 @@ function RecapTool({ onBack, historyData }) {
     swipeRef.current.isDragging = false;
   };
 
-  // ── NEW: Canvas-based single slide download ──────────────────────────────
   const handleDownload = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
@@ -1100,7 +1057,6 @@ function RecapTool({ onBack, historyData }) {
     finally { setIsDownloading(false); }
   };
 
-  // ── NEW: Canvas-based all-slides download ────────────────────────────────
   const handleDownloadAll = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
@@ -1585,6 +1541,7 @@ function RecapTool({ onBack, historyData }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS (Story Seance)
+// STORY_H reste à 1920px (Format Story Instagram)
 // ─────────────────────────────────────────────────────────────────────────────
 const STORY_W = 1080;
 const STORY_H = 1920;
@@ -1670,9 +1627,9 @@ async function renderStoryToCanvas(canvas, params) {
   let bx = LEFT;
 
   const badgesInfo = [
-    { text: date,                   type: 'calendar' },
+    { text: date,                  type: 'calendar' },
     { text: time.replace(':', 'h'), type: 'clock'    },
-    { text: lang,                   type: 'globe'     },
+    { text: lang,                  type: 'globe'     },
   ];
 
   for (const badge of badgesInfo) {
