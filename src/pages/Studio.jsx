@@ -1,4 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { toPng, toBlob } from 'html-to-image';
+import { ChevronLeft, ChevronRight, Layers, Film, Ticket, Sparkles, Star, Download } from 'lucide-react';
+import '../Studio.css';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTES DU RECAP MENSUEL
+// ─────────────────────────────────────────────────────────────────────────────
+const RW_TOTAL = 6;
+const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const SLIDE_NAMES = ['Intro', 'Films', 'Stats', 'Genres', 'Top / Flop', 'Profil'];
+
+// URL IMGUR DU LOGO INSTAGRAM
+const INSTA_LOGO_URL = 'https://i.imgur.com/aJWAYr7.png'; 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMAGE LOADING
@@ -79,6 +92,804 @@ function wrapText(ctx, text, maxWidth) {
   }
   if (cur) lines.push(cur);
   return lines;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITAIRE : GÉNÉRATION DES ÉTOILES (SVG)
+// ─────────────────────────────────────────────────────────────────────────────
+function renderStars(note, isDark = true, sizeClass = "w-[14px] h-[14px]") {
+  const scale = 5;
+  const stars = [];
+  for (let i = 0; i < scale; i++) {
+    const filled = i < Math.floor(note);
+    const half = !filled && (i < note);
+    const fillStyle = filled ? '#E9B90A' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(30,30,30,0.1)');
+    
+    if (half) {
+       stars.push(
+         <svg key={i} viewBox="0 0 24 24" className={`${sizeClass} flex-shrink-0`}>
+           <defs>
+             <linearGradient id={`grad-half-${isDark}-${i}`}>
+               <stop offset="50%" stopColor="#E9B90A" />
+               <stop offset="50%" stopColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(30,30,30,0.1)'} />
+             </linearGradient>
+           </defs>
+           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill={`url(#grad-half-${isDark}-${i})`} />
+         </svg>
+       );
+    } else {
+       stars.push(
+         <svg key={i} viewBox="0 0 24 24" className={`${sizeClass} flex-shrink-0`}>
+           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill={fillStyle} />
+         </svg>
+       );
+    }
+  }
+  return <div className="flex items-center gap-[3px]">{stars}</div>;
+}
+
+const RW_ARCHETYPES = {
+  'Drame': { high:{name:'Le\nSensible', desc:'Tu cherches à être touché...'}, mid: {name:'Le\nLucide', desc:'Tu acceptes que l\'émotion...'}, low: {name:'Le\nSceptique', desc:'Beaucoup de drames...'} },
+  'Thriller': { high:{name:'Le\nTendu', desc:'Tu aimes les films qui ne te lâchent pas...'}, mid: {name:'L\'Enquêteur', desc:'Tu analyses, tu décortiques...'}, low: {name:'Le\nDéçu', desc:'Beaucoup de promesses...'} },
+  'Comédie': { high:{name:'Le\nJoyeux', desc:'Tu sors léger, tu rigoles fort...'}, mid: {name:'Le\nMitigé', desc:'Tu souris, parfois tu ris...'}, low: {name:'Le\nDifficile', desc:'Peu de choses te font rire...'} },
+  'default': { high:{name:'L\'Éclectique', desc:'Aucun genre ne te définit...'}, mid: {name:'Le\nVoyageur', desc:'Tu explores sans carte...'}, low: {name:'Le\nChercheur', desc:'Tu tâtonnes...'} }
+};
+
+function getArchetype(genre, rating, scale = 5) {
+  const ratio = scale > 0 ? rating / scale : 0;
+  const bucket = ratio >= 0.72 ? 'high' : ratio >= 0.48 ? 'mid' : 'low';
+  const map = RW_ARCHETYPES[genre] || RW_ARCHETYPES['default'];
+  return map[bucket];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGGREGATION DES DONNÉES MENSUELLES
+// ─────────────────────────────────────────────────────────────────────────────
+function computeMonthlyRewindData(history) {
+  if (!history || !Array.isArray(history)) return {};
+  const monthlyData = {};
+
+  history.forEach(film => {
+    if (!film.date) return;
+    let year, month;
+    if (film.date.includes('/')) {
+      const parts = film.date.split('/');
+      if (parts.length === 3) {
+        year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+        month = parts[1].padStart(2, '0');
+      }
+    }
+    if (!year || !month) return;
+    const key = `${year}-${month}`;
+    if (!monthlyData[key]) monthlyData[key] = [];
+    monthlyData[key].push(film);
+  });
+
+  const result = {};
+
+  for (const monthKey in monthlyData) {
+    const films = monthlyData[monthKey];
+    if (!films.length) continue;
+
+    let totalDuration = 0, totalNote = 0, totalVO = 0, filmsWithLang = 0, capucinesCount = 0;
+    let highStarCount = 0;
+    let seatCount = {};
+    let roomCount = {};
+    const genreDistribution = {};
+    const languageDistribution = {};
+    let bestMovie = null, worstMovie = null;
+
+    films.forEach(film => {
+      if (film.duree) {
+        const m = String(film.duree).match(/(\d+)[h:](\d+)/);
+        if (m) totalDuration += parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+      }
+      
+      const noteStr = String(film.note || '').replace(',', '.').trim();
+      const note = parseFloat(noteStr) || 0;
+      totalNote += note;
+      if (note >= 4) highStarCount++; 
+      
+      if (film.capucine || film.capucines) capucinesCount++;
+      
+      const seat = String(film.siege || '').trim();
+      if (seat && seat !== '-' && seat.toLowerCase() !== 'n/a' && seat.toLowerCase() !== 'libre') {
+        seatCount[seat] = (seatCount[seat] || 0) + 1;
+      }
+      
+      const room = String(film.salle || '').trim();
+      if (room && room !== '-' && room.toLowerCase() !== 'n/a') {
+        roomCount[room] = (roomCount[room] || 0) + 1;
+      }
+
+      const lang = String(film.langue || '').toUpperCase().trim();
+      if (lang && lang !== '?' && lang !== 'N/A' && lang !== '-') {
+        filmsWithLang++;
+        if (lang !== 'FRA' && lang !== 'VF' && lang !== 'VFQ') totalVO++;
+        languageDistribution[lang] = (languageDistribution[lang] || 0) + 1; 
+      }
+
+      if (film.genre) genreDistribution[film.genre] = (genreDistribution[film.genre] || 0) + 1;
+      if (!bestMovie || note > (parseFloat(String(bestMovie.note).replace(',', '.')) || 0)) bestMovie = film;
+      if (!worstMovie || note < (parseFloat(String(worstMovie.note).replace(',', '.')) || 0)) worstMovie = film;
+    });
+
+    let favSeat = null, favRoom = null;
+    const seatEntries = Object.entries(seatCount).sort((a, b) => b[1] - a[1]);
+    if (seatEntries.length > 0) {
+      favSeat = { name: seatEntries[0][0], share: Math.round((seatEntries[0][1] / films.length) * 100) };
+    }
+    const roomEntries = Object.entries(roomCount).sort((a, b) => b[1] - a[1]);
+    if (roomEntries.length > 0) {
+      favRoom = { name: roomEntries[0][0], share: Math.round((roomEntries[0][1] / films.length) * 100) };
+    }
+
+    result[monthKey] = {
+      films,
+      totalFilms: films.length,
+      averageRating: totalNote / films.length,
+      highStarCount,
+      totalDuration,
+      averageDuration: Math.round(totalDuration / films.length),
+      voPercentage: filmsWithLang > 0 ? Math.round((totalVO / filmsWithLang) * 100) : 0,
+      capucinesCount,
+      favSeat,
+      favRoom,
+      genreDistribution,
+      languageDistribution,
+      bestMovie,
+      worstMovie
+    };
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECAP TOOL (Composant Principal)
+// ─────────────────────────────────────────────────────────────────────────────
+function RecapTool({ onBack, historyData }) {
+  const [data, setData] = useState(null);
+  const [months, setMonths] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [s1DataType, setS1DataType] = useState('hours');
+
+  const swipeRef = useRef({ x: 0, y: 0, isDragging: false });
+
+  // 1. Fetch Data (Sécurisé : Utilise uniquement les props)
+  useEffect(() => {
+    setIsLoading(true);
+    try {
+      if (historyData && historyData.length > 0) {
+        const rewindData = computeMonthlyRewindData(historyData);
+        setData(rewindData);
+        
+        const availableKeys = Object.keys(rewindData).sort((a, b) => b.localeCompare(a));
+        if (availableKeys.length > 0) {
+          setMonths(availableKeys);
+          setSelectedMonth(availableKeys[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur calcul Recap :", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [historyData]);
+
+  // Helper Proxy Image
+  const getPosterUrl = (url) => {
+    if (!url) return '';
+    const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
+    return `${proxyBase}?url=${encodeURIComponent(url)}`;
+  };
+
+  // Mosaïque Slide 2
+  const slide2Posters = useMemo(() => {
+    if (!data || !selectedMonth || !data[selectedMonth]?.films) return [];
+    const films = data[selectedMonth].films.filter(f => f.affiche);
+    if (films.length === 0) return [];
+    const totalNeeded = 8 * 7; 
+    let pool = [];
+    while (pool.length < totalNeeded) pool = pool.concat(films);
+    return [...pool].sort(() => 0.5 - Math.random()).slice(0, totalNeeded);
+  }, [data, selectedMonth]);
+
+  // Navigation
+  const goToSlide = (index) => {
+    if (index < 0) index = 0;
+    if (index >= RW_TOTAL) index = RW_TOTAL - 1;
+    setCurrentSlide(index);
+  };
+  const cycleSlide1Data = () => {
+    const types = ['hours', 'films', 'vo'];
+    setS1DataType(types[(types.indexOf(s1DataType) + 1) % types.length]);
+  };
+
+  // Swipe Mobile
+  const handleTouchStart = (e) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, isDragging: true }; };
+  const handleTouchMove = (e) => {
+    if (!swipeRef.current.isDragging) return;
+    const dx = e.touches[0].clientX - swipeRef.current.x;
+    const dy = e.touches[0].clientY - swipeRef.current.y;
+    if (Math.abs(dy) > Math.abs(dx)) swipeRef.current.isDragging = false;
+  };
+  const handleTouchEnd = (e) => {
+    if (!swipeRef.current.isDragging) return;
+    const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+    if (dx < -50) goToSlide(currentSlide + 1);
+    else if (dx > 50) goToSlide(currentSlide - 1);
+    swipeRef.current.isDragging = false;
+  };
+
+  // Téléchargement Unique
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const slideEl = document.getElementById(`rw-slide-${currentSlide + 1}`);
+      if (!slideEl) return;
+      const dataUrl = await toPng(slideEl, { pixelRatio: 3, cacheBust: true, filter: (n) => !n?.classList?.contains('rw-arrow') && n?.dataset?.captureHide !== 'true' });
+      const link = document.createElement('a');
+      link.download = `Recap_${selectedMonth}_${SLIDE_NAMES[currentSlide]}.png`;
+      link.href = dataUrl; link.click();
+    } catch (err) { console.error(err); } finally { setIsDownloading(false); }
+  };
+
+  // Téléchargement Groupé
+  const handleDownloadAll = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const generatedFiles = [];
+      for (let i = 1; i <= RW_TOTAL; i++) {
+        const slideEl = document.getElementById(`rw-slide-${i}`);
+        if (!slideEl) continue;
+        const blob = await toBlob(slideEl, { pixelRatio: 3, cacheBust: true, filter: (n) => !n?.classList?.contains('rw-arrow') && n?.dataset?.captureHide !== 'true' });
+        if (blob) {
+          generatedFiles.push(new File([blob], `Recap_${selectedMonth}_0${i}_${SLIDE_NAMES[i-1].replace(/[^a-zA-Z0-9]/g, '')}.png`, { type: 'image/png' }));
+        }
+      }
+      if (navigator.canShare && navigator.canShare({ files: generatedFiles })) {
+        await navigator.share({ files: generatedFiles, title: `Récap ${selectedMonth}` });
+      } else {
+        for (const file of generatedFiles) {
+          const url = URL.createObjectURL(file);
+          const link = document.createElement('a');
+          link.download = file.name; link.href = url; link.click();
+          URL.revokeObjectURL(url);
+          await new Promise(r => setTimeout(r, 400)); 
+        }
+      }
+    } catch (err) { if (err.name !== 'AbortError') console.error(err); } finally { setIsDownloading(false); }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E]">
+        <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
+          <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><ChevronLeft size={20} strokeWidth={2.5}/></button>
+          <h2 className="font-syne font-black text-lg">Récap' Mensuel</h2><div className="w-10"/>
+        </header>
+        <div className="flex-1 flex items-center justify-center text-white/50">Chargement des données...</div>
+      </div>
+    );
+  }
+
+  if (!data || Object.keys(data).length === 0) {
+    return (
+      <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E]">
+        <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
+          <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><ChevronLeft size={20} strokeWidth={2.5}/></button>
+          <h2 className="font-syne font-black text-lg">Récap' Mensuel</h2><div className="w-10"/>
+        </header>
+        <div className="flex-1 flex items-center justify-center text-white/50 text-center px-6">Aucune donnée trouvée.</div>
+      </div>
+    );
+  }
+
+  const currentData = data[selectedMonth];
+  const [year, monthNum] = selectedMonth.split('-');
+  const monthLabel = `${MONTH_NAMES[parseInt(monthNum, 10) - 1]} ${year}`;
+
+  // --- PRÉPARATION SLIDE 4 ---
+  const genresArray = Object.entries(currentData?.genreDistribution || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const maxGenreCount = genresArray.length > 0 ? genresArray[0][1] : 1;
+  const MEDALS = ['🥇', '🥈', '🥉', '', ''];
+  const langEntries = Object.entries(currentData?.languageDistribution || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+  const totalLangsCount = langEntries.reduce((acc, curr) => acc + curr[1], 0);
+
+  // --- PRÉPARATION SLIDE 6 ---
+  const topGenre = genresArray.length > 0 ? genresArray[0][0] : 'Inconnu';
+  const archetype = getArchetype(topGenre, currentData?.averageRating || 0);
+  const archNameParts = archetype.name.split('\n');
+  
+  // Calcul du mois suivant pour le Call-to-Action
+  const currentMonthIndex = parseInt(monthNum, 10) - 1;
+  const nextMonthDate = new Date(parseInt(year, 10), currentMonthIndex + 1, 1);
+  const nextMonthLabel = `${MONTH_NAMES[nextMonthDate.getMonth()]} ${nextMonthDate.getFullYear()}`;
+
+
+  return (
+    <div className="animate-in fade-in pb-safe-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden text-[#F0EEF5]">
+      
+      {/* APP HEADER */}
+      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
+        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+          <ChevronLeft size={20} strokeWidth={2.5}/>
+        </button>
+        <h2 className="font-syne font-black text-lg">Récap' Mensuel</h2>
+        <div className="w-10"/>
+      </header>
+
+      {/* SÉLECTEUR DE MOIS */}
+      <div className="pt-5">
+        <div className="text-[9px] font-bold tracking-widest uppercase text-white/20 px-5 mb-2">Mois</div>
+        <div className="flex gap-2 overflow-x-auto px-5 pb-2 scrollbar-hide">
+          {months.map(mKey => {
+            const [y, m] = mKey.split('-');
+            const isActive = mKey === selectedMonth;
+            return (
+              <div key={mKey} onClick={() => { setSelectedMonth(mKey); setCurrentSlide(0); }}
+                className={`flex-shrink-0 flex flex-col items-center justify-center w-[60px] h-[56px] rounded-[10px] border cursor-pointer transition-all select-none ${isActive ? 'border-[#E8B200] bg-[#E8B200]/10' : 'border-white/5 bg-[#1A1A1F]'}`}>
+                <div className={`text-[11px] font-bold z-10 ${isActive ? 'text-[#E8B200]' : 'text-[#F0EEF5]'}`}>{MONTH_NAMES[parseInt(m, 10) - 1].substring(0, 3)}</div>
+                <div className={`text-[8px] font-medium mt-1 z-10 ${isActive ? 'text-[#E8B200]/60' : 'text-white/20'}`}>{y}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* INFO BAR */}
+      <div className="mx-5 mt-4 flex items-center justify-between bg-[#1A1A1F] border border-white/5 rounded-[10px] px-3.5 py-2.5">
+        <div className="flex gap-2.5 items-center">
+          <Layers size={16} className="text-[#E8B200]" />
+          <div className="text-[10px] text-white/40"><strong className="text-white">{currentData?.totalFilms || 0} films</strong> • slide {currentSlide + 1}/6</div>
+        </div>
+      </div>
+
+      {/* --- CAROUSEL STAGE --- */}
+      <div className="studio-stage relative mt-4 mx-5 rounded-[18px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.5),_0_1px_0_rgba(255,255,255,0.06)_inset] bg-[#0A0A0A]">
+        
+        {currentSlide > 0 && (
+          <button data-capture-hide="true" onClick={() => goToSlide(currentSlide - 1)} className="rw-arrow absolute left-2 top-1/2 -translate-y-1/2 z-50 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform">
+            <ChevronLeft size={20} strokeWidth={2.5}/>
+          </button>
+        )}
+        {currentSlide < RW_TOTAL - 1 && (
+          <button data-capture-hide="true" onClick={() => goToSlide(currentSlide + 1)} className="rw-arrow absolute right-2 top-1/2 -translate-y-1/2 z-50 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform">
+            <ChevronRight size={20} strokeWidth={2.5}/>
+          </button>
+        )}
+
+        <div className="rw-carousel-wrapper w-full h-full" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          <div className="rw-slide-track flex w-[600%] h-full transition-transform duration-300 ease-out" style={{ transform: `translateX(-${currentSlide * (100 / RW_TOTAL)}%)` }}>
+            
+            {/* SLIDE 1 : INTRO */}
+            <div className="rw-slide w-1/6 h-full relative p-6 flex flex-col font-sans bg-[#0A0A0A]" id="rw-slide-1">
+              <div className="rw-glow-a"></div>
+              <div className="rw-glow-b"></div>
+
+              <div className="absolute top-6 left-6 z-30">
+                <div className="flex flex-col">
+                  <span className="font-syne font-extrabold text-[24px] uppercase tracking-tight text-[#E8B200] leading-none mb-1">Mon récap'</span>
+                  <span className="font-sans font-medium text-[10px] uppercase tracking-[0.15em] text-white/30">Ciné du mois</span>
+                </div>
+              </div>
+              <div className="absolute top-6 right-6 z-30">
+                 <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full shadow-lg object-cover" />
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center text-center cursor-pointer z-20 mt-10" onClick={cycleSlide1Data} data-capture-hide="false">
+                {s1DataType === 'hours' && (
+                  <div className="animate-bubble flex flex-col items-center">
+                    <div className="flex items-baseline -ml-1">
+                      <span className="font-syne font-black text-[clamp(80px,22vw,140px)] leading-[0.88] tracking-[-3px] text-white">
+                        {currentData ? Math.round((currentData.totalDuration || 0) / 60) : 0}
+                      </span>
+                      <span className="font-syne text-[#E8B200] text-[clamp(32px,8vw,44px)] font-normal tracking-[-1px] ml-1.5">h</span>
+                    </div>
+                    <div className="font-sans text-white/40 text-[12px] font-medium mt-1.5 tracking-[0.01em]">dans le noir en <strong className="text-white/70 font-semibold">{monthLabel}</strong></div>
+                  </div>
+                )}
+                {s1DataType === 'films' && (
+                  <div className="animate-bubble flex flex-col items-center">
+                    <div className="flex items-baseline -ml-1">
+                      <span className="font-syne font-black text-[clamp(80px,22vw,140px)] leading-[0.88] tracking-[-3px] text-white">
+                        {currentData?.totalFilms || 0}
+                      </span>
+                      <span className="font-syne text-[#E8B200] text-[clamp(28px,7vw,36px)] font-normal tracking-[-0.5px] ml-2.5">films</span>
+                    </div>
+                    <div className="font-sans text-white/40 text-[12px] font-medium mt-1.5 tracking-[0.01em]">découverts en <strong className="text-white/70 font-semibold">{monthLabel}</strong></div>
+                  </div>
+                )}
+                {s1DataType === 'vo' && (
+                  <div className="animate-bubble flex flex-col items-center">
+                    <div className="flex items-baseline -ml-1">
+                      <span className="font-syne font-black text-[clamp(80px,22vw,140px)] leading-[0.88] tracking-[-3px] text-white">
+                        {currentData?.voPercentage || 0}
+                      </span>
+                      <span className="font-syne text-[#E8B200] text-[clamp(36px,9vw,44px)] font-normal tracking-[-1px] ml-1.5">%</span>
+                    </div>
+                    <div className="font-sans text-white/40 text-[12px] font-medium mt-1.5 tracking-[0.01em]">de séances en VO en <strong className="text-white/70 font-semibold">{monthLabel}</strong></div>
+                  </div>
+                )}
+                <p data-capture-hide="true" className="absolute bottom-24 text-[10px] text-white/20 font-medium bg-white/5 border border-white/5 px-3 py-1.5 rounded-full">(Clique pour changer)</p>
+              </div>
+
+              <div className="absolute bottom-6 left-0 right-0 z-30 flex flex-col items-center gap-2">
+                 <div className="w-16 h-px bg-[#E8B200] rounded-full"></div>
+                 <span className="font-sans font-medium text-[9px] uppercase tracking-[0.15em] text-white/30">{monthLabel}</span>
+                 <span className="font-sans font-extrabold text-[12px] uppercase tracking-[0.1em] text-white mt-1">GRANDÉCRAN_OFF</span>
+              </div>
+            </div>
+
+            {/* SLIDE 2 : FILMS DU MOIS (MOSAÏQUE) */}
+            <div className="rw-slide w-1/6 h-full relative bg-[#F5F2EC] overflow-hidden font-sans" id="rw-slide-2">
+              <div className="absolute inset-0 flex gap-1 z-0 overflow-hidden transform rotate-12 scale-[1.3] -top-12 -left-12 w-[125%] h-[125%] opacity-90">
+                {Array.from({ length: 8 }).map((_, stripIdx) => (
+                  <div key={stripIdx} className={`flex-1 flex flex-col gap-1 min-w-0 ${stripIdx % 2 === 0 ? 'pt-6' : 'pt-0'} ${stripIdx % 3 === 0 ? 'pt-3' : ''}`}>
+                    {Array.from({ length: 7 }).map((_, cellIdx) => {
+                      const film = slide2Posters[stripIdx * 7 + cellIdx];
+                      return (
+                        <div key={cellIdx} className="w-full aspect-[2/3] bg-gray-300 relative rounded-md overflow-hidden flex-shrink-0">
+                          {film?.affiche && <img src={getPosterUrl(film.affiche)} crossOrigin="anonymous" className="w-full h-full object-cover saturate-[0.65] brightness-90" alt=""/>}
+                          {film?.capucines && <img src="https://i.imgur.com/lg1bkrO.png" crossOrigin="anonymous" className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-white p-[1.5px] shadow" alt=""/>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-x-0 bottom-0 z-10 h-full" style={{ background: 'linear-gradient(180deg, rgba(245,242,236,0.08) 0%, rgba(245,242,236,0.02) 25%, rgba(245,242,236,0.18) 45%, rgba(245,242,236,0.78) 62%, rgba(245,242,236,0.97) 78%, rgba(245,242,236,1.00) 88%)', bottom: '-2px' }}></div>
+              <div className="absolute inset-0 z-20 flex flex-col justify-between p-6">
+                <div className="flex justify-between items-start">
+                  <div className="inline-flex items-center gap-2 bg-white/70 border border-black/10 rounded-full px-3.5 py-1.5 shadow-sm backdrop-blur-md">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-[#1E1E1E] fill-none stroke-2 opacity-60"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span className="font-sans text-[10px] font-bold text-[#1E1E1E]/80 tracking-widest uppercase">{monthLabel}</span>
+                  </div>
+                  <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full shadow-md object-cover" />
+                </div>
+                <div className="flex flex-col pb-2">
+                  <h2 className="font-syne font-extrabold text-[44px] leading-[0.92] tracking-[-2px] text-[#1E1E1E] mb-3">
+                    {currentData?.totalFilms || 0} films<br/><span className="text-[#c49a10]">ce mois</span>
+                  </h2>
+                  <div className="flex flex-wrap gap-1.5">
+                    {currentData?.films?.map((film, idx) => {
+                      const isCDC = film.coupDeCoeur;
+                      const isCapu = film.capucine || film.capucines;
+                      return (
+                        <div key={idx} className={`inline-flex items-center gap-1.5 border rounded-full px-2.5 py-1 max-w-[250px] overflow-hidden ${isCDC ? 'bg-[#b41e3c]/90 border-[#8b1a3a]/30' : 'bg-[#1e1e1e]/90 border-[#1e1e1e]/20'} ${isCapu && !isCDC ? 'border-[#8b1a3a]/35' : ''}`}>
+                          {isCapu && <img src="https://i.imgur.com/lg1bkrO.png" className="w-2.5 h-2.5 rounded-full flex-shrink-0 object-cover" alt="Capu" />}
+                          <span className="font-sans text-[9px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis">{film.titre}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SLIDE 3 : STATS GLOBALES */}
+            <div className="rw-slide w-1/6 h-full relative bg-[#F5F2EC] flex flex-col font-sans" id="rw-slide-3">
+              <div className="absolute inset-0 z-0 opacity-5 mix-blend-multiply pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
+              <div className="absolute top-6 left-6 right-6 z-30 flex justify-between items-start">
+                <div className="inline-flex items-center gap-2 bg-white/70 border border-black/10 rounded-full px-3.5 py-1.5 shadow-sm backdrop-blur-md">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-[#1E1E1E] fill-none stroke-2 opacity-60"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span className="font-sans text-[10px] font-bold text-[#1E1E1E]/80 tracking-widest uppercase">{monthLabel}</span>
+                </div>
+                <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full border border-black/10 shadow-md object-cover" />
+              </div>
+              <div className="flex-1 flex flex-col pt-24 pb-8 px-6 z-10">
+                <div className="flex-1 flex flex-col justify-around">
+                  <div className="flex items-start justify-between border-b border-[#1E1E1E]/10 pb-4">
+                    <div>
+                      <div className="font-sans text-[10px] font-bold text-[#1E1E1E]/40 tracking-[0.15em] uppercase mb-1">Note moyenne</div>
+                      <div className="font-syne font-extrabold text-[#1E1E1E] flex items-baseline text-[70px] leading-[0.88] tracking-[-4px]">
+                        {currentData?.averageRating?.toFixed(1) || 0}
+                        <span className="font-normal text-[32px] tracking-[-0.5px] text-[#E8B200] ml-2">/ 5</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex flex-col items-end justify-end mt-2">
+                      <div className="font-syne font-extrabold text-[56px] leading-[0.8] text-[#1E1E1E]/15 tracking-[-2px]">
+                        {currentData?.highStarCount || 0}
+                      </div>
+                      <div className="font-sans text-[9px] font-semibold text-[#1E1E1E]/40 leading-[1.4] text-right max-w-[70px] mt-1">notes sup. à 4</div>
+                    </div>
+                  </div>
+                  <div className="border-b border-[#1E1E1E]/10 pb-4">
+                    <div className="font-sans text-[10px] font-bold text-[#1E1E1E]/40 tracking-[0.15em] uppercase mb-1">Durée moyenne</div>
+                    <div className="font-syne font-extrabold text-[#1E1E1E] flex items-baseline text-[76px] leading-[0.88] tracking-[-3px]">
+                      {currentData ? Math.floor((currentData.averageDuration || 0)/60) : 0}
+                      <span className="font-normal text-[26px] text-[#E8B200] mx-1">h</span>
+                      {currentData ? String((currentData.averageDuration || 0)%60).padStart(2,'0') : '00'}
+                    </div>
+                  </div>
+                  <div className="flex items-start justify-between border-b border-[#1E1E1E]/10 pb-4">
+                    <div className="flex-1 pr-4">
+                      <div className="font-sans text-[10px] font-bold text-[#1E1E1E]/40 tracking-[0.15em] uppercase mb-1">Siège favori</div>
+                      <div className="font-syne font-extrabold text-[32px] leading-none text-[#1E1E1E] tracking-[-1px] truncate">
+                        {currentData?.favSeat?.name || '—'}
+                      </div>
+                      <div className="font-sans text-[10px] font-semibold text-[#1E1E1E]/40 mt-1">{currentData?.favSeat?.share || 0}% des séances</div>
+                    </div>
+                    <div className="flex-1 pl-4 border-l border-[#1E1E1E]/10">
+                      <div className="font-sans text-[10px] font-bold text-[#1E1E1E]/40 tracking-[0.15em] uppercase mb-1">Salle favorite</div>
+                      <div className="font-syne font-extrabold text-[32px] leading-none text-[#1E1E1E] tracking-[-1px] truncate">
+                        {currentData?.favRoom ? currentData.favRoom.name.replace('Salle ', '') : '—'}
+                      </div>
+                      <div className="font-sans text-[10px] font-semibold text-[#1E1E1E]/40 mt-1">{currentData?.favRoom?.share || 0}% des séances</div>
+                    </div>
+                  </div>
+                  <div className="h-[60px] flex items-center">
+                    {currentData?.capucinesCount > 0 && (
+                      <div className="inline-flex items-center gap-3 bg-[#8B1A3A]/5 border border-[#8B1A3A]/15 rounded-2xl px-4 py-2.5">
+                        <img src="https://i.imgur.com/lg1bkrO.png" className="w-[28px] h-[28px] object-contain rounded-full shadow-sm" alt="Capucines" />
+                        <div>
+                          <div className="font-syne font-extrabold text-[20px] leading-none text-[#8B1A3A] tracking-[-0.5px]">{currentData.capucinesCount}</div>
+                          <div className="font-sans text-[9px] font-semibold text-[#8B1A3A]/70 leading-[1.3] mt-0.5">films en compétition</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ────────────────────────────────────────────────── */}
+            {/* SLIDE 4 : GENRES ET LANGUES */}
+            {/* ────────────────────────────────────────────────── */}
+            <div className="rw-slide w-1/6 h-full relative font-sans flex flex-col" id="rw-slide-4" style={{ background: 'linear-gradient(180deg, #0D0D0D 0%, #111 100%)' }}>
+              
+              <div className="absolute bottom-0 left-0 right-0 h-[18%] bg-[#F5F2EC] z-0"></div>
+              
+              <div className="absolute inset-0 z-10 flex flex-col pb-3 pt-6 px-6">
+                
+                <div className="flex justify-between items-start shrink-0">
+                  <div className="inline-flex items-center gap-2 bg-black/40 border border-white/15 rounded-full px-3.5 py-1.5 backdrop-blur-md shadow-sm">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-[#E8B200] fill-none stroke-2 opacity-80"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span className="font-sans text-[10px] font-bold text-white/80 tracking-widest uppercase">{monthLabel}</span>
+                  </div>
+                  <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full border border-white/10 shadow-md object-cover" />
+                </div>
+
+                <div className="shrink-0 mb-6 mt-4">
+                  <div className="font-sans text-[9px] font-bold text-white/40 tracking-[0.15em] uppercase mb-1.5">Ce que j'ai regardé</div>
+                  <div className="font-syne font-extrabold text-[34px] leading-[1.05] tracking-[-1px] text-white">
+                    Mes genres<br/>
+                    <span className="text-[#E8B200]">du mois</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col gap-4 justify-start min-h-0">
+                  {genresArray.map((entry, i) => {
+                    const [genreName, count] = entry;
+                    const pct = Math.round((count / maxGenreCount) * 100);
+                    
+                    const isFirst = i === 0;
+                    const isSecond = i === 1;
+                    const isThird = i === 2;
+                    
+                    const textSize = isFirst ? 'text-[15px] text-white' : isSecond ? 'text-[13px] text-white/80' : isThird ? 'text-[12px] text-white/70' : i === 3 ? 'text-[11px] text-white/50' : 'text-[10px] text-white/35';
+                    const trackHeight = isFirst ? 'h-[16px]' : isSecond ? 'h-[13px]' : isThird ? 'h-[11px]' : i === 3 ? 'h-[9px]' : 'h-[7px]';
+                    const fillBg = isFirst ? 'linear-gradient(90deg, #c49a10, #FFD341)' : isSecond ? 'linear-gradient(90deg, #383838, #555)' : isThird ? 'linear-gradient(90deg, #7E0000, #b03010)' : i === 3 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.1)';
+
+                    return (
+                      <div key={i} className="flex flex-col gap-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {MEDALS[i] && <span className="text-[12px] leading-none mb-0.5">{MEDALS[i]}</span>}
+                            <span className={`font-syne font-bold tracking-[-0.3px] ${textSize}`}>{genreName}</span>
+                          </div>
+                          <span className="font-sans text-[9px] font-semibold tracking-[0.04em] text-white/40">{count} film{count > 1 ? 's' : ''}</span>
+                        </div>
+                        <div className={`w-full rounded-[3px] overflow-hidden bg-white/5 ${trackHeight}`}>
+                          <div className="h-full rounded-[3px] transition-all duration-[1000ms] ease-[cubic-bezier(0.4,0,0.2,1)]" style={{ width: `${pct}%`, background: fillBg }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="h-[18%] shrink-0 flex items-center gap-0 overflow-hidden relative z-10 -mx-6 px-6 pt-3">
+                  <div className="font-sans text-[8.5px] font-bold text-[#1E1E1E]/40 tracking-[0.15em] uppercase mr-3 shrink-0">Langues</div>
+                  <div className="flex items-center flex-1 min-w-0 overflow-hidden gap-3">
+                    {langEntries.map((entry, i) => {
+                      const [langName, count] = entry;
+                      const pct = Math.round((count / totalLangsCount) * 100);
+                      return (
+                        <div key={i} className={`flex items-baseline gap-1 ${i !== 0 ? 'pl-3 border-l border-[#1E1E1E]/15' : ''}`}>
+                          <span className={`font-syne font-extrabold text-[20px] leading-none tracking-[-0.5px] ${i === 0 ? 'text-[#c49a10]' : 'text-[#1E1E1E]'}`}>{pct}%</span>
+                          <span className="font-sans text-[9px] font-bold text-[#1E1E1E]/60 tracking-[0.1em] uppercase">{langName}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* ────────────────────────────────────────────────── */}
+            {/* SLIDE 5 : TOP / FLOP */}
+            {/* ────────────────────────────────────────────────── */}
+            <div className="rw-slide w-1/6 h-full relative overflow-hidden font-sans" id="rw-slide-5">
+              
+              <div className="absolute left-0 right-0 top-0 w-full h-1/2 overflow-hidden bg-[#0A0A0A]">
+                {currentData?.bestMovie?.affiche && (
+                  <img 
+                    src={getPosterUrl(currentData.bestMovie.affiche)} 
+                    crossOrigin="anonymous" 
+                    className="absolute inset-0 w-full h-full object-cover object-top z-0 saturate-[0.8] brightness-[0.55]" 
+                    alt="Affiche" 
+                  />
+                )}
+                <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.82) 100%)' }}></div>
+                
+                <div className="absolute inset-0 z-10 flex flex-col justify-end px-6 pb-6">
+                  <div className="flex items-center gap-1.5 font-sans font-bold text-[9px] tracking-[0.16em] uppercase text-white/55 mb-1.5">
+                    <span className="block w-[18px] h-[2px] bg-[#E8B200] rounded-[2px]"></span>
+                    Coup de cœur
+                  </div>
+                  <div className="font-syne font-extrabold text-[24px] leading-[1.05] tracking-[-0.5px] text-white mb-2 line-clamp-2">
+                    {currentData?.bestMovie?.titre || '—'}
+                  </div>
+                  {renderStars(parseFloat(String(currentData?.bestMovie?.note || 0).replace(',', '.')), true)}
+                  
+                  <div className="flex items-center gap-1.5 mt-3">
+                    {currentData?.bestMovie?.coupDeCoeur && <span className="text-[16px] leading-none">❤️</span>}
+                    {(currentData?.bestMovie?.capucine || currentData?.bestMovie?.capucines) && (
+                      <img src="https://i.imgur.com/lg1bkrO.png" crossOrigin="anonymous" className="w-[20px] h-[20px] rounded-full shadow-md object-cover" alt="Capucines" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-white/15 z-20"></div>
+
+              <div className="absolute left-0 right-0 bottom-0 w-full h-1/2 overflow-hidden bg-[#F5F2EC]">
+                {currentData?.worstMovie?.affiche && (
+                  <img 
+                    src={getPosterUrl(currentData.worstMovie.affiche)} 
+                    crossOrigin="anonymous" 
+                    className="absolute inset-0 w-full h-full object-cover object-top z-0 saturate-[0.5] brightness-[0.75] sepia-[0.15]" 
+                    alt="Affiche" 
+                  />
+                )}
+                <div className="absolute inset-x-0 -bottom-[2px] top-0 z-[1]" style={{ background: 'linear-gradient(180deg, rgba(245,242,236,0.2) 0%, rgba(245,242,236,0.05) 25%, rgba(245,242,236,0.65) 65%, rgba(245,242,236,0.92) 100%)' }}></div>
+                
+                <div className="absolute inset-0 z-10 flex flex-col justify-end px-6 pb-6">
+                  <div className="flex items-center gap-1.5 font-sans font-bold text-[9px] tracking-[0.16em] uppercase text-[#1E1E1E]/45 mb-1.5">
+                    <span className="block w-[18px] h-[2px] bg-[#1E1E1E]/30 rounded-[2px]"></span>
+                    À oublier
+                  </div>
+                  <div className="font-syne font-extrabold text-[24px] leading-[1.05] tracking-[-0.5px] text-[#1E1E1E] mb-2 line-clamp-2">
+                    {currentData?.worstMovie?.titre || '—'}
+                  </div>
+                  {renderStars(parseFloat(String(currentData?.worstMovie?.note || 0).replace(',', '.')), false)}
+                  
+                  <div className="flex items-center gap-1.5 mt-3">
+                    {currentData?.worstMovie?.coupDeCoeur && <span className="text-[16px] leading-none">❤️</span>}
+                    {(currentData?.worstMovie?.capucine || currentData?.worstMovie?.capucines) && (
+                      <img src="https://i.imgur.com/lg1bkrO.png" crossOrigin="anonymous" className="w-[20px] h-[20px] rounded-full shadow-md object-cover" alt="Capucines" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-30">
+                <div className="inline-flex items-center gap-2 bg-black/40 border border-white/15 rounded-full px-3.5 py-1.5 backdrop-blur-md shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-[#E8B200] fill-none stroke-2 opacity-80"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span className="font-sans text-[10px] font-bold text-white/80 tracking-widest uppercase">{monthLabel}</span>
+                </div>
+                <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full border border-white/10 shadow-md object-cover" />
+              </div>
+            </div>
+
+            {/* ────────────────────────────────────────────────── */}
+            {/* SLIDE 6 : PROFIL CINÉPHILE */}
+            {/* ────────────────────────────────────────────────── */}
+            <div className="rw-slide w-1/6 h-full relative bg-[#0A0A0A] font-sans overflow-hidden" id="rw-slide-6">
+              
+              <div className="rw-glow-a"></div>
+              <div className="rw-glow-b"></div>
+
+              <div className="absolute top-6 left-6 right-6 z-30 flex justify-between items-start">
+                <div className="inline-flex items-center gap-2 bg-black/40 border border-white/15 rounded-full px-3.5 py-1.5 backdrop-blur-md shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-[#E8B200] fill-none stroke-2 opacity-80"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span className="font-sans text-[10px] font-bold text-white/80 tracking-widest uppercase">{monthLabel}</span>
+                </div>
+                <img src={INSTA_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-full border border-white/10 shadow-md object-cover" />
+              </div>
+
+              <div className="absolute top-[85px] left-4 right-4 z-20 flex flex-col border border-white/10 rounded-[14px] p-4 bg-white/5 backdrop-blur-md shadow-xl">
+                
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-sans text-[8px] font-bold text-white/20 tracking-[0.18em] uppercase">Profil ciné du mois</span>
+                  <span className="font-sans text-[8px] font-medium text-white/20 tracking-[0.1em]">— {monthNum} / {year}</span>
+                </div>
+
+                <div className="font-sans text-[8px] font-semibold text-white/30 tracking-[0.14em] uppercase mb-1">
+                  Archétype du mois
+                </div>
+                <div className="font-syne font-extrabold text-[clamp(32px,10vw,48px)] leading-[0.92] text-white tracking-[-2px] mb-2 break-words">
+                  {archNameParts[0]}<br/>
+                  {archNameParts[1] && <span className="text-[#E8B200]">{archNameParts[1]}</span>}
+                </div>
+                
+                <div className="font-sans text-[9.5px] font-light text-white/40 leading-[1.5]">
+                  {archetype.desc}
+                </div>
+
+                <div className="w-full h-px bg-white/10 my-3"></div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="font-sans text-[7.5px] font-semibold text-white/25 tracking-[0.14em] uppercase mb-1">
+                      Genre dominant
+                    </div>
+                    <div className="font-syne font-bold text-[18px] leading-none text-white tracking-[-0.6px]">
+                      <span className="text-[13px] tracking-[-0.3px]">{topGenre}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="font-sans text-[7.5px] font-semibold text-white/25 tracking-[0.14em] uppercase mb-1">
+                      Note moyenne
+                    </div>
+                    <div className="font-syne font-bold text-[18px] leading-none text-white tracking-[-0.6px] flex items-baseline">
+                      {currentData?.averageRating?.toFixed(1) || 0}
+                      <span className="font-normal text-[11px] text-[#E8B200] ml-1 tracking-normal">/ 5</span>
+                    </div>
+                    <div className="mt-1.5">
+                      {renderStars(currentData?.averageRating || 0, true, "w-[10px] h-[10px]")}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-6 p-4 pb-5 border-t border-white/10 z-20">
+                <div className="font-syne font-semibold text-[10.5px] text-white/30 tracking-[-0.2px] leading-[1.5]">
+                  Rendez-vous début <strong className="text-white/60 font-extrabold">{nextMonthLabel}</strong><br/>
+                  pour découvrir mon prochain profil
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* STEPPER STUDIO */}
+      <div className="mx-5 mt-4">
+        <div className="flex items-center gap-1.5">
+          {SLIDE_NAMES.map((_, i) => (
+            <div key={i} onClick={() => goToSlide(i)} className={`flex-1 h-1 rounded-full cursor-pointer transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`} />
+          ))}
+        </div>
+      </div>
+
+      {/* EXPORT ACTIONS */}
+      <div className="mx-5 mt-6 mb-12 flex flex-col gap-3">
+        <button onClick={handleDownloadAll} disabled={isDownloading} className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-sans font-extrabold text-sm transition-all ${isDownloading ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95'}`}>
+          {isDownloading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"></div> : <><Layers size={18} strokeWidth={2.5}/>Tout télécharger (6 slides)</>}
+        </button>
+        <button onClick={handleDownload} disabled={isDownloading} className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-xs text-white/70 bg-white/5 border border-white/10 active:scale-95 transition-all">
+          <Download size={14} strokeWidth={2.5}/>Uniquement cette slide — {SLIDE_NAMES[currentSlide]}
+        </button>
+      </div>
+
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,46 +1075,194 @@ async function renderStoryToCanvas(canvas, params) {
 function LockScreen({ onUnlock }) {
   const [password, setPassword] = useState('');
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 pb-[env(safe-area-inset-bottom)]">
       <div className="w-20 h-20 bg-white/5 rounded-full border border-white/10 flex items-center justify-center mb-6 shadow-2xl">
-        <svg className="w-8 h-8 text-[var(--color-primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
+        <svg className="w-8 h-8 text-[#E8B200]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </div>
       <h2 className="font-syne font-black text-3xl mb-2 text-white">Zone Sécurisée</h2>
-      <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}}
-        className="flex flex-col gap-4 w-full max-w-xs">
-        <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)}
-          className="bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[var(--color-primary)] transition-colors text-white"/>
-        <button type="submit" className="bg-[var(--color-primary)] text-black font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform">Déverrouiller</button>
+      <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}} className="flex flex-col gap-4 w-full max-w-xs">
+        <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-sans font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white"/>
+        <button type="submit" className="bg-[#E8B200] text-black font-syne font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm">Déverrouiller</button>
       </form>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STUDIO HUB
+// STUDIO HUB (Correction Premium : Plus d'emojis !)
 // ─────────────────────────────────────────────────────────────────────────────
-function StudioHub({ isScrolled, onSelectTool, onLock }) {
+function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
+  
+  // Fonction utilitaire pour le proxy de l'affiche (si disponible)
+  const getPosterUrl = (url) => {
+    if (!url) return '';
+    const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
+    return `${proxyBase}?url=${encodeURIComponent(url)}`;
+  };
+
+  const bgImage = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 bg-[var(--color-bg)]/80 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-sans bg-[#0C0C0E] min-h-screen text-[#F0EEF5]">
+      
+      {/* HEADER FIXE */}
+      <header className={`z-40 sticky top-0 w-full transition-all duration-500 bg-[#0C0C0E]/90 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
         <div className="px-6 flex justify-between items-center">
           <h1 className={`font-syne font-black text-white leading-none transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>Studio</h1>
-          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
         </div>
       </header>
-      <main className="px-6 pt-6 space-y-4">
-        <div onClick={() => onSelectTool('recap')} className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-3xl p-6 cursor-pointer active:scale-95 transition-all">
-          <h3 className="font-syne font-black text-2xl text-white mb-2">Récap' Mensuel</h3>
-          <p className="text-xs text-white/50 font-medium">Génère tes statistiques du mois.</p>
+
+      <main className="pt-6 space-y-8 pb-12">
+        
+        {/* SECTION 1 : LE HERO (BLOCKBUSTER) */}
+        <div className="px-6">
+          <h2 className="font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
+          
+          <div className="relative cursor-pointer group" onClick={() => onSelectTool('recap')}>
+            {/* Effet de cartes empilées (Stack) */}
+            <div className="absolute inset-0 bg-white/5 border border-white/5 rounded-3xl transform rotate-3 scale-95 transition-transform group-hover:rotate-6 group-active:scale-90 origin-bottom-right"></div>
+            <div className="absolute inset-0 bg-white/10 border border-white/10 rounded-3xl transform -rotate-2 scale-[0.98] transition-transform group-hover:-rotate-4 group-active:scale-95 origin-bottom-left"></div>
+            
+            {/* Carte Principale Premium (Noir profond + Or) */}
+            <div className="relative bg-[#050505] border border-white/10 rounded-3xl p-6 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-all duration-500 group-hover:border-[#E8B200]/40 group-active:scale-[0.98] aspect-[4/3] flex flex-col justify-between">
+              
+              {/* Texture de fond discret (Grain de film) */}
+              <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
+
+              {/* L'EFFET SHINE (Le balayage lumineux diagonale) */}
+              <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-3xl">
+                <div className="absolute top-0 bottom-0 w-32 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-[30deg] animate-studio-shine"></div>
+              </div>
+
+              {/* Halos de lumière (Or + Bleu Nuit pour profondeur) */}
+              <div className="absolute -top-24 -right-24 w-80 h-80 bg-[#E8B200]/15 rounded-full blur-[80px] group-hover:bg-[#E8B200]/25 transition-colors duration-700"></div>
+              <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-blue-950/10 rounded-full blur-[80px]"></div>
+              
+              {/* Contenu Haut */}
+              <div className="relative z-20 flex justify-between items-start">
+                {/* Badge OR */}
+                <div className="bg-[#E8B200] border border-[#E8B200]/50 rounded-full px-3 py-1 flex items-center gap-2 shadow-[0_0_20px_rgba(232,178,0,0.25)]">
+                  <Layers size={11} className="text-black" strokeWidth={3} />
+                  <span className="font-black text-[9px] text-black uppercase tracking-[0.1em]">6 Slides</span>
+                </div>
+                {/* Icône minimaliste au lieu de l'emoji */}
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl group-hover:border-[#E8B200]/50 transition-colors">
+                   <Film size={18} className="text-white/70 group-hover:text-[#E8B200] group-hover:scale-110 transition-all" strokeWidth={1.5} />
+                </div>
+              </div>
+
+              {/* Contenu Bas */}
+              <div className="relative z-20">
+                <div className="flex items-center gap-2.5 mb-2.5">
+                    <div className="h-[1px] w-9 bg-[#E8B200]/60"></div>
+                    <span className="font-sans font-bold text-[9px] text-[#E8B200] uppercase tracking-[0.35em] opacity-90">Rewind exclusif</span>
+                </div>
+                <h3 className="font-syne font-black text-4xl text-white leading-[0.95] tracking-tighter mb-3">
+                  Récap'<br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8B200] via-[#FFD341] to-[#E8B200] bg-[length:200%_auto] animate-gradient-x animate-title-glow">Mensuel</span>
+                </h3>
+                <p className="text-sm text-white/50 font-medium max-w-[88%] leading-relaxed">
+                  Générez votre <span className="text-white">fresque narrative</span> et partagez vos moments forts du mois.
+                </p>
+              </div>
+
+              {/* Indicateur de swipe discret */}
+              <div className="absolute bottom-4 right-6 opacity-30 group-hover:opacity-100 transition-opacity">
+                <ChevronRight className="text-white group-hover:translate-x-1.5 transition-transform" size={20} strokeWidth={2.5}/>
+              </div>
+            </div>
+          </div>
         </div>
-        <div onClick={() => onSelectTool('seance')} className="bg-gradient-to-tr from-white/10 to-transparent border border-white/10 rounded-3xl p-5 cursor-pointer active:scale-95 transition-all">
-          <h3 className="font-syne font-black text-lg text-white mb-1">Séance</h3>
-          <p className="text-[10px] text-white/50 font-medium">Annonce ton film en story.</p>
+
+        {/* SECTION 2 : GALERIE OUTILS RAPIDES */}
+        <div>
+          <h2 className="px-6 font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
+          
+          <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
+            
+            {/* CARTE 1 : STORY SÉANCE */}
+            <div 
+              onClick={() => onSelectTool('seance')} 
+              className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]"
+            >
+              {/* Image de fond (Affiche) ou Motif Abstrait */}
+              {bgImage ? (
+                <>
+                  <img src={bgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
+                </>
+              ) : (
+                <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#121212] to-[#050505] opacity-80">
+                  {/* Bruit / Motif */}
+                  <div className="absolute inset-0 mix-blend-overlay opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
+                </div>
+              )}
+
+              {/* Contenu */}
+              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
+                {/* Remplacement emoji 🍿 par icône minimaliste */}
+                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
+                  <Ticket size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5}/>
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Story<br/>Séance</h3>
+                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
+                    {pendingFilm ? `Annonce "${pendingFilm.titre}"` : "Annonce ton prochain film."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CARTE 2 : PLACEHOLDER (Bientôt) */}
+            <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col">
+              {/* Fond strié/hachuré discret pour montrer l'indisponibilité */}
+               <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
+              
+              <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
+                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center self-end">
+                  <Star size={15} className="text-white/60" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Avis<br/>Express</h3>
+                  <p className="text-[10px] text-white/50 font-medium leading-snug">Partage ta critique à chaud.</p>
+                </div>
+              </div>
+
+              {/* Badge Bientôt centré */}
+              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">
+                  Bientôt
+                </div>
+              </div>
+            </div>
+
+            {/* CARTE 3 : PLACEHOLDER (Bientôt) */}
+            <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col mr-6">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
+              
+              <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
+                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center self-end">
+                  <Sparkles size={15} className="text-white/60" strokeWidth={1.5}/>
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Top 10<br/>Annuel</h3>
+                  <p className="text-[10px] text-white/50 font-medium leading-snug">Le classement ultime.</p>
+                </div>
+              </div>
+
+              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">
+                  Bientôt
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
+
       </main>
     </div>
   );
@@ -446,7 +1405,7 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
         </div>
 
         {/* EDITOR */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-5 text-white">
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-12 text-white">
           <div>
             <label className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3 block">
               Hype Meter — <span className="text-white/70">{EXPECTATIONS[expectation].label}</span>
@@ -459,10 +1418,6 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
               ))}
             </div>
           </div>
-        </div>
-
-        {/* ACTIONS */}
-        <div className="flex flex-col gap-3">
           <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden"/>
           <button onClick={() => fileInputRef.current?.click()}
             className="w-full h-14 rounded-2xl bg-white/5 text-white/80 font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10 hover:bg-white/10">
@@ -473,49 +1428,48 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
             </svg>
             Changer l'affiche manuellement
           </button>
-          <button onClick={downloadStory} disabled={isDownloading || !title.trim()}
-            className="w-full h-16 rounded-2xl bg-[var(--color-primary)] text-black font-syne font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100">
-            {isDownloading
-              ? <div className="w-6 h-6 border-2 border-black border-t-transparent animate-spin rounded-full"/>
-              : (<><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-                </svg>Partager la Story</>)}
-          </button>
         </div>
 
-        <p className="text-center text-white/25 text-xs">Story générée en 1080×1920px — partage natif sur iOS</p>
+        {/* ACTIONS */}
+        <div className="flex flex-col gap-3">
+          <button 
+  onClick={downloadStory} 
+  disabled={isDownloading || !title.trim()} 
+  className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-sans font-extrabold text-sm transition-all 
+    ${isDownloading || !title.trim() 
+      ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' 
+      : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95 hover:shadow-[0_8px_32px_rgba(232,178,0,0.4)]'
+    }`}
+>
+  {isDownloading ? (
+    <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"></div>
+  ) : (
+    <>
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16 6 12 2 8 6"/>
+        <line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+      Partager la Story
+    </>
+  )}
+</button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RECAP TOOL (placeholder)
-// ─────────────────────────────────────────────────────────────────────────────
-function RecapTool({ onBack }) {
-  return (
-    <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E]">
-      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <h2 className="font-syne font-black text-lg">Récap Mensuel</h2>
-        <div className="w-10"/>
-      </header>
-      <div className="p-6 text-center text-white/50"><p>Bientôt disponible…</p></div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT
+// ROOT EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 export function Studio({ historyData, pendingFilm, isScrolled }) {
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('grandecran_studio_unlocked') === 'true');
   const [activeTool, setActiveTool] = useState(null);
 
   if (!isUnlocked) return <LockScreen onUnlock={() => { setIsUnlocked(true); localStorage.setItem('grandecran_studio_unlocked', 'true'); }}/>;
-  if (activeTool === 'recap')  return <RecapTool onBack={() => setActiveTool(null)}/>;
+  if (activeTool === 'recap')  return <RecapTool onBack={() => setActiveTool(null)} historyData={historyData} />;
   if (activeTool === 'seance') return <SeanceStoryTool historyData={historyData} pendingFilm={pendingFilm} onBack={() => setActiveTool(null)}/>;
-  return <StudioHub isScrolled={isScrolled} onSelectTool={setActiveTool} onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }}/>;
+  return <StudioHub isScrolled={isScrolled} onSelectTool={setActiveTool} onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }} pendingFilm={pendingFilm}/>;
 }

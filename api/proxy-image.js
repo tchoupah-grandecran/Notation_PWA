@@ -1,7 +1,3 @@
-// api/proxy-image.js
-// Route API Vercel — Proxy d'images pour contourner les restrictions CORS (TMDB, etc.)
-// Déployez ce fichier dans le dossier /api de votre projet Vercel.
-
 export default async function handler(req, res) {
   const { url } = req.query;
 
