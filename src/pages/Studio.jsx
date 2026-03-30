@@ -1,87 +1,61 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHARGEMENT D'IMAGE ANTI-CORS
+// IMAGE LOADING
 // ─────────────────────────────────────────────────────────────────────────────
-/**
- * Charge une image externe via fetch() → blob → objectURL.
- *
- * Pourquoi ça marche là où img.crossOrigin="anonymous" échoue :
- * - fetch() avec mode:'cors' reçoit les headers CORS que TMDB envoie bien
- * - Le blob résultant est LOCAL → zéro restriction canvas, même sur iOS Safari
- *
- * En dev Vite   → proxy /tmdb-proxy défini dans vite.config.js (fallback)
- * En prod Vercel → proxy /api/proxy-image (fallback)
- */
-async function loadImageForCanvas(originalUrl) {
-  if (!originalUrl) return null;
-
-  // URLs locales ou data: → chargement direct
-  if (originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || originalUrl.startsWith('/')) {
-    return loadImgElement(originalUrl);
-  }
-
-  // Stratégie 1 : fetch direct avec CORS (TMDB l'autorise)
-  try {
-    const resp = await fetch(originalUrl, { mode: 'cors', cache: 'force-cache' });
-    if (resp.ok) {
-      const blobUrl = URL.createObjectURL(await resp.blob());
-      return await loadImgElement(blobUrl);
-    }
-  } catch (_) { /* CORS bloqué → stratégie 2 */ }
-
-  // Stratégie 2 : proxy
-  const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
-  try {
-    const resp = await fetch(`${proxyBase}?url=${encodeURIComponent(originalUrl)}`, { cache: 'force-cache' });
-    if (resp.ok) {
-      const blobUrl = URL.createObjectURL(await resp.blob());
-      return await loadImgElement(blobUrl);
-    }
-  } catch (_) { /* ignore */ }
-
-  return null;
-}
 
 function loadImgElement(src) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload  = () => resolve(img);
     img.onerror = () => resolve(null);
+    img.crossOrigin = 'anonymous';
     img.src = src;
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UTILITAIRES CANVAS
-// ─────────────────────────────────────────────────────────────────────────────
+async function loadImageForCanvas(originalUrl) {
+  if (!originalUrl) return null;
+  if (originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || originalUrl.startsWith('/'))
+    return loadImgElement(originalUrl);
 
-// Flou compatible iOS Safari (pas de ctx.filter) : downscale → upscale
-function drawBlurredImage(ctx, img, x, y, w, h, blurRadius = 20) {
-  if (!img) return;
-  const f  = Math.max(1, blurRadius);
-  const sw = Math.max(1, Math.round(w / f));
-  const sh = Math.max(1, Math.round(h / f));
-  const off    = document.createElement('canvas');
-  off.width    = sw;
-  off.height   = sh;
-  const offCtx = off.getContext('2d');
-  const ir = img.width / img.height, tr = w / h;
-  let sx, sy, iw, ih;
-  if (ir > tr) { ih = img.height; iw = ih * tr; sx = (img.width - iw) / 2; sy = 0; }
-  else         { iw = img.width;  ih = iw / tr; sx = 0; sy = (img.height - ih) / 2; }
-  offCtx.drawImage(img, sx, sy, iw, ih, 0, 0, sw, sh);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(off, 0, 0, sw, sh, x, y, w, h);
+  try {
+    const resp = await fetch(originalUrl, { mode: 'cors', cache: 'force-cache' });
+    if (resp.ok) return loadImgElement(URL.createObjectURL(await resp.blob()));
+  } catch (_) {}
+
+  const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
+  try {
+    const resp = await fetch(`${proxyBase}?url=${encodeURIComponent(originalUrl)}`, { cache: 'force-cache' });
+    if (resp.ok) return loadImgElement(URL.createObjectURL(await resp.blob()));
+  } catch (_) {}
+
+  return null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANVAS UTILS
+// ─────────────────────────────────────────────────────────────────────────────
 
 function drawImageCover(ctx, img, x, y, w, h) {
   if (!img) return;
-  const ir = img.width / img.height, tr = w / h;
+  // Calcule le plus grand rectangle source qui couvre exactement w×h (object-fit: cover)
+  const imgRatio    = img.naturalWidth  / img.naturalHeight;
+  const targetRatio = w / h;
   let sx, sy, sw, sh;
-  if (ir > tr) { sh = img.height; sw = sh * tr; sx = (img.width - sw) / 2; sy = 0; }
-  else         { sw = img.width;  sh = sw / tr; sx = 0; sy = (img.height - sh) / 2; }
+  if (imgRatio > targetRatio) {
+    // Image plus large → recadre la largeur, garde toute la hauteur
+    sh = img.naturalHeight;
+    sw = sh * targetRatio;
+    sx = (img.naturalWidth - sw) / 2;
+    sy = 0;
+  } else {
+    // Image plus haute → recadre la hauteur, garde toute la largeur
+    sw = img.naturalWidth;
+    sh = sw / targetRatio;
+    sx = 0;
+    sy = (img.naturalHeight - sh) / 2;
+  }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
@@ -108,11 +82,12 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTES
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 const STORY_W = 1080;
 const STORY_H = 1920;
 const GOLD    = '#E8B200';
+const FONT    = 'system-ui,-apple-system,sans-serif';
 
 const EXPECTATIONS = [
   { label: 'Sceptique',      barHex: 'rgba(255,255,255,0.45)' },
@@ -123,7 +98,7 @@ const EXPECTATIONS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MOTEUR DE RENDU CANVAS
+// RENDER ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderStoryToCanvas(canvas, params) {
   const { title, date, time, lang, expectation, posterImg, screeningLabel } = params;
@@ -131,20 +106,12 @@ async function renderStoryToCanvas(canvas, params) {
   canvas.width  = STORY_W;
   canvas.height = STORY_H;
 
-  // Fond noir
+  // 1. BACKGROUND ─────────────────────────────────────────────────────────────
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 
-  // Affiche
-  if (posterImg) {
-    ctx.save();
-    ctx.globalAlpha = 0.38;
-    drawBlurredImage(ctx, posterImg, -120, -120, STORY_W + 240, STORY_H + 240, 28);
-    ctx.globalAlpha = 0.88;
-    drawImageCover(ctx, posterImg, 0, 0, STORY_W, STORY_H);
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  }
+  // Affiche : cover strict — garantit que TOUTE la story est couverte
+  if (posterImg) drawImageCover(ctx, posterImg, 0, 0, STORY_W, STORY_H);
 
   // Dégradé lisibilité
   const grad = ctx.createLinearGradient(0, 0, 0, STORY_H);
@@ -155,84 +122,124 @@ async function renderStoryToCanvas(canvas, params) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 
-  // ── Badge séance
-  ctx.font = 'bold 34px system-ui,-apple-system,sans-serif';
-  const badgeText = screeningLabel.toUpperCase();
-  const badgeW = ctx.measureText(badgeText).width + 96;
-  const badgeH = 90, bX = 64, bY = 120;
+  // 2. UI CONTENT ─────────────────────────────────────────────────────────────
   ctx.save();
-  ctx.globalAlpha = 0.88;
-  ctx.fillStyle = '#1C1C1E';
-  roundRect(ctx, bX, bY, badgeW, badgeH, badgeH / 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.globalAlpha = 1; ctx.restore();
-  ctx.fillStyle = '#FFF'; ctx.textBaseline = 'middle';
-  ctx.fillText(badgeText, bX + 48, bY + badgeH / 2);
+  ctx.translate(0, 100);
 
-  // ── Titre
-  const MAX_W = STORY_W - 128;
+  const LEFT   = 64;
+  const MAX_W  = STORY_W - LEFT * 2;
+
+  // Titre : calcul taille
   let fsize = 108;
   ctx.textBaseline = 'top';
+  const textToMeasure = title || 'Titre du film';
   while (fsize > 60) {
-    ctx.font = `900 ${fsize}px system-ui,-apple-system,sans-serif`;
-    if (wrapText(ctx, title || 'Titre du film', MAX_W).length <= 3) break;
+    ctx.font = `900 ${fsize}px ${FONT}`;
+    if (wrapText(ctx, textToMeasure, MAX_W).length <= 3) break;
     fsize -= 8;
   }
-  const titleLines = wrapText(ctx, title || 'Titre du film', MAX_W);
-  const lineH      = fsize;
-  const BOTTOM_TOP = STORY_H - 680;
-  const titleY     = BOTTOM_TOP - titleLines.length * lineH - 40;
+  const titleLines  = wrapText(ctx, textToMeasure, MAX_W);
+  const lineH       = fsize;
+  const BOTTOM_ANCHOR = STORY_H - 680;
+  const titleY      = BOTTOM_ANCHOR - titleLines.length * lineH;
+
+  // Badge séance
+  ctx.font = `bold 30px ${FONT}`;
+  const badgeText = screeningLabel.toUpperCase();
+  const badgeW    = ctx.measureText(badgeText).width + 40;
+  const badgeH    = 60;
+  const bY        = titleY - badgeH - 30;
+
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle   = '#1C1C1E';
+  roundRect(ctx, LEFT, bY, badgeW, badgeH, badgeH / 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle   = 'rgba(255,255,255,0.9)';
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillText(badgeText, LEFT + 20, bY + badgeH / 2);
+
+  // Titre
+  ctx.textBaseline = 'top';
+  ctx.font = `900 ${fsize}px ${FONT}`;
   ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 6;
-  ctx.fillStyle = '#FFF';
-  titleLines.forEach((l, i) => ctx.fillText(l, 64, titleY + i * lineH));
+  ctx.fillStyle   = '#FFF';
+  titleLines.forEach((l, i) => ctx.fillText(l, LEFT, titleY + i * lineH));
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-  // ── Badges info (Date / Heure / Langue)
-  const BFONT = 'bold 42px system-ui,-apple-system,sans-serif';
-  const BH = 88, BY = BOTTOM_TOP + 20;
+  // Badges info
+  const BFONT = `bold 42px ${FONT}`;
+  const BH    = 88;
+  const BY    = titleY + titleLines.length * lineH + 40;
   ctx.font = BFONT; ctx.textBaseline = 'middle';
-  let bx = 64;
-  for (const [txt, accent] of [[date, false], [time.replace(':', 'h'), false], [lang, true]]) {
-    const bw = ctx.measureText(txt).width + 80;
-    
-    // Dessin du fond du badge
+  let bx = LEFT;
+
+  const badgesInfo = [
+    { text: date,                  type: 'calendar' },
+    { text: time.replace(':', 'h'), type: 'clock'    },
+    { text: lang,                  type: 'globe'     },
+  ];
+
+  for (const badge of badgesInfo) {
+    const iconSize = 34, gap = 14, px = 32;
+    const bw = px + iconSize + gap + ctx.measureText(badge.text).width + px;
+
     ctx.save();
-    ctx.globalAlpha = 0.92; 
-    ctx.fillStyle = '#1C1C1E';
-    roundRect(ctx, bx, BY, bw, BH, BH / 2); 
-    ctx.fill();
-    
-    // Bordure uniforme pour tous les badges (blanc transparent)
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 2; 
-    ctx.stroke(); 
-    ctx.globalAlpha = 1; 
+    ctx.globalAlpha = 0.92; ctx.fillStyle = '#1C1C1E';
+    roundRect(ctx, bx, BY, bw, BH, BH / 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.restore();
-    
-    // Texte en blanc pour tous les badges
-    ctx.fillStyle = '#FFF';
-    ctx.font = BFONT;
-    ctx.fillText(txt, bx + 40, BY + BH / 2);
-    
+
+    // Icône
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const ix = bx + px, iy = BY + (BH - iconSize) / 2;
+    ctx.translate(ix, iy);
+    ctx.scale(iconSize / 24, iconSize / 24);
+    ctx.beginPath();
+    if (badge.type === 'calendar') {
+      ctx.moveTo(5, 4); ctx.lineTo(19, 4); ctx.arcTo(21, 4, 21, 6, 2);
+      ctx.lineTo(21, 20); ctx.arcTo(21, 22, 19, 22, 2);
+      ctx.lineTo(5, 22); ctx.arcTo(3, 22, 3, 20, 2);
+      ctx.lineTo(3, 6); ctx.arcTo(3, 4, 5, 4, 2);
+      ctx.moveTo(16, 2); ctx.lineTo(16, 6);
+      ctx.moveTo(8, 2); ctx.lineTo(8, 6);
+      ctx.moveTo(3, 10); ctx.lineTo(21, 10);
+    } else if (badge.type === 'clock') {
+      ctx.arc(12, 12, 10, 0, Math.PI * 2);
+      ctx.moveTo(12, 6); ctx.lineTo(12, 12); ctx.lineTo(16, 14);
+    } else {
+      ctx.arc(12, 12, 10, 0, Math.PI * 2);
+      ctx.moveTo(2, 12); ctx.lineTo(22, 12);
+      ctx.moveTo(12, 2); ctx.ellipse(12, 12, 4, 10, 0, -Math.PI / 2, Math.PI * 1.5);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#FFF'; ctx.font = BFONT; ctx.textAlign = 'left';
+    ctx.fillText(badge.text, ix + iconSize + gap, BY + BH / 2);
     bx += bw + 18;
   }
 
-  // ── Hype Meter card
-  const CX = 64, CY = BY + BH + 50, CW = STORY_W - 128, CH = 260, CR = 56;
+  // Hype Meter card
+  const CX = LEFT, CY = BY + BH + 50, CW = STORY_W - LEFT * 2, CH = 260, CR = 56;
   ctx.save();
   ctx.globalAlpha = 0.72; ctx.fillStyle = '#000';
   roundRect(ctx, CX, CY, CW, CH, CR); ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.globalAlpha = 1; ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = 'bold 28px system-ui,-apple-system,sans-serif'; ctx.textBaseline = 'top';
+  ctx.font = `bold 28px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   ctx.fillText('HYPE  METER', CX + 52, CY + 44);
   ctx.fillStyle = '#FFF';
-  ctx.font = `900 italic 68px system-ui,-apple-system,sans-serif`;
+  ctx.font = `900 italic 68px ${FONT}`;
   ctx.fillText(EXPECTATIONS[expectation].label, CX + 52, CY + 82);
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.font = `900 italic 88px system-ui,-apple-system,sans-serif`;
+  ctx.font = `900 italic 88px ${FONT}`;
   ctx.textAlign = 'right';
   ctx.fillText(`${expectation + 1}/5`, CX + CW - 52, CY + 54);
   ctx.textAlign = 'left';
@@ -246,12 +253,13 @@ async function renderStoryToCanvas(canvas, params) {
     ctx.fill();
   }
   ctx.shadowBlur = 0;
+  ctx.restore();
 
   return canvas;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 1. Écran de verrouillage
+// LOCK SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 function LockScreen({ onUnlock }) {
   const [password, setPassword] = useState('');
@@ -263,7 +271,8 @@ function LockScreen({ onUnlock }) {
         </svg>
       </div>
       <h2 className="font-syne font-black text-3xl mb-2 text-white">Zone Sécurisée</h2>
-      <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}} className="flex flex-col gap-4 w-full max-w-xs">
+      <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}}
+        className="flex flex-col gap-4 w-full max-w-xs">
         <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)}
           className="bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[var(--color-primary)] transition-colors text-white"/>
         <button type="submit" className="bg-[var(--color-primary)] text-black font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform">Déverrouiller</button>
@@ -273,7 +282,7 @@ function LockScreen({ onUnlock }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 2. Hub Studio
+// STUDIO HUB
 // ─────────────────────────────────────────────────────────────────────────────
 function StudioHub({ isScrolled, onSelectTool, onLock }) {
   return (
@@ -301,30 +310,30 @@ function StudioHub({ isScrolled, onSelectTool, onLock }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 3. Outil Story Séance
+// SEANCE STORY TOOL
 // ─────────────────────────────────────────────────────────────────────────────
 function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
-  const [title,         setTitle]       = useState(pendingFilm?.titre  || '');
-  const [date,          setDate]        = useState(pendingFilm?.date   || new Date().toLocaleDateString('fr-FR'));
-  const [time,          setTime]        = useState(pendingFilm?.heure  ? pendingFilm.heure.replace('h', ':') : '20:00');
-  const [lang,          setLang]        = useState(pendingFilm?.langue || 'VOSTFR');
-  const [expectation,   setExpectation] = useState(2);
+  const [title,         setTitle]         = useState(pendingFilm?.titre  || '');
+  const [date,          setDate]          = useState(pendingFilm?.date   || new Date().toLocaleDateString('fr-FR'));
+  const [time,          setTime]          = useState(pendingFilm?.heure  ? pendingFilm.heure.replace('h', ':') : '20:00');
+  const [lang,          setLang]          = useState(pendingFilm?.langue || 'VOSTFR');
+  const [expectation,   setExpectation]   = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [posterImg,     setPosterImg]   = useState(null);
+  const [posterImg,     setPosterImg]     = useState(null);
   const [posterLoading, setPosterLoading] = useState(false);
+  const [previewScale,  setPreviewScale]  = useState(0.3);
 
-  const previewRef      = useRef(null);
-  const wrapperRef      = useRef(null);
-  const renderParamsRef = useRef({});
-  const blobUrlsRef     = useRef([]); // blob URLs à révoquer
-  const [previewScale, setPreviewScale] = useState(0.3);
+  const previewRef   = useRef(null);
+  const wrapperRef   = useRef(null);
+  const fileInputRef = useRef(null);
+  const paramsRef    = useRef({});
+  const blobUrlsRef  = useRef([]);
 
-  // Numéro de séance
   const currentYear = date ? date.split('/')[2] : String(new Date().getFullYear());
   const yearlyScreeningNumber = (historyData || []).filter(f => f.date?.endsWith(currentYear)).length + 1;
   const screeningLabel = `${currentYear} — Séance #${yearlyScreeningNumber}`;
 
-  // Chargement affiche
+  // Charge l'affiche TMDB initiale
   useEffect(() => {
     if (!pendingFilm?.affiche) { setPosterImg(null); return; }
     setPosterLoading(true);
@@ -336,34 +345,25 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFilm?.affiche]);
 
-  // Nettoyage des blobs au démontage
+  // Libère les blob URLs à la destruction
+  useEffect(() => () => { blobUrlsRef.current.forEach(URL.revokeObjectURL); }, []);
+
+  // Ref toujours à jour pour le rendu
+  paramsRef.current = { title, date, time, lang, expectation, posterImg, screeningLabel };
+
+  // Re-render à chaque changement de paramètre
   useEffect(() => {
-    return () => { blobUrlsRef.current.forEach(URL.revokeObjectURL); };
-  }, []);
-
-  // Params toujours frais
-  renderParamsRef.current = { title, date, time, lang, expectation, posterImg, screeningLabel };
-
-  // Déclenche un rendu sur le canvas de prévisualisation
-  const triggerRender = useCallback(() => {
-    if (previewRef.current) renderStoryToCanvas(previewRef.current, renderParamsRef.current);
+    if (previewRef.current) renderStoryToCanvas(previewRef.current, paramsRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [title, date, time, lang, expectation, posterImg, screeningLabel]);
 
-  // Re-render à chaque changement
-  useEffect(() => { triggerRender(); },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [title, date, time, lang, expectation, posterImg, screeningLabel]
-  );
-
-  // Callback ref : premier rendu dès que le canvas entre dans le DOM
   const assignPreviewRef = useCallback((node) => {
     previewRef.current = node;
-    if (node) requestAnimationFrame(() => renderStoryToCanvas(node, renderParamsRef.current));
+    if (node) requestAnimationFrame(() => renderStoryToCanvas(node, paramsRef.current));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Scale de prévisualisation
+  // Scale du canvas de preview
   useEffect(() => {
     const update = () => { if (wrapperRef.current) setPreviewScale(wrapperRef.current.offsetWidth / STORY_W); };
     update();
@@ -371,19 +371,35 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Export + partage
+  // Upload d'une affiche personnalisée
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPosterLoading(true);
+    const objectUrl = URL.createObjectURL(file);
+    blobUrlsRef.current.push(objectUrl);
+    try {
+      const img = await loadImgElement(objectUrl);
+      setPosterImg(img);
+    } catch {
+      alert("Impossible de charger cette image.");
+    } finally {
+      setPosterLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const downloadStory = useCallback(async () => {
     if (isDownloading) return;
     setIsDownloading(true);
     try {
       const exportCanvas = document.createElement('canvas');
-      await renderStoryToCanvas(exportCanvas, renderParamsRef.current);
+      await renderStoryToCanvas(exportCanvas, paramsRef.current);
       exportCanvas.toBlob(async (blob) => {
         if (!blob) { alert('Erreur de génération.'); setIsDownloading(false); return; }
-        const { title: t, } = renderParamsRef.current;
         const file = new File([blob], `seance_${yearlyScreeningNumber}.png`, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try { await navigator.share({ files: [file], title: `Séance #${yearlyScreeningNumber} — ${t}` }); }
+        if (navigator.canShare?.({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: `Séance #${yearlyScreeningNumber} — ${paramsRef.current.title}` }); }
           catch (e) { if (e.name !== 'AbortError') console.error(e); }
         } else {
           const url = URL.createObjectURL(blob);
@@ -406,31 +422,30 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         <h2 className="font-syne font-black text-lg">Story Séance</h2>
-        <div className="w-10" />
+        <div className="w-10"/>
       </header>
 
-      <div className="px-6 py-6 flex flex-col gap-8">
+      <div className="px-6 py-6 flex flex-col gap-6">
 
-        {/* PRÉVISUALISATION */}
+        {/* PREVIEW */}
         <div ref={wrapperRef} className="w-full relative bg-black rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl" style={{ aspectRatio: '9/16' }}>
           {posterLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/60 rounded-[2rem]">
               <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                <span className="text-white/60 text-xs font-medium">Chargement de l'affiche…</span>
+                <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"/>
+                <span className="text-white/60 text-xs font-medium">Chargement...</span>
               </div>
             </div>
           )}
           <canvas
             ref={assignPreviewRef}
-            width={STORY_W}
-            height={STORY_H}
+            width={STORY_W} height={STORY_H}
             className="absolute top-0 left-0 origin-top-left"
             style={{ width: `${STORY_W}px`, height: `${STORY_H}px`, transform: `scale(${previewScale})` }}
           />
         </div>
 
-        {/* ÉDITEUR */}
+        {/* EDITOR */}
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-5 text-white">
           <div>
             <label className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3 block">
@@ -439,22 +454,34 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
             <div className="flex gap-2">
               {EXPECTATIONS.map((exp, i) => (
                 <button key={i} onClick={() => setExpectation(i)}
-                  className="flex-1 h-5 rounded-full transition-all active:scale-95"
+                  className="flex-1 h-3 rounded-full transition-all active:scale-95"
                   style={{ background: i <= expectation ? exp.barHex : 'rgba(255,255,255,0.1)', boxShadow: i === expectation ? `0 0 12px ${exp.barHex}` : 'none' }}/>
               ))}
             </div>
           </div>
         </div>
 
-        {/* BOUTON PARTAGER */}
-        <button onClick={downloadStory} disabled={isDownloading || !title.trim()}
-          className="w-full h-16 rounded-2xl bg-[var(--color-primary)] text-black font-syne font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100">
-          {isDownloading
-            ? <div className="w-6 h-6 border-2 border-black border-t-transparent animate-spin rounded-full"/>
-            : (<><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-               </svg>Partager la Story</>)}
-        </button>
+        {/* ACTIONS */}
+        <div className="flex flex-col gap-3">
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden"/>
+          <button onClick={() => fileInputRef.current?.click()}
+            className="w-full h-14 rounded-2xl bg-white/5 text-white/80 font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10 hover:bg-white/10">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Changer l'affiche manuellement
+          </button>
+          <button onClick={downloadStory} disabled={isDownloading || !title.trim()}
+            className="w-full h-16 rounded-2xl bg-[var(--color-primary)] text-black font-syne font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100">
+            {isDownloading
+              ? <div className="w-6 h-6 border-2 border-black border-t-transparent animate-spin rounded-full"/>
+              : (<><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>Partager la Story</>)}
+          </button>
+        </div>
 
         <p className="text-center text-white/25 text-xs">Story générée en 1080×1920px — partage natif sur iOS</p>
       </div>
@@ -463,7 +490,7 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 4. Récap Mensuel (placeholder)
+// RECAP TOOL (placeholder)
 // ─────────────────────────────────────────────────────────────────────────────
 function RecapTool({ onBack }) {
   return (
@@ -481,7 +508,7 @@ function RecapTool({ onBack }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 5. Composant principal
+// ROOT
 // ─────────────────────────────────────────────────────────────────────────────
 export function Studio({ historyData, pendingFilm, isScrolled }) {
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('grandecran_studio_unlocked') === 'true');
