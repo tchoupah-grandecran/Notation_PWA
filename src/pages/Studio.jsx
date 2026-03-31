@@ -941,7 +941,7 @@ async function renderAllRecapSlidesToBlobs(currentData, monthLabel, monthNum, ye
   ]);
 
   return Promise.all(
-    canases.map(
+    canvases.map(
       canvas =>
         new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'))
     )
