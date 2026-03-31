@@ -3,8 +3,11 @@ import { THEME_COLORS, AVATAR_PRESETS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
-import { getFilmsANoter, createAutoSpreadsheet } from './api';
 
+// Import correct de l'API (tout le contenu dans un objet nommé api)
+import * as api from './api'; 
+
+import PendingRatingToast from './components/PendingRatingToast';
 import { NavBar } from './components/NavBar';
 import { FilmDetailModal } from './components/FilmDetailModal';
 import { Avatar3D } from './components/Avatar3D';
@@ -194,9 +197,9 @@ function App() {
   const [displayCount, setDisplayCount] = useState(15);
   const [nextFilm, setNextFilm] = useState(null);
 
-  // Hooks métier
+  // Hooks métier existants
   const { userToken, setUserToken, login, logout: authLogout } = useAuth((token) => {
-    if (spreadsheetId) handleScan(token);
+    if (spreadsheetId) handleScan(token); // Scan automatique natif déclenché au login/startup
   });
 
   const prefs = usePreferences(userToken, spreadsheetId);
@@ -224,17 +227,58 @@ function App() {
     }
   }, [userToken, spreadsheetId, activeTab]);
 
+  // ── NOUVEAU : CHECK SILENCIEUX EN ARRIÈRE-PLAN ─────────────────────────────
+  useEffect(() => {
+    if (!userToken || !spreadsheetId) return;
+
+    const silentCheck = async () => {
+      // Si la modale est DÉJÀ ouverte (films.length > 0)
+      // ou qu'un toast est DÉJÀ affiché (nextFilm !== null), on ne fait rien.
+      if (films.length > 0 || nextFilm) return;
+
+      try {
+        const found = await api.getFilmsANoter(userToken);
+        if (found && found.length > 0) {
+          // On met le film en attente dans nextFilm (ce qui affiche le Toast)
+          // On ne touche PAS à "films" pour ne pas couper l'utilisateur dans sa navigation
+          setNextFilm(found[0]);
+        }
+      } catch (error) {
+        console.error("Erreur lors du check silencieux:", error);
+      }
+    };
+
+    // 1. Polling régulier : toutes les 5 minutes
+    const intervalId = setInterval(silentCheck, 5 * 60 * 1000);
+
+    // 2. Check réactif : quand l'utilisateur revient sur l'application (changement d'onglet)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        silentCheck();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Nettoyage
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [userToken, spreadsheetId, films.length, nextFilm]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleScan = async (token = userToken) => {
     if (!token) return;
     setIsSearching(true);
     try {
-      const found = await getFilmsANoter(token);
+      const found = await api.getFilmsANoter(token);
       setFilms(found);
       
-      // NOUVEAU : On mémorise le premier film pour le Studio, 
-      // même si l'utilisateur clique sur "Plus tard" et vide l'état 'films'.
+      // On mémorise le premier film pour le Studio ou le Toast
       if (found && found.length > 0) {
         setNextFilm(found[0]);
+      } else {
+        setNextFilm(null);
       }
     } catch (err) {
       console.error('Erreur scan:', err);
@@ -281,7 +325,6 @@ function App() {
       userToken={userToken}
       onThemePreview={(key) => prefs.updateTheme(key)}
       onComplete={({ spreadsheetId: id, avatar, themeKey }) => {
-        // Applique les préférences choisies pendant l'onboarding
         prefs.updateAvatar(avatar);
         prefs.updateTheme(themeKey);
         setSpreadsheetId(id);
@@ -366,13 +409,22 @@ function App() {
             userName={prefs.userName}
             userAvatar={prefs.userAvatar}
             isScrolled={isScrolled}
-            // On utilise notre mémoire persistante !
             pendingFilm={nextFilm} 
           />
         )}
       </div>
 
-      {/* Barre de navigation (CACHÉE si notation en cours, on restaure ta règle !) */}
+      {/* --- LE SMART TOAST --- 
+          Visible uniquement si un film attend (nextFilm) ET qu'on a fermé la modale (films.length === 0)
+      */}
+      {nextFilm && films.length === 0 && (
+        <PendingRatingToast 
+          film={nextFilm} 
+          onOpen={() => setFilms([nextFilm])} 
+        />
+      )}
+
+      {/* Barre de navigation */}
       {films.length === 0 && (
         <NavBar activeTab={activeTab} setActiveTab={setActiveTab} />
       )}
@@ -394,8 +446,7 @@ function App() {
           onSaved={() => {
             setFilms((prev) => {
               const remaining = prev.slice(1);
-              // Met à jour la mémoire si on passe au film suivant
-              if (remaining.length > 0) setNextFilm(remaining[0]);
+              setNextFilm(remaining.length > 0 ? remaining[0] : null);
               return remaining;
             });
             invalidate();

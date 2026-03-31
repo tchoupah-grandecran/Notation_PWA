@@ -46,6 +46,24 @@ async function loadImageForCanvas(originalUrl) {
   return null;
 }
 
+async function ensureFontsLoaded() {
+  await document.fonts.ready;
+  
+  // On précharge Syne et DM Sans dans les graisses utilisées par ton code
+  const fontsToLoad = [
+    '800 10px "Syne"', '900 10px "Syne"', 
+    '400 10px "DM Sans"', '500 10px "DM Sans"', '600 10px "DM Sans"', '700 10px "DM Sans"', '800 10px "DM Sans"'
+  ];
+  
+  for (const font of fontsToLoad) {
+    try {
+      await document.fonts.load(font);
+    } catch (e) {
+      console.warn(`Erreur preload de la police: ${font}`);
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CANVAS UTILS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -298,8 +316,8 @@ const RECAP_H    = 1440; // <-- Changé pour format 4:5 (Post IG)
 const GOLD_COLOR = '#E8B200';
 const DARK_BG    = '#0A0A0A';
 const LIGHT_BG   = '#F5F2EC';
-const FONT_SANS  = 'system-ui,-apple-system,sans-serif';
-const FONT_SYNE  = 'system-ui,-apple-system,sans-serif';
+const FONT_SANS  = '"DM Sans", sans-serif';
+const FONT_SYNE  = '"Syne", sans-serif';
 
 function makeCanvas() {
   const c = document.createElement('canvas');
@@ -369,72 +387,127 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   ctx.fillStyle = DARK_BG;
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
-  const g1 = ctx.createRadialGradient(RECAP_W * 0.75, RECAP_H * 0.2, 0, RECAP_W * 0.75, RECAP_H * 0.2, 600);
-  g1.addColorStop(0, 'rgba(232,178,0,0.18)'); g1.addColorStop(1, 'transparent');
-  ctx.fillStyle = g1; ctx.fillRect(0, 0, RECAP_W, RECAP_H);
-
-  const g2 = ctx.createRadialGradient(RECAP_W * 0.2, RECAP_H * 0.8, 0, RECAP_W * 0.2, RECAP_H * 0.8, 500);
-  g2.addColorStop(0, 'rgba(100,80,200,0.12)'); g2.addColorStop(1, 'transparent');
-  ctx.fillStyle = g2; ctx.fillRect(0, 0, RECAP_W, RECAP_H);
-
   const LEFT = 80;
 
   ctx.font = `800 52px ${FONT_SYNE}`;
   ctx.fillStyle = GOLD_COLOR;
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   ctx.fillText('MON RÉCAP\'', LEFT, 90);
-  ctx.font = `500 26px ${FONT_SANS}`;
+  ctx.font = `normal 26px ${FONT_SANS}`; // <-- "normal" au lieu de 500
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillText('CINÉ DU MOIS', LEFT, 156);
 
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 90, 80);
 
   const centerY = RECAP_H * 0.45; 
-  ctx.textAlign = 'center';
+
+  // --- NOUVEAU : Fonction utilitaire pour dessiner la tagline bicolore/bigraisse ---
+  const drawTagline = (prefixText, boldText, yPos) => {
+    // 1. Mesure de la première partie (normale)
+    ctx.font = `normal 34px ${FONT_SANS}`;
+    const w1 = ctx.measureText(prefixText).width;
+    
+    // 2. Mesure de la deuxième partie (gras)
+    ctx.font = `bold 34px ${FONT_SANS}`;
+    const w2 = ctx.measureText(boldText).width;
+    
+    // 3. Calcul du point X de départ pour centrer le tout
+    const startX = (RECAP_W - (w1 + w2)) / 2;
+
+    ctx.textAlign = 'left'; // On dessine de gauche à droite à partir de startX
+    
+    // 4. Dessin de la première partie
+    ctx.font = `normal 34px ${FONT_SANS}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(prefixText, startX, yPos);
+
+    // 5. Dessin de la deuxième partie (en gras, et légèrement plus lumineuse pour coller au web)
+    ctx.font = `bold 34px ${FONT_SANS}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText(boldText, startX + w1, yPos);
+  };
+  // --------------------------------------------------------------------------------
 
   if (s1DataType === 'hours' || !s1DataType) {
-    const hours = Math.round((currentData.totalDuration || 0) / 60);
-    ctx.font = `900 320px ${FONT_SYNE}`;
+    const hoursStr = String(Math.round((currentData.totalDuration || 0) / 60));
+    
+    ctx.font = `800 320px ${FONT_SYNE}`; 
+    const numW = ctx.measureText(hoursStr).width;
+    ctx.font = `normal 80px ${FONT_SYNE}`;
+    const hW = ctx.measureText('h').width;
+    const totalW = numW + hW + 15;
+    const startX = (RECAP_W - totalW) / 2;
+
+    ctx.font = `800 320px ${FONT_SYNE}`;
     ctx.fillStyle = '#FFF';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(hours), RECAP_W / 2 - 40, centerY);
-    ctx.font = `400 120px ${FONT_SYNE}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(hoursStr, startX, centerY);
+
+    ctx.font = `normal 80px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
-    ctx.fillText('h', RECAP_W / 2 + 200, centerY - 60);
-    ctx.font = `500 34px ${FONT_SANS}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText(`dans le noir en ${monthLabel}`, RECAP_W / 2, centerY + 190);
+    ctx.fillText('h', startX + numW + 15, centerY + 80); 
+
+    // Appel de la nouvelle fonction pour la tagline
+    drawTagline('dans le noir en ', monthLabel, centerY + 190);
+
   } else if (s1DataType === 'films') {
-    ctx.font = `900 320px ${FONT_SYNE}`;
+    const filmsStr = String(currentData.totalFilms || 0);
+    
+    ctx.font = `800 320px ${FONT_SYNE}`;
+    const numW = ctx.measureText(filmsStr).width;
+    ctx.font = `normal 60px ${FONT_SYNE}`;
+    const tW = ctx.measureText('films').width;
+    const totalW = numW + tW + 20;
+    const startX = (RECAP_W - totalW) / 2;
+
+    ctx.font = `800 320px ${FONT_SYNE}`;
     ctx.fillStyle = '#FFF';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(currentData.totalFilms || 0), RECAP_W / 2 - 60, centerY);
-    ctx.font = `400 90px ${FONT_SYNE}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(filmsStr, startX, centerY);
+
+    ctx.font = `normal 60px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
-    ctx.fillText('films', RECAP_W / 2 + 220, centerY - 40);
-    ctx.font = `500 34px ${FONT_SANS}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText(`découverts en ${monthLabel}`, RECAP_W / 2, centerY + 190);
+    ctx.fillText('films', startX + numW + 20, centerY + 80);
+
+    // Appel de la nouvelle fonction pour la tagline
+    drawTagline('découverts en ', monthLabel, centerY + 190);
+
   } else {
-    ctx.font = `900 320px ${FONT_SYNE}`;
+    const voStr = String(currentData.voPercentage || 0);
+    
+    ctx.font = `800 320px ${FONT_SYNE}`;
+    const numW = ctx.measureText(voStr).width;
+    ctx.font = `normal 100px ${FONT_SYNE}`;
+    const pW = ctx.measureText('%').width;
+    const totalW = numW + pW + 10;
+    const startX = (RECAP_W - totalW) / 2;
+
+    ctx.font = `800 320px ${FONT_SYNE}`;
     ctx.fillStyle = '#FFF';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(currentData.voPercentage || 0), RECAP_W / 2 - 40, centerY);
-    ctx.font = `400 120px ${FONT_SYNE}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(voStr, startX, centerY);
+
+    ctx.font = `normal 100px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
-    ctx.fillText('%', RECAP_W / 2 + 220, centerY - 60);
-    ctx.font = `500 34px ${FONT_SANS}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText(`de séances en VO en ${monthLabel}`, RECAP_W / 2, centerY + 190);
+    ctx.fillText('%', startX + numW + 10, centerY + 80);
+
+    // Appel de la nouvelle fonction pour la tagline
+    drawTagline('de séances en VO en ', monthLabel, centerY + 190);
   }
 
   // Bar et dates bien placées en bas
   ctx.fillStyle = GOLD_COLOR;
   ctx.fillRect(RECAP_W / 2 - 60, RECAP_H - 220, 120, 4);
-  ctx.font = `500 26px ${FONT_SANS}`;
+  
+  ctx.font = `normal 26px ${FONT_SANS}`; // <-- "normal" au lieu de 500
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textBaseline = 'top';
+  ctx.textAlign = 'center'; // On remet center pour les lignes du bas !
   ctx.fillText(monthLabel.toUpperCase(), RECAP_W / 2, RECAP_H - 200);
+  
   ctx.font = `800 30px ${FONT_SANS}`;
   ctx.fillStyle = '#fff';
   ctx.fillText('GRANDÉCRAN_OFF', RECAP_W / 2, RECAP_H - 155);
@@ -496,19 +569,17 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
   ctx.restore();
 
   const grad = ctx.createLinearGradient(0, 0, 0, RECAP_H);
-  grad.addColorStop(0,    'rgba(245,242,236,0.08)');
-  grad.addColorStop(0.45, 'rgba(245,242,236,0.18)');
-  grad.addColorStop(0.65, 'rgba(245,242,236,0.82)');
-  grad.addColorStop(0.85, 'rgba(245,242,236,0.98)');
-  grad.addColorStop(1,    'rgba(245,242,236,1.00)');
+  grad.addColorStop(0,    'rgba(245,242,236,0.01)');
+  grad.addColorStop(0.90, 'rgba(245,242,236,1)');
+
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
   drawDateBadge(ctx, monthLabel, 80, 80, false);
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  // Remonté pour tenir dans 1440
-  const BL = 80, BB = RECAP_H - 300; 
+  // Remonté légèrement (360 au lieu de 300) pour libérer une ligne de gélules supplémentaire
+  const BL = 80, BB = RECAP_H - 360; 
 
   ctx.font = `800 120px ${FONT_SYNE}`;
   ctx.fillStyle = '#1E1E1E';
@@ -520,28 +591,60 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
 
   let pillX = BL, pillY = BB + 30;
   const pillH = 52, pillR = pillH / 2;
-  ctx.font = `600 24px ${FONT_SANS}`;
+  const MAX_LINE_W = RECAP_W - BL * 2; // Largeur maximale disponible sur une ligne
 
-  (currentData.films || []).forEach(film => {
+  ctx.font = `bold 24px ${FONT_SANS}`;
+
+  // 1. Pré-calculer les dimensions de toutes les gélules (et garder une liste des non-placées)
+  let unplacedPills = (currentData.films || []).map(film => {
     const label = film.titre || '';
     const tw    = ctx.measureText(label).width;
-    const pw    = tw + 44;
-    if (pillX + pw > RECAP_W - BL) { pillX = BL; pillY += pillH + 10; }
-    if (pillY > RECAP_H - 60) return;
-
-    ctx.save();
-    roundRect(ctx, pillX, pillY, pw, pillH, pillR);
-    ctx.fillStyle = film.coupDeCoeur ? '#b41e3c' : '#1e1e1e';
-    ctx.globalAlpha = 0.92;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle   = '#fff';
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.fillText(label, pillX + 22, pillY + pillH / 2);
-    ctx.restore();
-
-    pillX += pw + 12;
+    // On limite la taille max d'une gélule à la largeur de l'écran pour éviter les débordements
+    const pw    = Math.min(tw + 44, MAX_LINE_W); 
+    return { film, label, pw };
   });
+
+  // 2. Placement intelligent (Greedy Bin Packing)
+  while (unplacedPills.length > 0) {
+    if (pillY > RECAP_H - 60) break; // Arrêt d'urgence si on atteint le bas de l'image
+
+    const remainingSpace = RECAP_W - BL - pillX;
+    let foundIndex = -1;
+
+    // On cherche le PREMIER film de la liste restante qui rentre dans le trou
+    for (let i = 0; i < unplacedPills.length; i++) {
+      // S'il rentre, ou si c'est le début de la ligne (pour forcer le placement des très longs titres)
+      if (unplacedPills[i].pw <= remainingSpace || pillX === BL) {
+        foundIndex = i;
+        break;
+      }
+    }
+
+    if (foundIndex !== -1) {
+      // On a trouvé un candidat ! On le retire de la liste et on l'affiche
+      const item = unplacedPills.splice(foundIndex, 1)[0];
+
+      ctx.save();
+      roundRect(ctx, pillX, pillY, item.pw, pillH, pillR);
+      ctx.fillStyle = item.film.coupDeCoeur ? '#b41e3c' : '#1e1e1e';
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.clip(); // Important: coupe proprement le texte si le titre a dû être limité par MAX_LINE_W
+      
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = '#fff';
+      ctx.textBaseline = 'middle'; 
+      ctx.textAlign = 'left';
+      ctx.fillText(item.label, pillX + 22, pillY + pillH / 2);
+      ctx.restore();
+
+      pillX += item.pw + 12; // On avance X pour la prochaine gélule
+    } else {
+      // Plus aucune gélule ne rentre sur cette ligne, on fait un retour à la ligne
+      pillX = BL;
+      pillY += pillH + 10;
+    }
+  }
 
   return canvas;
 }
@@ -555,13 +658,24 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
   const LEFT = 80, RIGHT = RECAP_W - 80;
-  let y = 80;
 
-  drawDateBadge(ctx, monthLabel, LEFT, y, false);
-  drawLogo(ctx, logoImg, RIGHT - 80, y, 80);
+  drawDateBadge(ctx, monthLabel, LEFT, 80, false);
+  drawLogo(ctx, logoImg, RIGHT - 80, 80, 80);
   
-  // Condensé pour le 1440px
-  y = 240;
+  const sec1_LabelY = 220;    
+  const sec1_NumBaseY = 470;  
+  const sec1_DivY = 510;      
+
+  const sec2_LabelY = 550;
+  const sec2_NumBaseY = 800;
+  const sec2_DivY = 840;
+
+  const sec3_LabelY = 880;
+  const sec3_NumBaseY = 1020;
+  const sec3_SubLabelY = 1050; 
+  const sec3_DivY = 1110;
+
+  const sec4_Y = 1150;
 
   const divider = (yy) => {
     ctx.strokeStyle = 'rgba(30,30,30,0.12)';
@@ -571,66 +685,127 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
     ctx.stroke();
   };
 
-  const labelStyle  = () => { ctx.font = `700 28px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.4)'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; };
-  const bigNumStyle = (size = 180) => { ctx.font = `900 ${size}px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; };
+  const labelStyle  = () => { 
+    ctx.font = `bold 28px ${FONT_SANS}`; 
+    ctx.fillStyle = 'rgba(30,30,30,0.4)'; 
+    ctx.textBaseline = 'top'; 
+    ctx.textAlign = 'left'; 
+  };
 
-  // --- Note moyenne ---
+  const bigNumStyle = (size = 180) => { 
+    ctx.font = `800 ${size}px ${FONT_SYNE}`; 
+    ctx.fillStyle = '#1E1E1E'; 
+    ctx.textBaseline = 'bottom'; 
+    ctx.textAlign = 'left'; 
+  };
+
+  // --- NOUVEAU : Ajustement optique pour la ligne de base ---
+  // Valeur en pixels pour remonter précisément les textes de 80px par rapport aux 200px
+  const unitOffsetY = 32; 
+
+
+  // ==========================================
+  // SECTION 1 : NOTE MOYENNE
+  // ==========================================
   labelStyle();
-  ctx.fillText('Note moyenne', LEFT, y);
-  y += 46;
+  ctx.fillText('Note moyenne', LEFT, sec1_LabelY);
+  
+  const noteStr = (currentData.averageRating || 0).toFixed(1);
   bigNumStyle(200);
-  ctx.fillText((currentData.averageRating || 0).toFixed(1), LEFT, y);
-  ctx.font = `400 80px ${FONT_SYNE}`;
+  ctx.fillText(noteStr, LEFT, sec1_NumBaseY);
+  
+  const noteWidth = ctx.measureText(noteStr).width;
+  
+  ctx.font = `normal 80px ${FONT_SYNE}`; 
   ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('/ 5', LEFT + 240, y + 60);
-  ctx.font = `900 120px ${FONT_SYNE}`;
+  ctx.textBaseline = 'bottom';
+  // <-- On remonte le '/ 5' grâce à unitOffsetY
+  ctx.fillText('/ 5', LEFT + noteWidth + 20, sec1_NumBaseY - unitOffsetY); 
+  
+  ctx.font = `800 120px ${FONT_SYNE}`; 
   ctx.fillStyle = 'rgba(30,30,30,0.12)';
   ctx.textAlign = 'right';
-  ctx.fillText(String(currentData.highStarCount || 0), RIGHT, y);
-  ctx.font = `600 26px ${FONT_SANS}`;
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(String(currentData.highStarCount || 0), RIGHT, sec1_NumBaseY - 35);
+  
+  ctx.font = `bold 26px ${FONT_SANS}`; 
   ctx.fillStyle = 'rgba(30,30,30,0.4)';
-  ctx.fillText('notes ≥ 4', RIGHT, y + 130);
+  ctx.textBaseline = 'top';
+  ctx.fillText('notes ≥ 4', RIGHT, sec1_NumBaseY - 25);
   ctx.textAlign = 'left';
-  y += 180;
-  divider(y); y += 40;
+  
+  divider(sec1_DivY);
 
-  // --- Durée moyenne ---
+
+  // ==========================================
+  // SECTION 2 : DURÉE MOYENNE
+  // ==========================================
   labelStyle();
-  ctx.fillText('Durée moyenne', LEFT, y);
-  y += 46;
+  ctx.fillText('Durée moyenne', LEFT, sec2_LabelY);
+  
   const h = Math.floor((currentData.averageDuration || 0) / 60);
   const m = String((currentData.averageDuration || 0) % 60).padStart(2, '0');
+  
+  const hStr = String(h);
   bigNumStyle(200);
-  ctx.fillText(`${h}`, LEFT, y);
-  ctx.font = `400 80px ${FONT_SYNE}`; ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('h', LEFT + (h > 0 ? ctx.measureText(String(h)).width + 20 : 120), y + 60);
-  ctx.font = `900 200px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E';
-  ctx.fillText(m, LEFT + 280, y);
-  y += 180;
-  divider(y); y += 40;
+  ctx.fillText(hStr, LEFT, sec2_NumBaseY);
+  
+  const hWidth = ctx.measureText(hStr).width;
+  const gap1 = h > 0 ? 15 : 0;
+  
+  ctx.font = `normal 80px ${FONT_SYNE}`; 
+  ctx.fillStyle = GOLD_COLOR;
+  ctx.textBaseline = 'bottom';
+  // <-- On remonte le 'h' grâce à unitOffsetY
+  ctx.fillText('h', LEFT + hWidth + gap1, sec2_NumBaseY - unitOffsetY);
+  
+  const letterHWidth = ctx.measureText('h').width;
+  
+  ctx.font = `800 200px ${FONT_SYNE}`; 
+  ctx.fillStyle = '#1E1E1E';
+  ctx.textBaseline = 'bottom';
+  // Les minutes n'ont pas d'offset car elles font 200px, comme les heures !
+  ctx.fillText(m, LEFT + hWidth + gap1 + letterHWidth + 15, sec2_NumBaseY);
+  
+  divider(sec2_DivY);
 
-  // --- Siège / Salle ---
+
+  // ==========================================
+  // SECTION 3 : SIÈGE ET SALLE
+  // ==========================================
   const colW = (RIGHT - LEFT - 40) / 2;
+  
   labelStyle();
-  ctx.fillText('Siège favori', LEFT, y);
-  ctx.fillText('Salle favorite', LEFT + colW + 40, y);
-  y += 46;
+  ctx.fillText('Siège favori', LEFT, sec3_LabelY);
+  ctx.fillText('Salle favorite', LEFT + colW + 40, sec3_LabelY);
+  
   bigNumStyle(100);
-  ctx.fillText(currentData.favSeat?.name || '—', LEFT, y);
-  ctx.fillText(currentData.favRoom ? currentData.favRoom.name.replace('Salle ', '') : '—', LEFT + colW + 40, y);
-  ctx.font = `600 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.4)';
-  ctx.fillText(`${currentData.favSeat?.share || 0}% des séances`, LEFT, y + 120);
-  ctx.fillText(`${currentData.favRoom?.share || 0}% des séances`, LEFT + colW + 40, y + 120);
+  ctx.fillText(currentData.favSeat?.name || '—', LEFT, sec3_NumBaseY);
+  ctx.fillText(currentData.favRoom ? currentData.favRoom.name.replace('Salle ', '') : '—', LEFT + colW + 40, sec3_NumBaseY);
+  
+  ctx.font = `bold 26px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(30,30,30,0.4)';
+  ctx.textBaseline = 'top'; 
+  ctx.fillText(`${currentData.favSeat?.share || 0}% des séances`, LEFT, sec3_SubLabelY);
+  ctx.fillText(`${currentData.favRoom?.share || 0}% des séances`, LEFT + colW + 40, sec3_SubLabelY);
 
   ctx.strokeStyle = 'rgba(30,30,30,0.1)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(LEFT + colW + 20, y - 10); ctx.lineTo(LEFT + colW + 20, y + 150); ctx.stroke();
-  y += 150;
-  divider(y); y += 40;
+  ctx.beginPath(); 
+  ctx.moveTo(LEFT + colW + 20, sec3_LabelY); 
+  ctx.lineTo(LEFT + colW + 20, sec3_DivY - 20); 
+  ctx.stroke();
+  
+  divider(sec3_DivY);
 
-  // --- Capucines ---
+
+  // ==========================================
+  // SECTION 4 : CAPUCINES
+  // ==========================================
   if (currentData.capucinesCount > 0) {
-    ctx.font = `700 36px ${FONT_SANS}`; ctx.fillStyle = '#8B1A3A'; ctx.textBaseline = 'middle';
-    ctx.fillText(`${currentData.capucinesCount} film${currentData.capucinesCount > 1 ? 's' : ''} en compétition aux Capucines`, LEFT + 10, y + 40);
+    ctx.font = `bold 36px ${FONT_SANS}`; 
+    ctx.fillStyle = '#8B1A3A'; 
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${currentData.capucinesCount} film${currentData.capucinesCount > 1 ? 's' : ''} en compétition aux Capucines`, LEFT + 10, sec4_Y);
   }
 
   return canvas;
@@ -651,17 +826,19 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
   drawDateBadge(ctx, monthLabel, LEFT, 80, true);
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  ctx.font = `700 28px ${FONT_SANS}`;
+  // --- SECTION TITRE ---
+  ctx.font = `bold 28px ${FONT_SANS}`; 
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillText('CE QUE J\'AI REGARDÉ', LEFT, 210);
+  ctx.fillText('CE QUE J\'AI REGARDÉ', LEFT, 200); // Légèrement remonté
 
-  ctx.font = `900 100px ${FONT_SYNE}`;
+  ctx.font = `800 100px ${FONT_SYNE}`; 
   ctx.fillStyle = '#fff';
-  ctx.fillText('Mes genres', LEFT, 260);
+  ctx.fillText('Mes genres', LEFT, 250); // Remonté
   ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('du mois', LEFT, 370);
+  ctx.fillText('du mois', LEFT, 360); // Remonté pour éviter le crash avec les barres
 
+  // --- SECTION BARRES DE GENRES ---
   const genresArray = Object.entries(currentData?.genreDistribution || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -670,8 +847,8 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
 
   const BAR_X   = LEFT;
   const BAR_MAX = RECAP_W - LEFT * 2;
-  let gy        = 480; // Remonté
-  const barGap  = 120; // Rétréci
+  let gy        = 530; // Abaissé à 530 (au lieu de 480) pour laisser respirer le titre
+  const barGap  = 125; // Très léger ajustement de l'espace entre les barres
 
   const barStyles = [
     { h: 38, grad: ['#c49a10', '#FFD341'] },
@@ -687,13 +864,14 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     const tSize  = [44, 38, 32, 28, 24][i] || 24;
     const tAlpha = [1, 0.8, 0.7, 0.5, 0.35][i];
 
-    ctx.font = `900 ${tSize}px ${FONT_SYNE}`;
+    ctx.font = `800 ${tSize}px ${FONT_SYNE}`; 
     ctx.fillStyle = `rgba(255,255,255,${tAlpha})`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     const medal = MEDALS[i] ? `${MEDALS[i]} ` : '';
     ctx.fillText(`${medal}${genreName}`, BAR_X, gy);
 
-    ctx.font = `600 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
+    ctx.font = `bold 26px ${FONT_SANS}`; 
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
     ctx.fillText(`${count} film${count > 1 ? 's' : ''}`, RECAP_W - LEFT, gy);
     ctx.textAlign = 'left';
 
@@ -709,29 +887,42 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     gy += barGap;
   });
 
+  // --- SECTION LANGUES ---
   const langY     = Math.round(RECAP_H * 0.84);
   const langEntries = Object.entries(currentData?.languageDistribution || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
   const totalLangsCount = langEntries.reduce((acc, [, v]) => acc + v, 0);
 
-  ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.4)'; ctx.textBaseline = 'top';
+  ctx.font = `bold 26px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(30,30,30,0.4)'; ctx.textBaseline = 'top';
   ctx.fillText('LANGUES', LEFT, langY + 10);
 
   let lx = LEFT + 180;
   langEntries.forEach(([lang, count], i) => {
     const pct = Math.round((count / totalLangsCount) * 100);
+    const pctText = `${pct}%`;
+
     if (i > 0) {
       ctx.strokeStyle = 'rgba(30,30,30,0.15)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(lx - 24, langY + 4); ctx.lineTo(lx - 24, langY + 90); ctx.stroke();
     }
-    ctx.font = `900 72px ${FONT_SYNE}`;
+    
+    ctx.font = `800 72px ${FONT_SYNE}`; 
     ctx.fillStyle = i === 0 ? '#c49a10' : '#1E1E1E';
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    ctx.fillText(`${pct}%`, lx, langY - 4);
-    ctx.font = `700 24px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.6)';
+    ctx.fillText(pctText, lx, langY - 4);
+    
+    // CORRECTION DU BUG : On mesure la largeur avec la police 800 72px, 
+    // AVANT de passer à la police 24px !
+    const pctWidth = ctx.measureText(pctText).width;
+
+    ctx.font = `bold 24px ${FONT_SANS}`; 
+    ctx.fillStyle = 'rgba(30,30,30,0.6)';
     ctx.fillText(lang, lx, langY + 72);
-    lx += ctx.measureText(`${pct}%`).width + 80;
+    
+    // On ajoute la vraie largeur mesurée + 60px d'espacement
+    lx += pctWidth + 60; 
   });
 
   return canvas;
@@ -749,7 +940,12 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     currentData.worstMovie?.affiche ? loadImageForCanvas(`${proxyBase}?url=${encodeURIComponent(currentData.worstMovie.affiche)}`) : Promise.resolve(null),
   ]);
 
-  // TOP half (dark)
+  const LEFT = 80;
+  const titleLineHeight = 80; // Hauteur fixe par ligne pour la police Syne 72px
+
+  // ==========================================
+  // MOITIÉ HAUTE : COUP DE CŒUR (Sombre)
+  // ==========================================
   ctx.fillStyle = '#0A0A0A';
   ctx.fillRect(0, 0, RECAP_W, MID);
   if (bestImg) {
@@ -758,29 +954,46 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     ctx.globalAlpha = 0.55;
     drawImageCover(ctx, bestImg, 0, 0, RECAP_W, MID);
     ctx.restore();
+    
+    // Dégradé très doux : transparent sur les visages, sombre uniquement derrière le texte
     const gg = ctx.createLinearGradient(0, 0, 0, MID);
-    gg.addColorStop(0, 'rgba(0,0,0,0.15)');
-    gg.addColorStop(0.6, 'rgba(0,0,0,0.4)');
-    gg.addColorStop(1,   'rgba(0,0,0,0.85)');
+    gg.addColorStop(0,    'rgba(0,0,0,0.0)');  
+    gg.addColorStop(0.5,  'rgba(0,0,0,0.0)');  // Transparent jusqu'à la moitié de l'image
+    gg.addColorStop(0.75, 'rgba(0,0,0,0.7)');  // Commence à s'assombrir
+    gg.addColorStop(1,    'rgba(0,0,0,0.95)'); // Presque noir en bas
     ctx.fillStyle = gg; ctx.fillRect(0, 0, RECAP_W, MID);
   }
 
-  const LEFT = 80;
-  ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
-  ctx.fillText('── COUP DE CŒUR', LEFT, MID - 220); // Ajusté
-
+  // Calcul dynamique de l'espace pris par le titre
   const bestTitle = currentData.bestMovie?.titre || '—';
-  ctx.font = `900 72px ${FONT_SYNE}`; ctx.fillStyle = '#FFF';
-  const bestLines = wrapText(ctx, bestTitle, RECAP_W - LEFT * 2);
-  bestLines.slice(0, 2).forEach((l, i) => {
-    ctx.fillText(l, LEFT, MID - 140 + i * 76);
+  ctx.font = `800 72px ${FONT_SYNE}`;
+  const bestLines = wrapText(ctx, bestTitle, RECAP_W - LEFT * 2).slice(0, 2);
+  
+  // Placement Bottom-Up (On ancre par rapport à la ligne du milieu)
+  const bestStarsY = MID - 60; 
+  const bestTitleStartY = bestStarsY - 20 - (bestLines.length * titleLineHeight); 
+  const bestLabelY = bestTitleStartY - 40; 
+
+  ctx.textBaseline = 'top'; 
+  ctx.textAlign = 'left';
+
+  ctx.font = `bold 26px ${FONT_SANS}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('── COUP DE CŒUR', LEFT, bestLabelY);
+
+  ctx.font = `800 72px ${FONT_SYNE}`; 
+  ctx.fillStyle = '#FFF';
+  bestLines.forEach((l, i) => {
+    ctx.fillText(l, LEFT, bestTitleStartY + i * titleLineHeight);
   });
 
   const bestNote = parseFloat(String(currentData.bestMovie?.note || 0).replace(',', '.'));
-  drawCanvasStars(ctx, bestNote, LEFT, MID - 40, 36, 6);
+  drawCanvasStars(ctx, bestNote, LEFT, bestStarsY, 36, 6);
 
-  // FLOP half (light)
+
+  // ==========================================
+  // MOITIÉ BASSE : À OUBLIER (Clair)
+  // ==========================================
   ctx.fillStyle = LIGHT_BG;
   ctx.fillRect(0, MID, RECAP_W, MID);
   if (worstImg) {
@@ -789,43 +1002,58 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     ctx.globalAlpha = 0.4;
     drawImageCover(ctx, worstImg, 0, MID, RECAP_W, MID);
     ctx.restore();
+    
+    // Dégradé très doux : transparent au centre de la slide, opaque uniquement en bas
     const gw = ctx.createLinearGradient(0, MID, 0, RECAP_H);
-    gw.addColorStop(0,    'rgba(245,242,236,0.3)');
-    gw.addColorStop(0.35, 'rgba(245,242,236,0.7)');
-    gw.addColorStop(0.7,  'rgba(245,242,236,0.92)');
-    gw.addColorStop(1,    'rgba(245,242,236,1.00)');
+    gw.addColorStop(0,    'rgba(245,242,236,0.0)');  
+    gw.addColorStop(0.5,  'rgba(245,242,236,0.0)');  // Transparent jusqu'à la moitié
+    gw.addColorStop(0.75, 'rgba(245,242,236,0.75)'); // S'opacifie pour le texte
+    gw.addColorStop(1,    'rgba(245,242,236,0.98)');
     ctx.fillStyle = gw; ctx.fillRect(0, MID, RECAP_W, MID);
   }
 
-  ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.45)';
-  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillText('── À OUBLIER', LEFT, MID + 100); // Ajusté
-
+  // Calcul dynamique de l'espace pris par le titre
   const worstTitle = currentData.worstMovie?.titre || '—';
-  ctx.font = `900 72px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E';
-  const worstLines = wrapText(ctx, worstTitle, RECAP_W - LEFT * 2);
-  worstLines.slice(0, 2).forEach((l, i) => {
-    ctx.fillText(l, LEFT, MID + 160 + i * 76);
+  ctx.font = `800 72px ${FONT_SYNE}`;
+  const worstLines = wrapText(ctx, worstTitle, RECAP_W - LEFT * 2).slice(0, 2);
+
+  // Placement Bottom-Up (On ancre par rapport au BAS du canvas)
+  const worstStarsY = RECAP_H - 80; // Les étoiles sont posées à 80px du fond de l'image
+  const worstTitleStartY = worstStarsY - 20 - (worstLines.length * titleLineHeight); 
+  const worstLabelY = worstTitleStartY - 40; 
+
+  ctx.font = `bold 26px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(30,30,30,0.45)';
+  ctx.fillText('── À OUBLIER', LEFT, worstLabelY);
+
+  ctx.font = `800 72px ${FONT_SYNE}`; 
+  ctx.fillStyle = '#1E1E1E';
+  worstLines.forEach((l, i) => {
+    ctx.fillText(l, LEFT, worstTitleStartY + i * titleLineHeight);
   });
 
   const worstNote = parseFloat(String(currentData.worstMovie?.note || 0).replace(',', '.'));
   const EMPTY_LIGHT = 'rgba(30,30,30,0.12)';
   for (let i = 0; i < 5; i++) {
     const filled = i < Math.floor(worstNote);
-    const cx2 = LEFT + i * (36 + 6) + 18;
-    const cy2 = MID + 320; // Ajusté
+    const cx2 = LEFT + i * (36 + 6) + 18; 
+    const cy2 = worstStarsY + 18; 
+    
     ctx.save();
     ctx.translate(cx2, cy2);
-    ctx.scale(18, 18);
+    ctx.scale(18, 18); 
     const sp = new Path2D('M 0 -1 L 0.29 -0.40 L 0.95 -0.31 L 0.48 0.15 L 0.59 0.81 L 0 0.50 L -0.59 0.81 L -0.48 0.15 L -0.95 -0.31 L -0.29 -0.40 Z');
     ctx.fillStyle = filled ? '#E9B90A' : EMPTY_LIGHT;
     ctx.fill(sp);
     ctx.restore();
   }
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5;
+  // Ligne de séparation centrale
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; 
+  ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, MID); ctx.lineTo(RECAP_W, MID); ctx.stroke();
 
+  // Badges fixes (dessinés à la fin pour être au-dessus de tout)
   drawDateBadge(ctx, monthLabel, LEFT, 70, true);
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 70, 80);
 
@@ -839,10 +1067,6 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
 
   ctx.fillStyle = '#0A0A0A';
   ctx.fillRect(0, 0, RECAP_W, RECAP_H);
-
-  const g1 = ctx.createRadialGradient(RECAP_W * 0.75, RECAP_H * 0.25, 0, RECAP_W * 0.75, RECAP_H * 0.25, 700);
-  g1.addColorStop(0, 'rgba(232,178,0,0.14)'); g1.addColorStop(1, 'transparent');
-  ctx.fillStyle = g1; ctx.fillRect(0, 0, RECAP_W, RECAP_H);
 
   const LEFT = 80;
 
@@ -861,7 +1085,8 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   const CX = CARD_X + 60;
   let cy = CARD_Y + 60;
 
-  ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = `bold 26px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   ctx.fillText('PROFIL CINÉ DU MOIS', CX, cy);
   ctx.textAlign = 'right';
@@ -874,18 +1099,26 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   const archetype    = getArchetype(topGenre, currentData?.averageRating || 0);
   const archParts    = archetype.name.split('\n');
 
-  ctx.font = `700 26px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = `bold 26px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillText('ARCHÉTYPE DU MOIS', CX, cy);
   cy += 40;
 
-  ctx.font = `900 120px ${FONT_SYNE}`; ctx.fillStyle = '#fff';
-  ctx.fillText(archParts[0] || '', CX, cy); cy += 100;
+  ctx.font = `800 120px ${FONT_SYNE}`; 
+  ctx.fillStyle = '#fff';
+  ctx.fillText(archParts[0] || '', CX, cy); 
+  cy += 115; // <-- Hauteur de ligne aérée
+
   if (archParts[1]) {
     ctx.fillStyle = GOLD_COLOR;
-    ctx.fillText(archParts[1], CX, cy); cy += 110;
-  } else cy += 20;
+    ctx.fillText(archParts[1], CX, cy); 
+    cy += 115; // <-- Hauteur de ligne aérée
+  } else {
+    cy += 30;
+  }
 
-  ctx.font = `400 32px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = `normal 32px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
   const descLines = wrapText(ctx, archetype.desc, CARD_W - 120);
   descLines.forEach(l => { ctx.fillText(l, CX, cy); cy += 42; });
   cy += 20;
@@ -894,31 +1127,63 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.beginPath(); ctx.moveTo(CX, cy); ctx.lineTo(CARD_X + CARD_W - 60, cy); ctx.stroke();
   cy += 40;
 
-  const colW2 = (CARD_W - 120) / 2;
-  ctx.font = `700 24px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  // --- SECTION COLONNES DU BAS ---
+  // On pousse la colonne 2 un peu plus à droite pour donner de la place
+  const col2X = CX + 440; 
+
+  ctx.font = `bold 24px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.fillText('GENRE DOMINANT', CX, cy);
-  ctx.fillText('NOTE MOYENNE', CX + colW2, cy);
+  ctx.fillText('NOTE MOYENNE', col2X, cy);
   cy += 40;
 
-  ctx.font = `800 56px ${FONT_SYNE}`; ctx.fillStyle = '#fff';
-  ctx.fillText(topGenre, CX, cy);
+  // On passe en textBaseline = bottom pour aligner parfaitement les valeurs
+  ctx.textBaseline = 'bottom';
+  const valBaseY = cy + 60; // La ligne de base invisible partagée par les deux colonnes
 
-  ctx.fillText((currentData?.averageRating || 0).toFixed(1), CX + colW2, cy);
-  ctx.font = `400 36px ${FONT_SYNE}`; ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('/ 5', CX + colW2 + 90, cy + 18);
-  cy += 70;
+  // 1. COLONNE GAUCHE : Genre (Redimensionnement intelligent)
+  let genreFontSize = 56;
+  ctx.font = `800 ${genreFontSize}px ${FONT_SYNE}`;
+  // Si le genre est plus large que l'espace alloué (400px), on réduit sa taille
+  while (ctx.measureText(topGenre).width > 400 && genreFontSize > 30) {
+    genreFontSize -= 2;
+    ctx.font = `800 ${genreFontSize}px ${FONT_SYNE}`;
+  }
+  ctx.fillStyle = '#fff';
+  ctx.fillText(topGenre, CX, valBaseY);
 
-  drawCanvasStars(ctx, currentData?.averageRating || 0, CX + colW2, cy - 20, 28, 5);
+  // 2. COLONNE DROITE : Note et Étoiles
+  const noteStr = (currentData?.averageRating || 0).toFixed(1);
+  ctx.font = `800 56px ${FONT_SYNE}`; // Reset de la taille pour la note
+  ctx.fillStyle = '#fff';
+  ctx.fillText(noteStr, col2X, valBaseY);
 
+  const noteW = ctx.measureText(noteStr).width;
+  ctx.font = `normal 36px ${FONT_SYNE}`; 
+  ctx.fillStyle = GOLD_COLOR;
+  ctx.fillText('/ 5', col2X + noteW + 10, valBaseY - 4); // Léger décalage optique vers le haut
+  
+  // Les étoiles sont dessinées en dessous de la ligne de base
+  drawCanvasStars(ctx, currentData?.averageRating || 0, col2X, valBaseY + 15, 28, 5);
+
+  // -------------------------------------------------------------
+  // TEXTE DE FIN (Rendez-vous)
+  // -------------------------------------------------------------
   const [year, monthNum] = monthLabel_short.split(' / ');
   const nextDate   = new Date(parseInt(year, 10), parseInt(monthNum, 10), 1);
   const nextLabel  = `${MONTH_NAMES[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
 
-  ctx.font = `500 34px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(`Rendez-vous début `, LEFT, RECAP_H - 60);
-  ctx.font = `800 34px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.textAlign = 'left';
+
+  ctx.font = `normal 34px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillText('Rendez-vous début ', LEFT, RECAP_H - 60);
+
   const rdvW = ctx.measureText('Rendez-vous début ').width;
+
+  ctx.font = `bold 34px ${FONT_SANS}`; 
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.fillText(nextLabel, LEFT + rdvW, RECAP_H - 60);
 
   return canvas;
@@ -1027,6 +1292,7 @@ function RecapTool({ onBack, historyData }) {
     if (isDownloading) return;
     setIsDownloading(true);
     try {
+      await ensureFontsLoaded();
       const [year, monthNum] = selectedMonth.split('-');
       const monthLabel = `${MONTH_NAMES[parseInt(monthNum, 10) - 1]} ${year}`;
       const logoImg    = await loadImageForCanvas(INSTA_LOGO_URL);
@@ -1061,6 +1327,7 @@ function RecapTool({ onBack, historyData }) {
     if (isDownloading) return;
     setIsDownloading(true);
     try {
+      await ensureFontsLoaded();
       const [year, monthNum] = selectedMonth.split('-');
       const monthLabel = `${MONTH_NAMES[parseInt(monthNum, 10) - 1]} ${year}`;
 
@@ -1507,7 +1774,6 @@ function RecapTool({ onBack, historyData }) {
               <div className="absolute bottom-0 left-0 right-6 p-4 pb-5 border-t border-white/10 z-20">
                 <div className="font-syne font-semibold text-[10.5px] text-white/30 tracking-[-0.2px] leading-[1.5]">
                   Rendez-vous début <strong className="text-white/60 font-extrabold">{nextMonthLabel}</strong><br/>
-                  pour découvrir mon prochain profil
                 </div>
               </div>
             </div>

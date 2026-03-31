@@ -546,26 +546,6 @@ export function Dashboard({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Bouton SYNC (Dashboard avec effet de scroll) */}
-<button 
-  onClick={() => handleScan()} 
-  className={`group flex items-center justify-center rounded-full border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)] active:scale-95 transition-all duration-300 flex-shrink-0 shadow-lg ${isScrolled ? 'w-10 h-10' : 'h-12 px-4 gap-2'}`}
->
-  {/* Icône qui tourne au clic (group-active:rotate-180) */}
-  <svg className="w-5 h-5 flex-shrink-0 transition-transform duration-500 group-active:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 2v6h-6" />
-    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-    <path d="M3 22v-6h6" />
-    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-  </svg>
-  
-  {/* Texte visible uniquement quand on est tout en haut de la page */}
-  {!isScrolled && (
-    <span className="font-black uppercase tracking-widest text-[10px] animate-in fade-in duration-300">
-      Sync
-    </span>
-  )}
-</button>
             <button
               onClick={() => setActiveTab('profile')}
               className={`relative active:scale-95 transition-all duration-500 flex-shrink-0 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`}
