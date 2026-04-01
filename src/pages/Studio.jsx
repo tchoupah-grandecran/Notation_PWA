@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { toPng, toBlob } from 'html-to-image';
 import { ChevronLeft, ChevronRight, Layers, Film, Ticket, Sparkles, Star, Download } from 'lucide-react';
+import ShareReview from '../components/ShareReview';
 import '../Studio.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1782,11 +1783,26 @@ function RecapTool({ onBack, historyData }) {
         </div>
       </div>
 
-      {/* STEPPER */}
-      <div className="mx-5 mt-4">
-        <div className="flex items-center gap-1.5">
+      {/* STEPPER UNIFIÉ (Barres + Labels) */}
+      <div className="px-5 mt-4 mb-4">
+        <div className="flex items-center gap-1.5 mb-2">
           {SLIDE_NAMES.map((_, i) => (
-            <div key={i} onClick={() => goToSlide(i)} className={`flex-1 h-1 rounded-full cursor-pointer transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`} />
+            <div 
+              key={i} 
+              onClick={() => goToSlide(i)} 
+              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`} 
+            />
+          ))}
+        </div>
+        <div className="flex justify-between px-1">
+          {SLIDE_NAMES.map((name, i) => (
+             <span 
+               key={i} 
+               onClick={() => goToSlide(i)} 
+               className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[#E8B200]' : 'text-white/30 hover:text-white/50'}`}
+             >
+               {name}
+             </span>
           ))}
         </div>
       </div>
@@ -1995,7 +2011,7 @@ function LockScreen({ onUnlock }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STUDIO HUB
 // ─────────────────────────────────────────────────────────────────────────────
-function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
+function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData }) {
   const getPosterUrl = (url) => {
     if (!url) return '';
     const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
@@ -2003,6 +2019,10 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
   };
 
   const bgImage = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
+  
+  // NOUVEAU : Récupération du dernier film noté pour la carte Avis Express
+  const latestRatedFilm = historyData && historyData.length > 0 ? historyData[0] : null;
+  const avisBgImage = latestRatedFilm?.affiche ? getPosterUrl(latestRatedFilm.affiche) : null;
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-sans bg-[#0C0C0E] min-h-screen text-[#F0EEF5]">
@@ -2060,6 +2080,8 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
         <div>
           <h2 className="px-6 font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
           <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
+            
+            {/* CARTE : STORY SÉANCE */}
             <div onClick={() => onSelectTool('seance')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
               {bgImage ? (
                 <>
@@ -2084,22 +2106,33 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
               </div>
             </div>
 
-            <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
-              <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
-                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center self-end">
-                  <Star size={15} className="text-white/60" strokeWidth={1.5} />
+            {/* CARTE : AVIS EXPRESS (Maintenant avec image de fond) */}
+            <div onClick={() => onSelectTool('share')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
+              {avisBgImage ? (
+                <>
+                  <img src={avisBgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 to-transparent"></div>
+                </>
+              )}
+              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
+                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
+                  <Star size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5} />
                 </div>
                 <div>
                   <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Avis<br/>Express</h3>
-                  <p className="text-[10px] text-white/50 font-medium leading-snug">Partage ta critique à chaud.</p>
+                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
+                    {latestRatedFilm ? `Sur "${latestRatedFilm.titre}"` : "Partage ta critique à chaud."}
+                  </p>
                 </div>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">Bientôt</div>
               </div>
             </div>
 
+            {/* CARTE : TOP 10 ANNUEL (Bientôt) */}
             <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col mr-6">
               <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
               <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
@@ -2115,6 +2148,7 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm }) {
                 <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">Bientôt</div>
               </div>
             </div>
+            
           </div>
         </div>
       </main>
@@ -2312,7 +2346,18 @@ export function Studio({ historyData, pendingFilm, isScrolled }) {
   const [activeTool, setActiveTool] = useState(null);
 
   if (!isUnlocked) return <LockScreen onUnlock={() => { setIsUnlocked(true); localStorage.setItem('grandecran_studio_unlocked', 'true'); }}/>;
+  
   if (activeTool === 'recap')  return <RecapTool onBack={() => setActiveTool(null)} historyData={historyData} />;
   if (activeTool === 'seance') return <SeanceStoryTool historyData={historyData} pendingFilm={pendingFilm} onBack={() => setActiveTool(null)}/>;
-  return <StudioHub isScrolled={isScrolled} onSelectTool={setActiveTool} onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }} pendingFilm={pendingFilm}/>;
+  if (activeTool === 'share') return <ShareReview historyData={historyData} pendingFilm={pendingFilm} onBack={() => setActiveTool(null)} />;
+  
+  return (
+    <StudioHub 
+      isScrolled={isScrolled} 
+      onSelectTool={setActiveTool} 
+      onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }} 
+      pendingFilm={pendingFilm}
+      historyData={historyData} // <-- L'ajout crucial est ici
+    />
+  );
 }

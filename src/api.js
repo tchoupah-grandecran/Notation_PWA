@@ -606,3 +606,31 @@ export const createAutoSpreadsheet = async (token) => {
     return null;
   }
 };
+
+// ==========================================
+// TMDB : CASTING & RÉALISATEUR (Avis Express)
+// ==========================================
+export const getMovieDetailsWithCast = async (tmdbId, titre) => {
+  const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY;
+  if (!TMDB_KEY) return null;
+  try {
+    // 1. On cherche d'abord avec l'ID exact
+    if (tmdbId) {
+      const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}&language=fr-FR&append_to_response=credits`);
+      if (detailRes.ok) return await detailRes.json();
+    }
+    // 2. Fallback avec le titre
+    if (titre) {
+      const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
+      const json = await res.json();
+      if (json.results?.[0]) {
+        const movie = json.results[0];
+        const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_KEY}&language=fr-FR&append_to_response=credits`);
+        return await detailRes.json();
+      }
+    }
+  } catch (e) {
+    console.error("Erreur TMDB Credits:", e);
+  }
+  return null;
+};

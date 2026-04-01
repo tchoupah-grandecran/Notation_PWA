@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
 
-// Import correct de l'API (tout le contenu dans un objet nommé api)
+// Import de l'API
 import * as api from './api'; 
 
 import PendingRatingToast from './components/PendingRatingToast';
@@ -188,18 +188,24 @@ function App() {
   const [spreadsheetId, setSpreadsheetId] = useState(
     localStorage.getItem('grandecran_db_id') || ''
   );
-  const [films, setFilms] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isExitingNotation, setIsExitingNotation] = useState(false);
+  
+  // États de l'interface
   const [activeTab, setActiveTab] = useState('home');
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedFilm, setSelectedFilm] = useState(null);
   const [displayCount, setDisplayCount] = useState(15);
-  const [nextFilm, setNextFilm] = useState(null);
+  
+  // États des films en attente (Notation et Toast)
+  const [films, setFilms] = useState([]); // Déclenche la modale si > 0
+  const [nextFilm, setNextFilm] = useState(null); // Utilisé par le Toast et le Studio
+  const [pendingCount, setPendingCount] = useState(0); // Nombre de films sur le badge
+  
+  const [isSearching, setIsSearching] = useState(false);
+  const [isExitingNotation, setIsExitingNotation] = useState(false);
 
-  // Hooks métier existants
+  // Hooks métier
   const { userToken, setUserToken, login, logout: authLogout } = useAuth((token) => {
-    if (spreadsheetId) handleScan(token); // Scan automatique natif déclenché au login/startup
+    if (spreadsheetId) handleScan(token); 
   });
 
   const prefs = usePreferences(userToken, spreadsheetId);
@@ -227,31 +233,29 @@ function App() {
     }
   }, [userToken, spreadsheetId, activeTab]);
 
-  // ── NOUVEAU : CHECK SILENCIEUX EN ARRIÈRE-PLAN ─────────────────────────────
+  // ── CHECK SILENCIEUX EN ARRIÈRE-PLAN ─────────────────────────────
   useEffect(() => {
     if (!userToken || !spreadsheetId) return;
 
     const silentCheck = async () => {
-      // Si la modale est DÉJÀ ouverte (films.length > 0)
-      // ou qu'un toast est DÉJÀ affiché (nextFilm !== null), on ne fait rien.
+      // Si la modale est déjà ouverte ou qu'un film est déjà en attente, on ignore
       if (films.length > 0 || nextFilm) return;
 
       try {
         const found = await api.getFilmsANoter(userToken);
         if (found && found.length > 0) {
-          // On met le film en attente dans nextFilm (ce qui affiche le Toast)
-          // On ne touche PAS à "films" pour ne pas couper l'utilisateur dans sa navigation
           setNextFilm(found[0]);
+          setPendingCount(found.length);
         }
       } catch (error) {
         console.error("Erreur lors du check silencieux:", error);
       }
     };
 
-    // 1. Polling régulier : toutes les 5 minutes
+    // 1. Polling régulier (5 minutes)
     const intervalId = setInterval(silentCheck, 5 * 60 * 1000);
 
-    // 2. Check réactif : quand l'utilisateur revient sur l'application (changement d'onglet)
+    // 2. Check au focus de l'onglet
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         silentCheck();
@@ -259,26 +263,26 @@ function App() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Nettoyage
     return () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [userToken, spreadsheetId, films.length, nextFilm]);
-  // ─────────────────────────────────────────────────────────────────────────
 
+  // ── SCAN MANUEL / INITIAL ─────────────────────────────
   const handleScan = async (token = userToken) => {
     if (!token) return;
     setIsSearching(true);
     try {
       const found = await api.getFilmsANoter(token);
-      setFilms(found);
+      setFilms(found); // Ouvre la modale immédiatement si des films sont trouvés au démarrage
       
-      // On mémorise le premier film pour le Studio ou le Toast
       if (found && found.length > 0) {
         setNextFilm(found[0]);
+        setPendingCount(found.length);
       } else {
         setNextFilm(null);
+        setPendingCount(0);
       }
     } catch (err) {
       console.error('Erreur scan:', err);
@@ -290,6 +294,8 @@ function App() {
   const handleLogout = () => {
     authLogout();
     setFilms([]);
+    setNextFilm(null);
+    setPendingCount(0);
     invalidate();
   };
 
@@ -414,12 +420,11 @@ function App() {
         )}
       </div>
 
-      {/* --- LE SMART TOAST --- 
-          Visible uniquement si un film attend (nextFilm) ET qu'on a fermé la modale (films.length === 0)
-      */}
+      {/* --- LE SMART TOAST (Rétractable) --- */}
       {nextFilm && films.length === 0 && (
         <PendingRatingToast 
           film={nextFilm} 
+          count={pendingCount}
           onOpen={() => setFilms([nextFilm])} 
         />
       )}
@@ -447,6 +452,7 @@ function App() {
             setFilms((prev) => {
               const remaining = prev.slice(1);
               setNextFilm(remaining.length > 0 ? remaining[0] : null);
+              setPendingCount(remaining.length);
               return remaining;
             });
             invalidate();
@@ -455,8 +461,10 @@ function App() {
           onSkip={() => {
             setIsExitingNotation(true);
             setTimeout(() => { 
-              setFilms([]); // Cache la notation, mais 'nextFilm' garde sa valeur !
+              setFilms([]); 
               setIsExitingNotation(false); 
+              // En cliquant sur skip, nextFilm et pendingCount restent remplis, 
+              // donc le Toast apparaîtra sur le Dashboard.
             }, 500);
           }}
         />

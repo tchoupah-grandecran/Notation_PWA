@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { THEME_COLORS, AVATAR_PRESETS } from '../constants';
 import { Avatar3D } from '../components/Avatar3D';
+import { RefreshCw } from 'lucide-react';
 
 export function Profile({
   isScrolled,
@@ -25,6 +27,7 @@ export function Profile({
   ].sort((a, b) => a - b);
 
   const [pricingYearEditor, setPricingYearEditor] = useState('default');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handlePricingChange = (type, value) => {
     let v = value.replace(',', '.');
@@ -34,6 +37,21 @@ export function Profile({
       [pricingYearEditor]: { ...pricing[pricingYearEditor], [type]: v },
     };
     updatePricing(newPricing);
+  };
+
+  const handleForceSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      // On déclenche le scan manuel passé depuis App.jsx
+      await handleScan();
+    } finally {
+      // On attend un tout petit peu pour que l'animation de rotation 
+      // soit bien visible même si la requête est très rapide
+      setTimeout(() => {
+        setIsSyncing(false);
+      }, 600);
+    }
   };
 
   return (
@@ -52,9 +70,9 @@ export function Profile({
       </header>
 
       <main className="px-6 pt-6 pb-24 space-y-10">
+        
         {/* Avatar + nom */}
         <div className="flex items-center gap-5 bg-white/5 p-5 rounded-3xl border border-white/10 shadow-lg">
-          {/* mt-3 pour laisser de l'espace à la tête qui dépasse */}
           <div className="mt-3 flex-shrink-0">
             <Avatar3D
               src={userAvatar}
@@ -82,6 +100,26 @@ export function Profile({
               Membre VIP
             </span>
           </div>
+        </div>
+
+        {/* Synchronisation (NOUVEAU) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between ml-2 border-b border-white/10 pb-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Synchronisation</h3>
+          </div>
+          <button
+            onClick={handleForceSync}
+            disabled={isSyncing}
+            className={`w-full bg-white/5 border border-white/10 p-5 rounded-3xl flex items-center justify-between transition-all duration-300 ${isSyncing ? 'opacity-70 cursor-wait' : 'hover:bg-white/10 active:scale-[0.98]'}`}
+          >
+            <div className="text-left flex flex-col gap-1">
+              <span className="text-sm font-bold text-white">Forcer la mise à jour</span>
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Mails & Historique</span>
+            </div>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isSyncing ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-black/40 border-white/10 text-white/50'}`}>
+              <RefreshCw size={18} strokeWidth={2.5} className={isSyncing ? 'animate-spin' : ''} />
+            </div>
+          </button>
         </div>
 
         {/* Tarifs */}
@@ -115,7 +153,7 @@ export function Profile({
                     onChange={(e) => handlePricingChange(key, e.target.value)}
                     className="w-16 bg-transparent outline-none text-right font-bold text-sm text-white"
                   />
-                  <span className={`font-bold text-sm ${key === 'ticket' ? 'text-[var(--color-primary)]' : 'text-[var(--color-primary)]'}`}>€</span>
+                  <span className="font-bold text-sm text-[var(--color-primary)]">€</span>
                 </div>
               </div>
             ))}
@@ -129,7 +167,6 @@ export function Profile({
           </div>
           <div>
             <h4 className="text-[10px] font-bold uppercase text-white/30 mb-3 ml-2 italic">Choisir un portrait</h4>
-            {/* pt-3 sur le conteneur pour que la tête de chaque avatar puisse dépasser */}
             <div className="bg-white/5 border border-white/10 rounded-3xl pt-4 pb-3 px-6 flex items-end gap-4 overflow-x-auto scrollbar-hide">
               {AVATAR_PRESETS.map((url, idx) => (
                 <button
@@ -223,6 +260,3 @@ export function Profile({
     </div>
   );
 }
-
-// useState doit être importé car on l'utilise dans ce fichier
-import { useState } from 'react';
