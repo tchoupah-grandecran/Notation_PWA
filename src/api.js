@@ -417,7 +417,8 @@ export const getFullHistory = async (token, spreadsheetId) => {
         depense: row[11] || "",
         capucine: row[12] !== undefined && String(row[12]).trim() === "1",
         commentaire: row[13] || "",
-        affiche: row[14] || null
+        affiche: row[14] || null,
+        tmdbId: row[15] || null
       };
     });
 

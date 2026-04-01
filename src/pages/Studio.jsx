@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { toPng, toBlob } from 'html-to-image';
 import { ChevronLeft, ChevronRight, Layers, Film, Ticket, Sparkles, Star, Download } from 'lucide-react';
 import ShareReview from '../components/ShareReview';
 import '../Studio.css';
@@ -50,7 +49,6 @@ async function loadImageForCanvas(originalUrl) {
 async function ensureFontsLoaded() {
   await document.fonts.ready;
   
-  // On précharge Syne et DM Sans dans les graisses utilisées par ton code
   const fontsToLoad = [
     '800 10px "Syne"', '900 10px "Syne"', 
     '400 10px "DM Sans"', '500 10px "DM Sans"', '600 10px "DM Sans"', '700 10px "DM Sans"', '800 10px "DM Sans"'
@@ -132,7 +130,6 @@ function drawCanvasStars(ctx, note, x, y, starSize = 18, gap = 4) {
     ctx.scale(starSize / 2, starSize / 2);
 
     if (half) {
-      // Left half (gold)
       ctx.save();
       ctx.beginPath();
       ctx.rect(-1, -1, 1, 2);
@@ -140,7 +137,7 @@ function drawCanvasStars(ctx, note, x, y, starSize = 18, gap = 4) {
       ctx.fillStyle = GOLD_COLOR;
       ctx.fill(starPath);
       ctx.restore();
-      // Right half (empty)
+
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, -1, 1, 2);
@@ -309,11 +306,10 @@ function computeMonthlyRewindData(history) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CANVAS RECAP RENDERERS
-// Modification : RECAP_H = 1440 pour format Post Instagram Portrait
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RECAP_W    = 1080;
-const RECAP_H    = 1440; // <-- Changé pour format 4:5 (Post IG)
+const RECAP_H    = 1440;
 const GOLD_COLOR = '#E8B200';
 const DARK_BG    = '#0A0A0A';
 const LIGHT_BG   = '#F5F2EC';
@@ -327,7 +323,6 @@ function makeCanvas() {
   return c;
 }
 
-// ---------- helper: draw date badge ----------
 function drawDateBadge(ctx, monthLabel, x, y, dark = false) {
   const font = `bold 32px ${FONT_SANS}`;
   ctx.font = font;
@@ -369,7 +364,6 @@ function drawDateBadge(ctx, monthLabel, x, y, dark = false) {
   return bw;
 }
 
-// ---------- helper: draw logo ----------
 function drawLogo(ctx, logoImg, x, y, size = 80) {
   if (!logoImg) return;
   ctx.save();
@@ -380,7 +374,6 @@ function drawLogo(ctx, logoImg, x, y, size = 80) {
   ctx.restore();
 }
 
-// ---------- SLIDE 1 : INTRO ----------
 async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
@@ -394,7 +387,7 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   ctx.fillStyle = GOLD_COLOR;
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   ctx.fillText('MON RÉCAP\'', LEFT, 90);
-  ctx.font = `normal 26px ${FONT_SANS}`; // <-- "normal" au lieu de 500
+  ctx.font = `normal 26px ${FONT_SANS}`; 
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillText('CINÉ DU MOIS', LEFT, 156);
 
@@ -402,36 +395,25 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
 
   const centerY = RECAP_H * 0.45; 
 
-  // --- NOUVEAU : Fonction utilitaire pour dessiner la tagline bicolore/bigraisse ---
   const drawTagline = (prefixText, boldText, yPos) => {
-    // 1. Mesure de la première partie (normale)
     ctx.font = `normal 34px ${FONT_SANS}`;
     const w1 = ctx.measureText(prefixText).width;
-    
-    // 2. Mesure de la deuxième partie (gras)
     ctx.font = `bold 34px ${FONT_SANS}`;
     const w2 = ctx.measureText(boldText).width;
-    
-    // 3. Calcul du point X de départ pour centrer le tout
     const startX = (RECAP_W - (w1 + w2)) / 2;
 
-    ctx.textAlign = 'left'; // On dessine de gauche à droite à partir de startX
-    
-    // 4. Dessin de la première partie
+    ctx.textAlign = 'left'; 
     ctx.font = `normal 34px ${FONT_SANS}`;
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fillText(prefixText, startX, yPos);
 
-    // 5. Dessin de la deuxième partie (en gras, et légèrement plus lumineuse pour coller au web)
     ctx.font = `bold 34px ${FONT_SANS}`;
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fillText(boldText, startX + w1, yPos);
   };
-  // --------------------------------------------------------------------------------
 
   if (s1DataType === 'hours' || !s1DataType) {
     const hoursStr = String(Math.round((currentData.totalDuration || 0) / 60));
-    
     ctx.font = `800 320px ${FONT_SYNE}`; 
     const numW = ctx.measureText(hoursStr).width;
     ctx.font = `normal 80px ${FONT_SYNE}`;
@@ -448,13 +430,10 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
     ctx.font = `normal 80px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
     ctx.fillText('h', startX + numW + 15, centerY + 80); 
-
-    // Appel de la nouvelle fonction pour la tagline
     drawTagline('dans le noir en ', monthLabel, centerY + 190);
 
   } else if (s1DataType === 'films') {
     const filmsStr = String(currentData.totalFilms || 0);
-    
     ctx.font = `800 320px ${FONT_SYNE}`;
     const numW = ctx.measureText(filmsStr).width;
     ctx.font = `normal 60px ${FONT_SYNE}`;
@@ -471,13 +450,10 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
     ctx.font = `normal 60px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
     ctx.fillText('films', startX + numW + 20, centerY + 80);
-
-    // Appel de la nouvelle fonction pour la tagline
     drawTagline('découverts en ', monthLabel, centerY + 190);
 
   } else {
     const voStr = String(currentData.voPercentage || 0);
-    
     ctx.font = `800 320px ${FONT_SYNE}`;
     const numW = ctx.measureText(voStr).width;
     ctx.font = `normal 100px ${FONT_SYNE}`;
@@ -494,19 +470,16 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
     ctx.font = `normal 100px ${FONT_SYNE}`;
     ctx.fillStyle = GOLD_COLOR;
     ctx.fillText('%', startX + numW + 10, centerY + 80);
-
-    // Appel de la nouvelle fonction pour la tagline
     drawTagline('de séances en VO en ', monthLabel, centerY + 190);
   }
 
-  // Bar et dates bien placées en bas
   ctx.fillStyle = GOLD_COLOR;
   ctx.fillRect(RECAP_W / 2 - 60, RECAP_H - 220, 120, 4);
   
-  ctx.font = `normal 26px ${FONT_SANS}`; // <-- "normal" au lieu de 500
+  ctx.font = `normal 26px ${FONT_SANS}`;
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textBaseline = 'top';
-  ctx.textAlign = 'center'; // On remet center pour les lignes du bas !
+  ctx.textAlign = 'center'; 
   ctx.fillText(monthLabel.toUpperCase(), RECAP_W / 2, RECAP_H - 200);
   
   ctx.font = `800 30px ${FONT_SANS}`;
@@ -516,7 +489,6 @@ async function renderSlide1(monthLabel, currentData, s1DataType, logoImg) {
   return canvas;
 }
 
-// ---------- SLIDE 2 : FILMS DU MOIS (MOSAÏQUE) ----------
 async function renderSlide2(monthLabel, currentData, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
@@ -579,7 +551,6 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
   drawDateBadge(ctx, monthLabel, 80, 80, false);
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  // Remonté légèrement (360 au lieu de 300) pour libérer une ligne de gélules supplémentaire
   const BL = 80, BB = RECAP_H - 360; 
 
   ctx.font = `800 120px ${FONT_SYNE}`;
@@ -592,29 +563,24 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
 
   let pillX = BL, pillY = BB + 30;
   const pillH = 52, pillR = pillH / 2;
-  const MAX_LINE_W = RECAP_W - BL * 2; // Largeur maximale disponible sur une ligne
+  const MAX_LINE_W = RECAP_W - BL * 2; 
 
   ctx.font = `bold 24px ${FONT_SANS}`;
 
-  // 1. Pré-calculer les dimensions de toutes les gélules (et garder une liste des non-placées)
   let unplacedPills = (currentData.films || []).map(film => {
     const label = film.titre || '';
     const tw    = ctx.measureText(label).width;
-    // On limite la taille max d'une gélule à la largeur de l'écran pour éviter les débordements
     const pw    = Math.min(tw + 44, MAX_LINE_W); 
     return { film, label, pw };
   });
 
-  // 2. Placement intelligent (Greedy Bin Packing)
   while (unplacedPills.length > 0) {
-    if (pillY > RECAP_H - 60) break; // Arrêt d'urgence si on atteint le bas de l'image
+    if (pillY > RECAP_H - 60) break; 
 
     const remainingSpace = RECAP_W - BL - pillX;
     let foundIndex = -1;
 
-    // On cherche le PREMIER film de la liste restante qui rentre dans le trou
     for (let i = 0; i < unplacedPills.length; i++) {
-      // S'il rentre, ou si c'est le début de la ligne (pour forcer le placement des très longs titres)
       if (unplacedPills[i].pw <= remainingSpace || pillX === BL) {
         foundIndex = i;
         break;
@@ -622,7 +588,6 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
     }
 
     if (foundIndex !== -1) {
-      // On a trouvé un candidat ! On le retire de la liste et on l'affiche
       const item = unplacedPills.splice(foundIndex, 1)[0];
 
       ctx.save();
@@ -630,7 +595,7 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
       ctx.fillStyle = item.film.coupDeCoeur ? '#b41e3c' : '#1e1e1e';
       ctx.globalAlpha = 0.92;
       ctx.fill();
-      ctx.clip(); // Important: coupe proprement le texte si le titre a dû être limité par MAX_LINE_W
+      ctx.clip(); 
       
       ctx.globalAlpha = 1;
       ctx.fillStyle   = '#fff';
@@ -639,9 +604,8 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
       ctx.fillText(item.label, pillX + 22, pillY + pillH / 2);
       ctx.restore();
 
-      pillX += item.pw + 12; // On avance X pour la prochaine gélule
+      pillX += item.pw + 12; 
     } else {
-      // Plus aucune gélule ne rentre sur cette ligne, on fait un retour à la ligne
       pillX = BL;
       pillY += pillH + 10;
     }
@@ -650,7 +614,6 @@ async function renderSlide2(monthLabel, currentData, logoImg) {
   return canvas;
 }
 
-// ---------- SLIDE 3 : STATS GLOBALES ----------
 async function renderSlide3(monthLabel, currentData, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
@@ -700,10 +663,7 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
     ctx.textAlign = 'left'; 
   };
 
-  // --- NOUVEAU : Ajustement optique pour la ligne de base ---
-  // Valeur en pixels pour remonter précisément les textes de 80px par rapport aux 200px
   const unitOffsetY = 32; 
-
 
   // ==========================================
   // SECTION 1 : NOTE MOYENNE
@@ -720,7 +680,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.font = `normal 80px ${FONT_SYNE}`; 
   ctx.fillStyle = GOLD_COLOR;
   ctx.textBaseline = 'bottom';
-  // <-- On remonte le '/ 5' grâce à unitOffsetY
   ctx.fillText('/ 5', LEFT + noteWidth + 20, sec1_NumBaseY - unitOffsetY); 
   
   ctx.font = `800 120px ${FONT_SYNE}`; 
@@ -736,7 +695,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.textAlign = 'left';
   
   divider(sec1_DivY);
-
 
   // ==========================================
   // SECTION 2 : DURÉE MOYENNE
@@ -757,7 +715,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.font = `normal 80px ${FONT_SYNE}`; 
   ctx.fillStyle = GOLD_COLOR;
   ctx.textBaseline = 'bottom';
-  // <-- On remonte le 'h' grâce à unitOffsetY
   ctx.fillText('h', LEFT + hWidth + gap1, sec2_NumBaseY - unitOffsetY);
   
   const letterHWidth = ctx.measureText('h').width;
@@ -765,11 +722,9 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   ctx.font = `800 200px ${FONT_SYNE}`; 
   ctx.fillStyle = '#1E1E1E';
   ctx.textBaseline = 'bottom';
-  // Les minutes n'ont pas d'offset car elles font 200px, comme les heures !
   ctx.fillText(m, LEFT + hWidth + gap1 + letterHWidth + 15, sec2_NumBaseY);
   
   divider(sec2_DivY);
-
 
   // ==========================================
   // SECTION 3 : SIÈGE ET SALLE
@@ -798,7 +753,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   
   divider(sec3_DivY);
 
-
   // ==========================================
   // SECTION 4 : CAPUCINES
   // ==========================================
@@ -812,7 +766,6 @@ async function renderSlide3(monthLabel, currentData, logoImg) {
   return canvas;
 }
 
-// ---------- SLIDE 4 : GENRES ET LANGUES ----------
 async function renderSlide4(monthLabel, currentData, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
@@ -827,19 +780,17 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
   drawDateBadge(ctx, monthLabel, LEFT, 80, true);
   drawLogo(ctx, logoImg, RECAP_W - 80 - 80, 80, 80);
 
-  // --- SECTION TITRE ---
   ctx.font = `bold 28px ${FONT_SANS}`; 
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillText('CE QUE J\'AI REGARDÉ', LEFT, 200); // Légèrement remonté
+  ctx.fillText('CE QUE J\'AI REGARDÉ', LEFT, 200); 
 
   ctx.font = `800 100px ${FONT_SYNE}`; 
   ctx.fillStyle = '#fff';
-  ctx.fillText('Mes genres', LEFT, 250); // Remonté
+  ctx.fillText('Mes genres', LEFT, 250); 
   ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('du mois', LEFT, 360); // Remonté pour éviter le crash avec les barres
+  ctx.fillText('du mois', LEFT, 360); 
 
-  // --- SECTION BARRES DE GENRES ---
   const genresArray = Object.entries(currentData?.genreDistribution || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -848,8 +799,8 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
 
   const BAR_X   = LEFT;
   const BAR_MAX = RECAP_W - LEFT * 2;
-  let gy        = 530; // Abaissé à 530 (au lieu de 480) pour laisser respirer le titre
-  const barGap  = 125; // Très léger ajustement de l'espace entre les barres
+  let gy        = 530; 
+  const barGap  = 125; 
 
   const barStyles = [
     { h: 38, grad: ['#c49a10', '#FFD341'] },
@@ -888,7 +839,6 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     gy += barGap;
   });
 
-  // --- SECTION LANGUES ---
   const langY     = Math.round(RECAP_H * 0.84);
   const langEntries = Object.entries(currentData?.languageDistribution || {})
     .sort((a, b) => b[1] - a[1])
@@ -914,22 +864,18 @@ async function renderSlide4(monthLabel, currentData, logoImg) {
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     ctx.fillText(pctText, lx, langY - 4);
     
-    // CORRECTION DU BUG : On mesure la largeur avec la police 800 72px, 
-    // AVANT de passer à la police 24px !
     const pctWidth = ctx.measureText(pctText).width;
 
     ctx.font = `bold 24px ${FONT_SANS}`; 
     ctx.fillStyle = 'rgba(30,30,30,0.6)';
     ctx.fillText(lang, lx, langY + 72);
     
-    // On ajoute la vraie largeur mesurée + 60px d'espacement
     lx += pctWidth + 60; 
   });
 
   return canvas;
 }
 
-// ---------- SLIDE 5 : TOP / FLOP ----------
 async function renderSlide5(monthLabel, currentData, logoImg) {
   const canvas = makeCanvas();
   const ctx    = canvas.getContext('2d');
@@ -942,11 +888,9 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
   ]);
 
   const LEFT = 80;
-  const titleLineHeight = 80; // Hauteur fixe par ligne pour la police Syne 72px
+  const titleLineHeight = 80; 
 
-  // ==========================================
-  // MOITIÉ HAUTE : COUP DE CŒUR (Sombre)
-  // ==========================================
+  // MOITIÉ HAUTE
   ctx.fillStyle = '#0A0A0A';
   ctx.fillRect(0, 0, RECAP_W, MID);
   if (bestImg) {
@@ -956,21 +900,18 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     drawImageCover(ctx, bestImg, 0, 0, RECAP_W, MID);
     ctx.restore();
     
-    // Dégradé très doux : transparent sur les visages, sombre uniquement derrière le texte
     const gg = ctx.createLinearGradient(0, 0, 0, MID);
     gg.addColorStop(0,    'rgba(0,0,0,0.0)');  
-    gg.addColorStop(0.5,  'rgba(0,0,0,0.0)');  // Transparent jusqu'à la moitié de l'image
-    gg.addColorStop(0.75, 'rgba(0,0,0,0.7)');  // Commence à s'assombrir
-    gg.addColorStop(1,    'rgba(0,0,0,0.95)'); // Presque noir en bas
+    gg.addColorStop(0.5,  'rgba(0,0,0,0.0)');  
+    gg.addColorStop(0.75, 'rgba(0,0,0,0.7)');  
+    gg.addColorStop(1,    'rgba(0,0,0,0.95)'); 
     ctx.fillStyle = gg; ctx.fillRect(0, 0, RECAP_W, MID);
   }
 
-  // Calcul dynamique de l'espace pris par le titre
   const bestTitle = currentData.bestMovie?.titre || '—';
   ctx.font = `800 72px ${FONT_SYNE}`;
   const bestLines = wrapText(ctx, bestTitle, RECAP_W - LEFT * 2).slice(0, 2);
   
-  // Placement Bottom-Up (On ancre par rapport à la ligne du milieu)
   const bestStarsY = MID - 60; 
   const bestTitleStartY = bestStarsY - 20 - (bestLines.length * titleLineHeight); 
   const bestLabelY = bestTitleStartY - 40; 
@@ -991,10 +932,7 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
   const bestNote = parseFloat(String(currentData.bestMovie?.note || 0).replace(',', '.'));
   drawCanvasStars(ctx, bestNote, LEFT, bestStarsY, 36, 6);
 
-
-  // ==========================================
-  // MOITIÉ BASSE : À OUBLIER (Clair)
-  // ==========================================
+  // MOITIÉ BASSE
   ctx.fillStyle = LIGHT_BG;
   ctx.fillRect(0, MID, RECAP_W, MID);
   if (worstImg) {
@@ -1004,22 +942,19 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     drawImageCover(ctx, worstImg, 0, MID, RECAP_W, MID);
     ctx.restore();
     
-    // Dégradé très doux : transparent au centre de la slide, opaque uniquement en bas
     const gw = ctx.createLinearGradient(0, MID, 0, RECAP_H);
     gw.addColorStop(0,    'rgba(245,242,236,0.0)');  
-    gw.addColorStop(0.5,  'rgba(245,242,236,0.0)');  // Transparent jusqu'à la moitié
-    gw.addColorStop(0.75, 'rgba(245,242,236,0.75)'); // S'opacifie pour le texte
+    gw.addColorStop(0.5,  'rgba(245,242,236,0.0)');  
+    gw.addColorStop(0.75, 'rgba(245,242,236,0.75)'); 
     gw.addColorStop(1,    'rgba(245,242,236,0.98)');
     ctx.fillStyle = gw; ctx.fillRect(0, MID, RECAP_W, MID);
   }
 
-  // Calcul dynamique de l'espace pris par le titre
   const worstTitle = currentData.worstMovie?.titre || '—';
   ctx.font = `800 72px ${FONT_SYNE}`;
   const worstLines = wrapText(ctx, worstTitle, RECAP_W - LEFT * 2).slice(0, 2);
 
-  // Placement Bottom-Up (On ancre par rapport au BAS du canvas)
-  const worstStarsY = RECAP_H - 80; // Les étoiles sont posées à 80px du fond de l'image
+  const worstStarsY = RECAP_H - 80; 
   const worstTitleStartY = worstStarsY - 20 - (worstLines.length * titleLineHeight); 
   const worstLabelY = worstTitleStartY - 40; 
 
@@ -1049,12 +984,10 @@ async function renderSlide5(monthLabel, currentData, logoImg) {
     ctx.restore();
   }
 
-  // Ligne de séparation centrale
   ctx.strokeStyle = 'rgba(255,255,255,0.2)'; 
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, MID); ctx.lineTo(RECAP_W, MID); ctx.stroke();
 
-  // Badges fixes (dessinés à la fin pour être au-dessus de tout)
   drawDateBadge(ctx, monthLabel, LEFT, 70, true);
   drawLogo(ctx, logoImg, RECAP_W - LEFT - 80, 70, 80);
 
@@ -1108,12 +1041,12 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.font = `800 120px ${FONT_SYNE}`; 
   ctx.fillStyle = '#fff';
   ctx.fillText(archParts[0] || '', CX, cy); 
-  cy += 115; // <-- Hauteur de ligne aérée
+  cy += 115; 
 
   if (archParts[1]) {
     ctx.fillStyle = GOLD_COLOR;
     ctx.fillText(archParts[1], CX, cy); 
-    cy += 115; // <-- Hauteur de ligne aérée
+    cy += 115; 
   } else {
     cy += 30;
   }
@@ -1128,8 +1061,6 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.beginPath(); ctx.moveTo(CX, cy); ctx.lineTo(CARD_X + CARD_W - 60, cy); ctx.stroke();
   cy += 40;
 
-  // --- SECTION COLONNES DU BAS ---
-  // On pousse la colonne 2 un peu plus à droite pour donner de la place
   const col2X = CX + 440; 
 
   ctx.font = `bold 24px ${FONT_SANS}`; 
@@ -1138,14 +1069,11 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.fillText('NOTE MOYENNE', col2X, cy);
   cy += 40;
 
-  // On passe en textBaseline = bottom pour aligner parfaitement les valeurs
   ctx.textBaseline = 'bottom';
-  const valBaseY = cy + 60; // La ligne de base invisible partagée par les deux colonnes
+  const valBaseY = cy + 60; 
 
-  // 1. COLONNE GAUCHE : Genre (Redimensionnement intelligent)
   let genreFontSize = 56;
   ctx.font = `800 ${genreFontSize}px ${FONT_SYNE}`;
-  // Si le genre est plus large que l'espace alloué (400px), on réduit sa taille
   while (ctx.measureText(topGenre).width > 400 && genreFontSize > 30) {
     genreFontSize -= 2;
     ctx.font = `800 ${genreFontSize}px ${FONT_SYNE}`;
@@ -1153,25 +1081,26 @@ async function renderSlide6(monthLabel, monthLabel_short, currentData, logoImg) 
   ctx.fillStyle = '#fff';
   ctx.fillText(topGenre, CX, valBaseY);
 
-  // 2. COLONNE DROITE : Note et Étoiles
   const noteStr = (currentData?.averageRating || 0).toFixed(1);
-  ctx.font = `800 56px ${FONT_SYNE}`; // Reset de la taille pour la note
+  ctx.font = `800 56px ${FONT_SYNE}`; 
   ctx.fillStyle = '#fff';
   ctx.fillText(noteStr, col2X, valBaseY);
 
   const noteW = ctx.measureText(noteStr).width;
   ctx.font = `normal 36px ${FONT_SYNE}`; 
   ctx.fillStyle = GOLD_COLOR;
-  ctx.fillText('/ 5', col2X + noteW + 10, valBaseY - 4); // Léger décalage optique vers le haut
+  ctx.fillText('/ 5', col2X + noteW + 10, valBaseY - 4); 
   
-  // Les étoiles sont dessinées en dessous de la ligne de base
   drawCanvasStars(ctx, currentData?.averageRating || 0, col2X, valBaseY + 15, 28, 5);
 
   // -------------------------------------------------------------
-  // TEXTE DE FIN (Rendez-vous)
+  // TEXTE DE FIN (Rendez-vous) - CORRIGÉ POUR L'EXPORT
   // -------------------------------------------------------------
-  const [year, monthNum] = monthLabel_short.split(' / ');
-  const nextDate   = new Date(parseInt(year, 10), parseInt(monthNum, 10), 1);
+  const [yearStr, monthNumStr] = monthLabel_short.split(' / ');
+  const currentMonthIndex = parseInt(monthNumStr, 10) - 1;
+  
+  // +2 pour cibler la publication du prochain récap (ex: Récap Mars -> publié début Mai)
+  const nextDate   = new Date(parseInt(yearStr, 10), currentMonthIndex + 2, 1);
   const nextLabel  = `${MONTH_NAMES[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
 
   ctx.textBaseline = 'bottom';
@@ -1398,8 +1327,9 @@ function RecapTool({ onBack, historyData }) {
   const archetype = getArchetype(topGenre, currentData?.averageRating || 0);
   const archNameParts = archetype.name.split('\n');
 
+  // LA CORRECTION EST AUSSI ICI POUR L'AFFICHAGE ECRAN
   const currentMonthIndex = parseInt(monthNum, 10) - 1;
-  const nextMonthDate = new Date(parseInt(year, 10), currentMonthIndex + 1, 1);
+  const nextMonthDate = new Date(parseInt(year, 10), currentMonthIndex + 2, 1);
   const nextMonthLabel = `${MONTH_NAMES[nextMonthDate.getMonth()]} ${nextMonthDate.getFullYear()}`;
 
   return (
@@ -1823,7 +1753,6 @@ function RecapTool({ onBack, historyData }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS (Story Seance)
-// STORY_H reste à 1920px (Format Story Instagram)
 // ─────────────────────────────────────────────────────────────────────────────
 const STORY_W = 1080;
 const STORY_H = 1920;
@@ -1987,173 +1916,6 @@ async function renderStoryToCanvas(canvas, params) {
   ctx.restore();
 
   return canvas;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LOCK SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
-function LockScreen({ onUnlock }) {
-  const [password, setPassword] = useState('');
-  return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 pb-[env(safe-area-inset-bottom)]">
-      <div className="w-20 h-20 bg-white/5 rounded-full border border-white/10 flex items-center justify-center mb-6 shadow-2xl">
-        <svg className="w-8 h-8 text-[#E8B200]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
-      <h2 className="font-syne font-black text-3xl mb-2 text-white">Zone Sécurisée</h2>
-      <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}} className="flex flex-col gap-4 w-full max-w-xs">
-        <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-sans font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white"/>
-        <button type="submit" className="bg-[#E8B200] text-black font-syne font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm">Déverrouiller</button>
-      </form>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STUDIO HUB
-// ─────────────────────────────────────────────────────────────────────────────
-function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData }) {
-  const getPosterUrl = (url) => {
-    if (!url) return '';
-    const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
-    return `${proxyBase}?url=${encodeURIComponent(url)}`;
-  };
-
-  const bgImage = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
-  
-  // NOUVEAU : Récupération du dernier film noté pour la carte Avis Express
-  const latestRatedFilm = historyData && historyData.length > 0 ? historyData[0] : null;
-  const avisBgImage = latestRatedFilm?.affiche ? getPosterUrl(latestRatedFilm.affiche) : null;
-
-  return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-sans bg-[#0C0C0E] min-h-screen text-[#F0EEF5]">
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 bg-[#0C0C0E]/90 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
-        <div className="px-6 flex justify-between items-center">
-          <h1 className={`font-syne font-black text-white leading-none transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>Studio</h1>
-          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </button>
-        </div>
-      </header>
-
-      <main className="pt-6 space-y-8 pb-12">
-        <div className="px-6">
-          <h2 className="font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
-          <div className="relative cursor-pointer group" onClick={() => onSelectTool('recap')}>
-            <div className="absolute inset-0 bg-white/5 border border-white/5 rounded-3xl transform rotate-3 scale-95 transition-transform group-hover:rotate-6 group-active:scale-90 origin-bottom-right"></div>
-            <div className="absolute inset-0 bg-white/10 border border-white/10 rounded-3xl transform -rotate-2 scale-[0.98] transition-transform group-hover:-rotate-4 group-active:scale-95 origin-bottom-left"></div>
-            <div className="relative bg-[#050505] border border-white/10 rounded-3xl p-6 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-all duration-500 group-hover:border-[#E8B200]/40 group-active:scale-[0.98] aspect-[4/3] flex flex-col justify-between">
-              <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
-              <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-3xl">
-                <div className="absolute top-0 bottom-0 w-32 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-[30deg] animate-studio-shine"></div>
-              </div>
-              <div className="absolute -top-24 -right-24 w-80 h-80 bg-[#E8B200]/15 rounded-full blur-[80px] group-hover:bg-[#E8B200]/25 transition-colors duration-700"></div>
-              <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-blue-950/10 rounded-full blur-[80px]"></div>
-              <div className="relative z-20 flex justify-between items-start">
-                <div className="bg-[#E8B200] border border-[#E8B200]/50 rounded-full px-3 py-1 flex items-center gap-2 shadow-[0_0_20px_rgba(232,178,0,0.25)]">
-                  <Layers size={11} className="text-black" strokeWidth={3} />
-                  <span className="font-black text-[9px] text-black uppercase tracking-[0.1em]">6 Slides</span>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl group-hover:border-[#E8B200]/50 transition-colors">
-                   <Film size={18} className="text-white/70 group-hover:text-[#E8B200] group-hover:scale-110 transition-all" strokeWidth={1.5} />
-                </div>
-              </div>
-              <div className="relative z-20">
-                <div className="flex items-center gap-2.5 mb-2.5">
-                    <div className="h-[1px] w-9 bg-[#E8B200]/60"></div>
-                    <span className="font-sans font-bold text-[9px] text-[#E8B200] uppercase tracking-[0.35em] opacity-90">Rewind exclusif</span>
-                </div>
-                <h3 className="font-syne font-black text-4xl text-white leading-[0.95] tracking-tighter mb-3">
-                  Récap'<br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8B200] via-[#FFD341] to-[#E8B200] bg-[length:200%_auto] animate-gradient-x animate-title-glow">Mensuel</span>
-                </h3>
-                <p className="text-sm text-white/50 font-medium max-w-[88%] leading-relaxed">
-                  Générez votre <span className="text-white">fresque narrative</span> et partagez vos moments forts du mois.
-                </p>
-              </div>
-              <div className="absolute bottom-4 right-6 opacity-30 group-hover:opacity-100 transition-opacity">
-                <ChevronRight className="text-white group-hover:translate-x-1.5 transition-transform" size={20} strokeWidth={2.5}/>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="px-6 font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
-          <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
-            
-            {/* CARTE : STORY SÉANCE */}
-            <div onClick={() => onSelectTool('seance')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
-              {bgImage ? (
-                <>
-                  <img src={bgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
-                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
-                </>
-              ) : (
-                <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#121212] to-[#050505] opacity-80">
-                  <div className="absolute inset-0 mix-blend-overlay opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
-                </div>
-              )}
-              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
-                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
-                  <Ticket size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5}/>
-                </div>
-                <div>
-                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Story<br/>Séance</h3>
-                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
-                    {pendingFilm ? `Annonce "${pendingFilm.titre}"` : "Annonce ton prochain film."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* CARTE : AVIS EXPRESS (Maintenant avec image de fond) */}
-            <div onClick={() => onSelectTool('share')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
-              {avisBgImage ? (
-                <>
-                  <img src={avisBgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
-                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
-                </>
-              ) : (
-                <>
-                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
-                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 to-transparent"></div>
-                </>
-              )}
-              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
-                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
-                  <Star size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Avis<br/>Express</h3>
-                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
-                    {latestRatedFilm ? `Sur "${latestRatedFilm.titre}"` : "Partage ta critique à chaud."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* CARTE : TOP 10 ANNUEL (Bientôt) */}
-            <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col mr-6">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
-              <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
-                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center self-end">
-                  <Sparkles size={15} className="text-white/60" strokeWidth={1.5}/>
-                </div>
-                <div>
-                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Top 10<br/>Annuel</h3>
-                  <p className="text-[10px] text-white/50 font-medium leading-snug">Le classement ultime.</p>
-                </div>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">Bientôt</div>
-              </div>
-            </div>
-            
-          </div>
-        </div>
-      </main>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2339,11 +2101,199 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// STUDIO HUB
+// ─────────────────────────────────────────────────────────────────────────────
+function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData }) {
+  const getPosterUrl = (url) => {
+    if (!url) return '';
+    const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
+    return `${proxyBase}?url=${encodeURIComponent(url)}`;
+  };
+
+  const bgImage = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
+  const latestRatedFilm = historyData && historyData.length > 0 ? historyData[0] : null;
+  const avisBgImage = latestRatedFilm?.affiche ? getPosterUrl(latestRatedFilm.affiche) : null;
+
+  // NOUVEAU : Récupération des affiches pour la mosaïque du Récap
+  const recentPosters = (historyData || [])
+    .filter(f => f.affiche)
+    .map(f => getPosterUrl(f.affiche))
+    .slice(0, 16); // On prend les 16 dernières affiches max
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-sans bg-[#0C0C0E] min-h-screen text-[#F0EEF5]">
+      <header className={`z-40 sticky top-0 w-full transition-all duration-500 bg-[#0C0C0E]/90 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
+        <div className="px-6 flex justify-between items-center">
+          <h1 className={`font-syne font-black text-white leading-none transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>Studio</h1>
+          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main className="pt-6 space-y-8 pb-12">
+        <div className="px-6">
+          <h2 className="font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
+          <div className="relative cursor-pointer group" onClick={() => onSelectTool('recap')}>
+            <div className="absolute inset-0 bg-white/5 border border-white/5 rounded-3xl transform rotate-3 scale-95 transition-transform group-hover:rotate-6 group-active:scale-90 origin-bottom-right"></div>
+            <div className="absolute inset-0 bg-white/10 border border-white/10 rounded-3xl transform -rotate-2 scale-[0.98] transition-transform group-hover:-rotate-4 group-active:scale-95 origin-bottom-left"></div>
+            
+            <div className="relative bg-[#050505] border border-white/10 rounded-3xl p-6 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-all duration-500 group-hover:border-[#E8B200]/40 group-active:scale-[0.98] aspect-[4/3] flex flex-col justify-between">
+              
+              {/* ==========================================
+                  NOUVEAU : MOSAÏQUE D'AFFICHES EN FOND
+                  ========================================== */}
+              <div className="absolute inset-0 z-0 overflow-hidden opacity-30 group-hover:opacity-50 transition-opacity duration-700">
+                <div className="absolute inset-0 flex gap-2 w-[150%] h-[150%] -top-[25%] -left-[25%] transform -rotate-12 scale-110">
+                  {Array.from({length: 4}).map((_, colIdx) => (
+                    <div key={colIdx} className={`flex-1 flex flex-col gap-2 ${colIdx % 2 !== 0 ? 'pt-12' : ''}`}>
+                      {Array.from({length: 4}).map((_, rowIdx) => {
+                        const poster = recentPosters[(colIdx * 4 + rowIdx) % (recentPosters.length || 1)];
+                        return poster ? (
+                          <div key={rowIdx} className="w-full aspect-[2/3] rounded-lg overflow-hidden flex-shrink-0 bg-white/5 shadow-lg">
+                            <img src={poster} className="w-full h-full object-cover saturate-[0.8]" crossOrigin="anonymous" alt=""/>
+                          </div>
+                        ) : (
+                          <div key={rowIdx} className="w-full aspect-[2/3] rounded-lg bg-white/5 flex-shrink-0"/>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CONTENU TEXTUEL */}
+              <div className="relative z-30 flex justify-between items-start">
+                <div className="bg-[#E8B200] border border-[#E8B200]/50 rounded-full px-3 py-1 flex items-center gap-2 shadow-[0_0_20px_rgba(232,178,0,0.25)]">
+                  <Layers size={11} className="text-black" strokeWidth={3} />
+                  <span className="font-black text-[9px] text-black uppercase tracking-[0.1em]">6 Slides</span>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl group-hover:border-[#E8B200]/50 transition-colors">
+                   <Film size={18} className="text-white/70 group-hover:text-[#E8B200] group-hover:scale-110 transition-all" strokeWidth={1.5} />
+                </div>
+              </div>
+              
+              <div className="relative z-30">
+                <div className="flex items-center gap-2.5 mb-2.5">
+                    <div className="h-[1px] w-9 bg-[#E8B200]/60"></div>
+                    <span className="font-sans font-bold text-[9px] text-[#E8B200] uppercase tracking-[0.35em] opacity-100 drop-shadow-md">Rewind exclusif</span>
+                </div>
+                <h3 className="font-syne font-black text-4xl text-white leading-[0.95] tracking-tighter mb-3 drop-shadow-lg">
+                  Récap'<br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8B200] via-[#FFD341] to-[#E8B200] bg-[length:200%_auto] animate-gradient-x animate-title-glow">Mensuel</span>
+                </h3>
+                <p className="text-sm text-white/70 font-medium max-w-[88%] leading-relaxed drop-shadow-md">
+                  Générez votre <span className="text-white">fresque narrative</span> et partagez vos moments forts du mois.
+                </p>
+              </div>
+              <div className="absolute bottom-4 right-6 opacity-30 group-hover:opacity-100 transition-opacity z-30">
+                <ChevronRight className="text-white group-hover:translate-x-1.5 transition-transform" size={20} strokeWidth={2.5}/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="px-6 font-syne font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
+          <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide snap-x">
+            
+            {/* CARTE : STORY SÉANCE */}
+            <div onClick={() => onSelectTool('seance')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
+              {bgImage ? (
+                <>
+                  <img src={bgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
+                </>
+              ) : (
+                <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#121212] to-[#050505] opacity-80">
+                  <div className="absolute inset-0 mix-blend-overlay opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }}></div>
+                </div>
+              )}
+              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
+                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
+                  <Ticket size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5}/>
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Story<br/>Séance</h3>
+                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
+                    {pendingFilm ? `Annonce "${pendingFilm.titre}"` : "Annonce ton prochain film."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CARTE : AVIS EXPRESS */}
+            <div onClick={() => onSelectTool('share')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
+              {avisBgImage ? (
+                <>
+                  <img src={avisBgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous" />
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/50 to-black/20 group-hover:via-black/60 transition-colors"></div>
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 to-transparent"></div>
+                </>
+              )}
+              <div className="absolute inset-0 z-20 flex flex-col justify-between p-4 group-active:scale-95 transition-transform">
+                <div className="w-8 h-8 rounded-full bg-black/50 border border-white/15 backdrop-blur-md flex items-center justify-center self-end group-hover:border-[#E8B200]/40 transition-colors">
+                  <Star size={16} className="text-white/70 group-hover:text-[#E8B200] transition-colors" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Avis<br/>Express</h3>
+                  <p className="text-[10px] text-white/60 font-medium leading-snug line-clamp-2">
+                    {latestRatedFilm ? `Sur "${latestRatedFilm.titre}"` : "Partage ta critique à chaud."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CARTE : TOP 10 ANNUEL (Bientôt) */}
+            <div className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-[#0C0C0E] flex flex-col mr-6">
+              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #ffffff 10px, #ffffff 11px)' }}></div>
+              <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-40">
+                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center self-end">
+                  <Sparkles size={15} className="text-white/60" strokeWidth={1.5}/>
+                </div>
+                <div>
+                  <h3 className="font-syne font-extrabold text-lg text-white leading-tight mb-1">Top 10<br/>Annuel</h3>
+                  <p className="text-[10px] text-white/50 font-medium leading-snug">Le classement ultime.</p>
+                </div>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                <div className="bg-[#E8B200] text-black font-syne font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">Bientôt</div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ROOT EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 export function Studio({ historyData, pendingFilm, isScrolled }) {
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('grandecran_studio_unlocked') === 'true');
   const [activeTool, setActiveTool] = useState(null);
+
+  function LockScreen({ onUnlock }) {
+    const [password, setPassword] = useState('');
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 pb-[env(safe-area-inset-bottom)]">
+        <div className="w-20 h-20 bg-white/5 rounded-full border border-white/10 flex items-center justify-center mb-6 shadow-2xl">
+          <svg className="w-8 h-8 text-[#E8B200]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h2 className="font-syne font-black text-3xl mb-2 text-white">Zone Sécurisée</h2>
+        <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); }}} className="flex flex-col gap-4 w-full max-w-xs">
+          <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-sans font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white"/>
+          <button type="submit" className="bg-[#E8B200] text-black font-syne font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm">Déverrouiller</button>
+        </form>
+      </div>
+    );
+  }
 
   if (!isUnlocked) return <LockScreen onUnlock={() => { setIsUnlocked(true); localStorage.setItem('grandecran_studio_unlocked', 'true'); }}/>;
   
@@ -2357,7 +2307,7 @@ export function Studio({ historyData, pendingFilm, isScrolled }) {
       onSelectTool={setActiveTool} 
       onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }} 
       pendingFilm={pendingFilm}
-      historyData={historyData} // <-- L'ajout crucial est ici
+      historyData={historyData}
     />
   );
 }

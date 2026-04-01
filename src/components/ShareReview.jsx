@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Download, PenLine, X, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, PenLine, X, Plus, Layers, Star } from 'lucide-react';
 import { getMovieDetailsWithCast } from '../api';
 
 const SHARE_W = 1080;
@@ -82,7 +82,7 @@ const formatDate = (dateStr) => {
 };
 
 // ==========================================
-// MOTEUR DE DESSIN CANVAS
+// MOTEUR DE DESSIN CANVAS (Natif & Rapide)
 // ==========================================
 const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
   if (!canvas) return;
@@ -91,6 +91,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
 
   try {
     ctx.clearRect(0, 0, SHARE_W, SHARE_H);
+
     const logoImg = imageCache.current[INSTA_LOGO_URL];
     
     const drawSharedHeader = (isLight = false) => {
@@ -486,8 +487,8 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
   const [pros, setPros] = useState([]);
   const [cons, setCons] = useState([]);
   const [isEditingPoints, setIsEditingPoints] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  // States pour la navigation tactile (Swipe)
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
 
@@ -521,7 +522,7 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
         await document.fonts.load(`10px ${FONT_SYNE}`);
         await document.fonts.load(`10px ${FONT_SANS}`);
       } catch (e) {
-        console.warn("Erreur de chargement des polices", e);
+        console.warn("Erreur de chargement des polices Canvas", e);
       }
 
       const urlsToLoad = [INSTA_LOGO_URL, proxyUrl(film.affiche)];
@@ -551,17 +552,64 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
     draw();
   }, [currentSlide, film, movieDetails, pros, cons, selectedIdx, historyData, pendingFilm, yearlyIndex, ratingScale]);
 
+  // --- ACTIONS DE TÉLÉCHARGEMENT ---
+  const slideNames = ['Affiche', 'Fiche', 'Note', 'Points +', 'Points -', 'Profil'];
+
   const handleDownload = () => {
-    if (!previewRef.current) return;
+    if (isDownloading || !previewRef.current) return;
+    setIsDownloading(true);
     previewRef.current.toBlob((blob) => {
-      if (!blob) return;
+      if (!blob) { setIsDownloading(false); return; }
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `Avis_${film.titre.replace(/\s+/g, '_')}_Slide_${currentSlide + 1}.png`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setIsDownloading(false);
     }, 'image/png');
+  };
+
+  const handleDownloadAll = async () => {
+    if (isDownloading || !film) return;
+    setIsDownloading(true);
+    try {
+      // Création d'un canvas off-screen
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = SHARE_W;
+      tempCanvas.height = SHARE_H;
+
+      const blobs = [];
+      for (let i = 0; i < 6; i++) {
+        await renderShareSlideToCanvas(tempCanvas, i, {
+          film, movieDetails, pros, cons, yearlyIndex, historyData, pendingFilm, imageCache, ratingScale, selectedIdx
+        });
+        const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
+        blobs.push(blob);
+      }
+
+      const files = blobs.map((blob, i) =>
+        new File([blob], `Avis_${film.titre.replace(/\s+/g, '_')}_0${i + 1}_${slideNames[i].replace(/[^a-zA-Z0-9]/g, '')}.png`, { type: 'image/png' })
+      );
+
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, title: `Avis Express - ${film.titre}` });
+      } else {
+        for (const file of files) {
+          const url = URL.createObjectURL(file);
+          const link = document.createElement('a');
+          link.download = file.name;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error("Erreur de téléchargement:", err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // --- NAVIGATION LOGIC ---
@@ -573,7 +621,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
     if (currentSlide < 5) setCurrentSlide(prev => prev + 1);
   }, [currentSlide]);
 
-  // Swipe Handlers
   const minSwipeDistance = 50;
   const onTouchStart = (e) => {
     setTouchEnd(null);
@@ -588,8 +635,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
     if (isLeftSwipe) handleNext();
     if (isRightSwipe) handlePrev();
   };
-
-  const slideNames = ['Affiche', 'Fiche', 'Note', 'Points +', 'Points -', 'Profil'];
 
   if (!film) return (
     <div className="min-h-screen bg-[#0C0C0E] flex flex-col">
@@ -609,7 +654,8 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
       </header>
 
       {/* SÉLECTEUR DE FILM */}
-      <div className="pt-6 px-6 mb-6 overflow-x-auto flex gap-3 scrollbar-hide snap-x">
+      {/* Ajout de pb-6 pour laisser la place au scale-110 de l'élément sélectionné */}
+      <div className="pt-6 px-6 pb-6 mb-2 overflow-x-auto flex items-center gap-3 scrollbar-hide snap-x">
         {historyData.map((m, idx) => (
           <div key={idx} onClick={() => { setSelectedIdx(idx); setCurrentSlide(0); setIsEditingPoints(false); }}
             className={`flex-shrink-0 w-14 h-20 rounded-md bg-cover bg-center border-2 transition-all cursor-pointer snap-center ${idx === selectedIdx ? 'border-[#E8B200] scale-110 shadow-lg' : 'border-transparent opacity-40'}`}
@@ -621,7 +667,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
       {/* PRÉVISUALISATION CANVAS AVEC SWIPE & FLÈCHES */}
       <div className="px-6 mb-6 relative flex justify-center group">
         
-        {/* Flèche Gauche */}
         <button 
           onClick={handlePrev}
           className={`absolute left-2 z-10 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all ${currentSlide === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-black/80 hover:scale-110'}`}
@@ -629,7 +674,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
           <ChevronLeft size={20} className="text-white ml-[-2px]"/>
         </button>
 
-        {/* Le Canvas (avec zones tactiles) */}
         <div 
           onTouchStart={onTouchStart} 
           onTouchMove={onTouchMove} 
@@ -643,7 +687,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
             className="w-full h-full object-contain"
           />
           
-          {/* Bouton d'Édition Flottant (Slides 4 & 5) */}
           {(currentSlide === 3 || currentSlide === 4) && (
             <button 
               onClick={(e) => { e.stopPropagation(); setIsEditingPoints(true); }}
@@ -654,7 +697,6 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
           )}
         </div>
 
-        {/* Flèche Droite */}
         <button 
           onClick={handleNext}
           className={`absolute right-2 z-10 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all ${currentSlide === 5 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-black/80 hover:scale-110'}`}
@@ -663,30 +705,51 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
         </button>
       </div>
 
-      {/* STEPPER */}
-      <div className="px-6 mb-8 max-w-md mx-auto w-full">
+      {/* STEPPER UNIFIÉ (Barres + Labels) */}
+      <div className="px-5 mt-4 mb-4 max-w-md mx-auto w-full">
         <div className="flex items-center gap-1.5 mb-2">
           {slideNames.map((_, i) => (
-             <div key={i} onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10'}`} />
+            <div 
+              key={i} 
+              onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} 
+              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`} 
+            />
           ))}
         </div>
         <div className="flex justify-between px-1">
           {slideNames.map((name, i) => (
-             <span key={i} onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[#E8B200]' : 'text-white/30'}`}>{name}</span>
+             <span 
+               key={i} 
+               onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} 
+               className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[#E8B200]' : 'text-white/30 hover:text-white/50'}`}
+             >
+               {name}
+             </span>
           ))}
         </div>
       </div>
 
-      {/* BOUTON TÉLÉCHARGEMENT */}
-      <div className="px-6 pb-6 max-w-md mx-auto w-full">
-        <button onClick={handleDownload} className="w-full h-14 rounded-2xl bg-[#E8B200] text-[#0A0A0A] font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_24px_rgba(232,178,0,0.3)]">
-          <Download size={18} strokeWidth={2.5}/> Télécharger ({slideNames[currentSlide]})
+      {/* ACTIONS DE TÉLÉCHARGEMENT */}
+      <div className="px-6 pb-6 max-w-md mx-auto w-full flex flex-col gap-3">
+        <button 
+          onClick={handleDownloadAll} 
+          disabled={isDownloading} 
+          className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-sans font-extrabold text-sm transition-all ${isDownloading ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95'}`}
+        >
+          {isDownloading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"></div> : <><Layers size={18} strokeWidth={2.5}/>Tout télécharger (6 slides)</>}
+        </button>
+        <button 
+          onClick={handleDownload} 
+          disabled={isDownloading} 
+          className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-xs text-white/70 bg-white/5 border border-white/10 active:scale-95 transition-all hover:bg-white/10"
+        >
+          <Download size={14} strokeWidth={2.5}/>Uniquement cette slide — {slideNames[currentSlide]}
         </button>
       </div>
 
       {/* BOTTOM SHEET (PANNEAU D'ÉDITION) */}
       {isEditingPoints && (currentSlide === 3 || currentSlide === 4) && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end pb-24">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setIsEditingPoints(false)} />
           <div className={`relative w-full max-w-md mx-auto border-t border-white/10 rounded-t-3xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-full duration-300 shadow-2xl ${currentSlide === 3 ? 'bg-[#0C0C0E]' : 'bg-[#F5F2EC]'}`}>
             <div className="w-full flex justify-center pt-3 pb-1 cursor-pointer" onClick={() => setIsEditingPoints(false)}>

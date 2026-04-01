@@ -4,14 +4,22 @@ import { Ticket, Star, X } from 'lucide-react';
 const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Auto-rétractation fluide après 3 secondes
+  // Gestion de la fermeture automatique (au chargement ET à la réouverture)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsExpanded(false);
-    }, 3000);
+    let timer;
+    
+    if (isExpanded) {
+      // On définit le délai : 5 secondes si c'est ouvert
+      timer = setTimeout(() => {
+        setIsExpanded(false);
+      }, 5000);
+    }
 
-    return () => clearTimeout(timer);
-  }, []);
+    // Nettoyage crucial du timer si l'état change ou si le composant est démonté
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isExpanded]); // Le useEffect se relance dès que isExpanded change
 
   if (!film) return null;
 
@@ -20,9 +28,6 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
     : null;
 
   return (
-    // 1. LE CONTENEUR GLOBAL
-    // Il gère l'animation de taille (morphing), mais N'A PAS de overflow-hidden
-    // pour permettre au badge rouge de déborder.
     <div 
       onClick={() => { if (!isExpanded) setIsExpanded(true); }}
       className={`fixed right-4 z-50 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] origin-bottom-right
@@ -32,15 +37,9 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
         }
       `}
     >
-      
-      {/* 2. LE FOND ET LE MASQUE (Clip)
-          C'est cette div qui est en forme de gélule (rounded-full) et qui masque 
-          le texte pendant qu'il rétrécit grâce au overflow-hidden. */}
       <div className="absolute inset-0 rounded-full overflow-hidden backdrop-blur-xl border border-white/10 bg-[#1A1A1F]/90 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         
-        {/* ==========================================
-            CONTENU 1 : BULLE (Visible si réduit)
-            ========================================== */}
+        {/* ÉTAT : BULLE (Rétracté) */}
         <div 
           className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 
             ${isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-200'}
@@ -49,15 +48,12 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
           <Star size={22} className="text-[#E8B200] fill-[#E8B200]" strokeWidth={1.5} />
         </div>
 
-        {/* ==========================================
-            CONTENU 2 : CARD GÉLULE (Visible si étendu)
-            ========================================== */}
+        {/* ÉTAT : GÉLULE (Étendu) */}
         <div 
           className={`absolute inset-y-0 right-0 flex items-center justify-between py-3 px-4 gap-3 w-[calc(100vw-2rem)] max-w-[400px] transition-opacity duration-300
             ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'}
           `}
         >
-          {/* Miniature Affiche (légèrement repoussée pour épouser la courbe de la gélule) */}
           <div 
             onClick={onOpen}
             className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 border border-white/5 cursor-pointer ml-1"
@@ -71,7 +67,6 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
             )}
           </div>
 
-          {/* Textes */}
           <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
             <p className="text-[10px] font-bold text-[#E8B200] uppercase tracking-widest mb-0.5 whitespace-nowrap">
               Séance en attente
@@ -81,7 +76,6 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
             </p>
           </div>
 
-          {/* Boutons Actions */}
           <div className="flex items-center gap-1.5 shrink-0 mr-1">
             <button 
               onClick={onOpen}
@@ -103,10 +97,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
         </div>
       </div>
 
-      {/* ==========================================
-          BADGE DE NOTIFICATION
-          Placé à l'extérieur du masque (overflow-hidden) pour pouvoir déborder librement
-          ========================================== */}
+      {/* Badge de notification (déborde de la bulle) */}
       <div 
         className={`absolute top-0 right-0 bg-red-500 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-md border-2 border-[#1A1A1F] transform translate-x-1/4 -translate-y-1/4 transition-opacity duration-300
           ${isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-200'}
@@ -114,7 +105,6 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
       >
         {count}
       </div>
-
     </div>
   );
 };
