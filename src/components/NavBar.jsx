@@ -47,12 +47,13 @@ export function NavBar({ activeTab, setActiveTab }) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[80] bg-[#0A0A0A]/85 backdrop-blur-2xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] select-none">
+    <nav className="fixed bottom-0 left-0 w-full z-[80] bg-[#0A0A0A]/85 backdrop-blur-2xl border-t border-white/10 select-none">
       
-      {/* Hauteur stricte de 64px (h-16) au-dessus de la safe-area. 
-        C'est l'espace standard où se trouvent les icônes.
+      {/* CORRECTIONS :
+        1. On supprime h-16 (qui forçait 64px d'épaisseur).
+        2. On déplace la gestion de la safe-area ici avec pt-3 (haut) et pb-[calc(env(safe-area-inset-bottom)+8px)] (bas).
       */}
-      <div className="flex flex-row justify-around items-center h-16 px-2">
+      <div className="flex flex-row justify-around items-center px-2 pt-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
         
         {tabs.map(({ id, label, icon }) => {
           const active = activeTab === id;
@@ -60,13 +61,11 @@ export function NavBar({ activeTab, setActiveTab }) {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              /* flex-1 et h-full rendent la zone de clic GIGANTESQUE (25% de la largeur, 100% de la hauteur).
-                C'est le secret d'une navbar native agréable au toucher.
-                "outline-none" évite le carré bleu dégueulasse sur Android.
+              /* On enlève "h-full" car la div parent n'a plus de hauteur fixe. 
+                "w-full" garantit que la zone de clic reste très large horizontalement. 
               */
-              className="flex-1 h-full flex flex-col items-center justify-center outline-none group"
+              className="flex-1 w-full flex flex-col items-center justify-center outline-none group"
             >
-              {/* Le conteneur du contenu subit l'animation, pas le bouton entier pour éviter les sauts de layout */}
               <div 
                 className={`flex flex-col items-center justify-center transition-all duration-300 ease-out transform group-active:scale-90 ${
                   active 
