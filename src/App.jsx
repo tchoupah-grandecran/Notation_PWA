@@ -74,22 +74,7 @@ function WelcomeScreen({ theme, login }) {
   );
 }
 
-function SpreadsheetSetupScreen({ theme, onSubmit }) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ background: theme.bgGradient, color: theme.text }}>
-      <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4">Configuration</h2>
-      <form
-        onSubmit={(e) => { e.preventDefault(); onSubmit(e.target.sheetId.value); }}
-        className="w-full max-w-sm flex flex-col gap-4"
-      >
-        <input name="sheetId" type="text" placeholder="ID du Spreadsheet" required className="bg-white/10 border border-white/20 p-4 rounded-2xl outline-none text-center" />
-        <button type="submit" className="font-black py-4 rounded-2xl uppercase tracking-widest" style={{ background: theme.primary, color: theme.textOnAccent }}>
-          Enregistrer l'ID
-        </button>
-      </form>
-    </div>
-  );
-}
+// CORRECTION : Suppression du composant "SpreadsheetSetupScreen" qui était du code mort.
 
 function ScanningScreen({ theme }) {
   return (
@@ -299,12 +284,7 @@ function App() {
     invalidate();
   };
 
-  const handleSetupSpreadsheet = (id) => {
-    setSpreadsheetId(id);
-    localStorage.setItem('grandecran_db_id', id);
-    handleScan(userToken);
-  };
-
+  // CORRECTION : On conserve cette fonction pour pouvoir modifier le sheetId depuis le profil
   const handleEditSpreadsheet = () => {
     const newId = prompt('Entrez le nouvel ID :', spreadsheetId);
     if (newId && newId !== spreadsheetId) {
@@ -334,6 +314,8 @@ function App() {
         prefs.updateAvatar(avatar);
         prefs.updateTheme(themeKey);
         setSpreadsheetId(id);
+        // CORRECTION : Sauvegarde vitale pour ne pas tout perdre au F5
+        localStorage.setItem('grandecran_db_id', id); 
         handleScan(userToken);
       }}
     />
@@ -354,7 +336,14 @@ function App() {
     onScroll={(e) => {
           const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
           setIsScrolled(scrollTop > 20);
-          if (scrollHeight - scrollTop <= clientHeight + 150) {
+          
+          // CORRECTION : Limitation pour éviter l'explosion de rendus lors du scroll tout en bas.
+          // On ne déclenche l'incrément que si on n'a pas encore chargé toute la liste.
+          if (
+            activeTab === 'history' && 
+            scrollHeight - scrollTop <= clientHeight + 150 &&
+            displayCount < historyData.length
+          ) {
             setDisplayCount((prev) => prev + 15);
           }
         }}
