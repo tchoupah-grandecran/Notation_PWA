@@ -348,10 +348,10 @@ function App() {
       style={{ background: theme.bgGradient, color: theme.text, ...cssVars }}
     >
       <div
-        id="main-scroll-container"
-        className="flex-1 overflow-y-auto scrollbar-hide"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
-        onScroll={(e) => {
+    id="main-scroll-container"
+    className="flex-1 overflow-y-auto scrollbar-hide"
+    style={{ paddingBottom: 'var(--navbar-total-height)' }}   // ← changed
+    onScroll={(e) => {
           const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
           setIsScrolled(scrollTop > 20);
           if (scrollHeight - scrollTop <= clientHeight + 150) {

@@ -7,10 +7,16 @@
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
+  /* NavBar visible height (tabs only) */
+  --navbar-tab-height: 3.5rem; /* 56px */
+  /* Total bottom clearance = tab row + safe area */
+  --navbar-total-height: calc(var(--navbar-tab-height) + var(--sab));
 }
 
 html {
-  background-color: back;
+  /* Ensure the page background extends into the safe area on devices
+     that have a home indicator (iPhone notch / Dynamic Island etc.) */
+  background-color: black;
 }
 
 body {
@@ -18,7 +24,8 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100dvh;
-  overflow: hidden;
+  /* Do NOT set overflow:hidden here — it breaks safe-area-inset on some iOS
+     builds. The app root handles its own overflow. */
   background-color: black;
   color: white;
 }
@@ -28,6 +35,7 @@ body {
   min-height: 100dvh;
   overflow: hidden;
 }
+
 .bg-capucine-pale { background-color: rgba(255, 192, 203, 0.05); }
 .pt-safe { padding-top: var(--sat); }
 .pb-safe { padding-bottom: var(--sab); }
@@ -35,21 +43,13 @@ body {
 .pr-safe { padding-right: var(--sar); }
 
 @layer utilities {
-  /* Cache la barre de scroll pour Chrome, Safari et Opera (Webkit) */
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Cache la barre de scroll pour IE, Edge et Firefox */
-  .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE et Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
 @keyframes bubble-in {
-  0% { transform: scale(0.5) translateY(10px); opacity: 0; }
-  70% { transform: scale(1.05) translateY(-2px); opacity: 1; }
+  0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
+  70%  { transform: scale(1.05) translateY(-2px); opacity: 1; }
   100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 
