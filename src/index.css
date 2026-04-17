@@ -8,7 +8,7 @@
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
   /* NavBar visible height (tabs only) */
-  --navbar-tab-height: 3.5rem; /* 56px */
+  --navbar-tab-height: 3rem; 
   /* Total bottom clearance = tab row + safe area */
   --navbar-total-height: calc(var(--navbar-tab-height) + var(--sab));
 }
