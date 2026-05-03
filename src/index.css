@@ -2,34 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 1. IMPORTS & FONTS */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+@font-face {
+  font-family: 'galinoy';
+  src: url('/fonts/galinoy.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --sat: env(safe-area-inset-top);
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
-  /* NavBar visible height (tabs only) */
   --navbar-tab-height: 3rem; 
-  /* Total bottom clearance = tab row + safe area */
   --navbar-total-height: calc(var(--navbar-tab-height) + var(--sab));
+  
+  --font-galinoy: 'galinoy', serif;
+  --font-outfit: 'Outfit', sans-serif;
 }
 
-html {
-  /* Ensure the page background extends into the safe area on devices
-     that have a home indicator (iPhone notch / Dynamic Island etc.) */
-  background-color: black;
+/* 2. CONFIGURATION BASE */
+@layer base {
+  html {
+    background-color: black;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100dvh;
+    background-color: black;
+    color: white;
+    font-family: var(--font-outfit); /* Outfit pour l'interface */
+  }
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100dvh;
-  /* Do NOT set overflow:hidden here — it breaks safe-area-inset on some iOS
-     builds. The app root handles its own overflow. */
-  background-color: black;
-  color: white;
+@layer utilities {
+  .font-galinoy { font-family: var(--font-galinoy); }
+  .font-outfit { font-family: var(--font-outfit); }
+  
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
+/* 3. ANIMATIONS & DIVERS */
 #root {
   width: 100%;
   min-height: 100dvh;
@@ -39,13 +61,6 @@ body {
 .bg-capucine-pale { background-color: rgba(255, 192, 203, 0.05); }
 .pt-safe { padding-top: var(--sat); }
 .pb-safe { padding-bottom: var(--sab); }
-.pl-safe { padding-left: var(--sal); }
-.pr-safe { padding-right: var(--sar); }
-
-@layer utilities {
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
-  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-}
 
 @keyframes bubble-in {
   0%   { transform: scale(0.5) translateY(10px); opacity: 0; }

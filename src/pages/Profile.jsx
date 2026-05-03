@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { THEME_COLORS, AVATAR_PRESETS } from '../constants';
 import { Avatar3D } from '../components/Avatar3D';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ChevronRight, LogOut, Save, Check, Database, Edit2, X } from 'lucide-react';
 
 export function Profile({
   isScrolled,
@@ -22,241 +22,209 @@ export function Profile({
   onEditSpreadsheet,
   onLogout,
 }) {
-  const anneesDisponibles = [
+  const activeTheme = useMemo(() => THEME_COLORS[currentThemeKey] || THEME_COLORS.default, [currentThemeKey]);
+  const anneesDisponibles = useMemo(() => [
     ...new Set(historyData.map((f) => f.date?.split('/')[2]).filter(Boolean)),
-  ].sort((a, b) => a - b);
+  ].sort((a, b) => b - a), [historyData]);
 
   const [pricingYearEditor, setPricingYearEditor] = useState('default');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
+  const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
 
-  const handlePricingChange = (type, value) => {
-    let v = value.replace(',', '.');
-    if (!/^\d*\.?\d*$/.test(v)) return;
-    const newPricing = {
-      ...pricing,
-      [pricingYearEditor]: { ...pricing[pricingYearEditor], [type]: v },
-    };
-    updatePricing(newPricing);
+  const handleChange = (updateFn, ...args) => {
+    updateFn(...args);
+    setIsDirty(true);
   };
 
-  const handleForceSync = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
+  const handleManualSave = async () => {
+    setSaveStatus('saving');
     try {
-      // On déclenche le scan manuel passé depuis App.jsx
-      await handleScan();
-    } finally {
-      // On attend un tout petit peu pour que l'animation de rotation 
-      // soit bien visible même si la requête est très rapide
-      setTimeout(() => {
-        setIsSyncing(false);
-      }, 600);
-    }
+      await triggerCloudSave();
+      setSaveStatus('success');
+      setTimeout(() => { setSaveStatus('idle'); setIsDirty(false); }, 1500);
+    } catch (e) { setSaveStatus('idle'); }
   };
 
   return (
-    <div className="animate-in fade-in duration-300">
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] bg-[var(--color-bg)]/80 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent shadow-none'}`}>
-        <div className="px-6 flex justify-between items-center">
-          <div className="flex flex-col">
-            <p className={`font-bold uppercase tracking-widest text-[var(--color-primary)] transition-all duration-500 origin-left ${isScrolled ? 'opacity-0 h-0 overflow-hidden mb-0 text-[0px]' : 'opacity-100 h-3 text-[10px] mb-1'}`}>
-              Réglages
-            </p>
-            <h1 className={`font-syne font-black text-white leading-none transition-all duration-500 origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
-              Mon Profil
-            </h1>
+    <div 
+      className="min-h-screen font-outfit pb-40 transition-all duration-1000"
+      style={{ 
+        background: activeTheme.bgGradient || '#000',
+        '--color-primary': activeTheme.primary 
+      }}
+    >
+      <header className={`z-40 sticky top-0 w-full transition-all duration-700 ${
+        isScrolled ? 'bg-black/20 backdrop-blur-2xl border-b border-white/5' : 'bg-transparent'
+      }`}>
+        <div className="px-6 pt-safe pb-4 flex justify-between items-end">
+          <div>
+            {!isScrolled && <span className="text-[var(--color-primary)] font-black text-[10px] uppercase tracking-[0.3em] ml-1">Configuration</span>}
+            <h1 className={`font-galinoy text-white transition-all ${isScrolled ? 'text-3xl' : 'text-6xl'}`}>Profil</h1>
+          </div>
+          
+          <div className={`transition-all duration-500 ${isDirty ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}>
+            <button
+              onClick={handleManualSave}
+              className="h-9 px-4 rounded-full flex items-center gap-2 font-black text-[9px] uppercase tracking-widest bg-white text-black shadow-2xl active:scale-95 transition-all"
+            >
+              {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
+               saveStatus === 'success' ? <Check size={14} className="text-green-600" /> : <Save size={12} />}
+              {saveStatus === 'idle' && "Appliquer"}
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="px-6 pt-6 pb-24 space-y-10">
-        
-        {/* Avatar + nom */}
-        <div className="flex items-center gap-5 bg-white/5 p-5 rounded-3xl border border-white/10 shadow-lg">
-          <div className="mt-3 flex-shrink-0">
-            <Avatar3D
-              src={userAvatar}
-              size={80}
-              primary="var(--color-primary)"
-              glow="var(--color-primary-muted)"
-              borderWidth={3}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 group relative">
+      <main className="px-6 mt-12 space-y-16">
+        <section className="flex flex-col items-center">
+          <Avatar3D src={userAvatar} size={130} primary="var(--color-primary)" glow="rgba(255,255,255,0.1)" borderWidth={0} />
+          <div className="mt-8 flex flex-col items-center">
+            <div className="relative inline-flex items-center group">
               <input
                 type="text"
                 value={userName}
-                onChange={(e) => updateUserName(e.target.value)}
-                onBlur={() => triggerCloudSave()}
-                className="font-syne text-2xl font-bold bg-transparent border-b border-transparent hover:border-white/20 focus:border-[var(--color-primary)] outline-none w-full text-white truncate"
+                onChange={(e) => handleChange(updateUserName, e.target.value)}
+                style={{ width: `${Math.max(userName.length, 1)}ch`, minWidth: '160px' }}
+                className="font-galinoy text-4xl bg-transparent outline-none text-white text-center focus:text-white transition-colors pr-2"
               />
-              <svg className="w-4 h-4 text-white/30 absolute right-0 pointer-events-none group-focus-within:opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-              </svg>
+              <Edit2 size={16} className="text-white/20 group-focus-within:text-white transition-colors shrink-0" />
             </div>
-            <p className="text-white/50 text-xs mt-1">Cinéphile passionné</p>
-            <span className="inline-block mt-2 bg-[var(--color-primary-muted)] text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[var(--color-primary-muted)]">
-              Membre VIP
-            </span>
+            <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] mt-3 italic">Premium Cinephile</p>
           </div>
-        </div>
+        </section>
 
-        {/* Synchronisation (NOUVEAU) */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between ml-2 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Synchronisation</h3>
-          </div>
-          <button
-            onClick={handleForceSync}
-            disabled={isSyncing}
-            className={`w-full bg-white/5 border border-white/10 p-5 rounded-3xl flex items-center justify-between transition-all duration-300 ${isSyncing ? 'opacity-70 cursor-wait' : 'hover:bg-white/10 active:scale-[0.98]'}`}
-          >
-            <div className="text-left flex flex-col gap-1">
-              <span className="text-sm font-bold text-white">Forcer la mise à jour</span>
-              <span className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Mails & Historique</span>
-            </div>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isSyncing ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-black/40 border-white/10 text-white/50'}`}>
-              <RefreshCw size={18} strokeWidth={2.5} className={isSyncing ? 'animate-spin' : ''} />
-            </div>
-          </button>
-        </div>
+        <section className="space-y-4">
+           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Système</h3>
+           <div className="bg-black/20 rounded-[2.5rem] border border-white/10 overflow-hidden backdrop-blur-md">
+              <button onClick={() => setIsSheetModalOpen(true)} className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors border-b border-white/5">
+                <div className="flex items-center gap-4 text-left">
+                  <Database size={18} className="text-white/70" />
+                  <div>
+                    <p className="text-[10px] font-black text-white uppercase">Google Sheet ID</p>
+                    <p className="text-[9px] text-white/40 truncate max-w-[140px] font-mono mt-1 italic">{spreadsheetId}</p>
+                  </div>
+                </div>
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest border border-white/20 px-2 py-1 rounded">Changer</span>
+              </button>
+              <button onClick={handleScan} className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-4 text-left">
+                  <RefreshCw size={18} className="text-white/40" />
+                  <p className="text-[10px] font-black text-white uppercase">Forcer Sync Cloud</p>
+                </div>
+                <ChevronRight size={14} className="text-white/10" />
+              </button>
+           </div>
+        </section>
 
-        {/* Tarifs */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between ml-2 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Abonnement & Tarifs</h3>
+        <section className="space-y-6">
+          <div className="flex justify-between items-end px-1">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Finance</h3>
             <select
               value={pricingYearEditor}
               onChange={(e) => setPricingYearEditor(e.target.value)}
-              className="bg-black/40 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg px-2 py-1 outline-none"
+              className="bg-white/10 text-white text-[9px] font-black uppercase tracking-widest outline-none rounded-full px-3 py-1"
             >
-              <option value="default">Par défaut</option>
-              {anneesDisponibles.map((y) => <option key={y} value={y}>Année {y}</option>)}
+              <option value="default">Global</option>
+              {anneesDisponibles.map((y) => <option key={y} value={y} className="text-black">{y}</option>)}
             </select>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col gap-4">
-            {[
-              { key: 'sub', label: "Coût de l'Abonnement", sub: 'Montant facturé par mois' },
-              { key: 'ticket', label: 'Prix Plein Tarif', sub: "Prix moyen d'un billet classique" },
-            ].map(({ key, label, sub }) => (
-              <div key={key} className={`flex justify-between items-center ${key === 'sub' ? 'border-b border-white/5 pb-4' : ''}`}>
-                <div>
-                  <label className="text-xs font-bold text-white">{label}</label>
-                  <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest">{sub}</p>
-                </div>
-                <div className="flex items-center gap-1 bg-black/40 rounded-xl px-3 py-2 border border-white/10">
+          <div className="grid grid-cols-2 gap-4">
+            {[{ k: 'sub', l: 'Mensuel' }, { k: 'ticket', l: 'Ticket' }].map((item) => (
+              <div key={item.k} className="bg-black/20 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/10">
+                <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2">{item.l}</p>
+                <div className="flex items-baseline gap-1">
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={pricing[pricingYearEditor]?.[key] ?? pricing.default?.[key] ?? ''}
-                    onChange={(e) => handlePricingChange(key, e.target.value)}
-                    className="w-16 bg-transparent outline-none text-right font-bold text-sm text-white"
+                    value={pricing[pricingYearEditor]?.[item.k] ?? pricing.default?.[item.k] ?? ''}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(',', '.');
+                      const newPricing = { ...pricing, [pricingYearEditor]: { ...pricing[pricingYearEditor], [item.k]: v } };
+                      handleChange(updatePricing, newPricing);
+                    }}
+                    className="w-full bg-transparent outline-none font-galinoy text-4xl text-white focus:text-[var(--color-primary)] transition-colors"
                   />
-                  <span className="font-bold text-sm text-[var(--color-primary)]">€</span>
+                  <span className="text-white/50 font-black text-xs">€</span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Apparence */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 ml-2 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Apparence</h3>
+        <section className="space-y-6">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Apparence</h3>
+          <div className="flex gap-5 overflow-x-auto scrollbar-hide py-2 px-1">
+            {AVATAR_PRESETS.map((url, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleChange(updateAvatar, url)}
+                className={`flex-shrink-0 transition-all duration-500 ${userAvatar === url ? 'scale-110' : 'opacity-20 grayscale hover:opacity-100 hover:grayscale-0'}`}
+              >
+                <Avatar3D src={url} size={64} primary={userAvatar === url ? 'white' : 'transparent'} borderWidth={userAvatar === url ? 2 : 0} />
+              </button>
+            ))}
           </div>
-          <div>
-            <h4 className="text-[10px] font-bold uppercase text-white/30 mb-3 ml-2 italic">Choisir un portrait</h4>
-            <div className="bg-white/5 border border-white/10 rounded-3xl pt-4 pb-3 px-6 flex items-end gap-4 overflow-x-auto scrollbar-hide">
-              {AVATAR_PRESETS.map((url, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => updateAvatar(url)}
-                  className="flex-shrink-0 active:scale-90 transition-transform"
-                  style={{ outline: 'none', background: 'none', border: 'none', padding: 0 }}
-                >
-                  <Avatar3D
-                    src={url}
-                    size={56}
-                    primary={userAvatar === url ? 'var(--color-primary)' : 'rgba(255,255,255,0.15)'}
-                    glow={userAvatar === url ? 'var(--color-primary-muted)' : 'transparent'}
-                    opacity={userAvatar === url ? 1 : 0.45}
-                    borderWidth={2}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h4 className="text-[10px] font-bold uppercase text-white/30 mb-3 ml-2 italic">Thème de l'interface</h4>
-            <div className="bg-white/5 border border-white/10 rounded-3xl py-4 px-6 flex items-center gap-4 overflow-x-auto scrollbar-hide">
-              {Object.entries(THEME_COLORS).map(([key, t]) => (
-                <button
-                  key={key}
-                  onClick={() => updateTheme(key)}
-                  className={`flex-shrink-0 w-10 h-10 rounded-full transition-all duration-300 ${currentThemeKey === key ? 'ring-2 ring-[var(--color-primary)] scale-110 opacity-100' : 'opacity-40 grayscale-[0.2]'}`}
-                  style={{ background: t.bgGradient, border: 'none' }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Préférences */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 ml-2 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Préférences</h3>
-          </div>
-          <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
-            <div
-              onClick={() => updateRatingScale(ratingScale === 5 ? 10 : 5)}
-              className="flex items-center justify-between p-5 cursor-pointer active:bg-white/5 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shadow-inner text-[var(--color-primary)]">
-                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Système de notation</p>
-                  <p className="text-[10px] text-[var(--color-primary)] font-black uppercase mt-0.5">Échelle sur {ratingScale}</p>
-                </div>
-              </div>
-              <div className="flex bg-black/40 rounded-full p-1 border border-white/10 shadow-inner">
-                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all duration-300 ${ratingScale === 5 ? 'bg-[var(--color-primary)] text-black' : 'text-white/40'}`}>5</span>
-                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all duration-300 ${ratingScale === 10 ? 'bg-[var(--color-primary)] text-black' : 'text-white/40'}`}>10</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Base de données */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 ml-2 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Base de données</h3>
-          </div>
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col gap-3">
-            <label className="text-[10px] font-bold uppercase text-white/40 ml-1">ID du Spreadsheet Google</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                defaultValue={spreadsheetId}
-                disabled
-                className="bg-black/50 border border-white/10 p-3 rounded-xl outline-none text-[10px] font-mono text-white/40 w-full"
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1">
+            {Object.entries(THEME_COLORS).map(([key, t]) => (
+              <button
+                key={key}
+                onClick={() => handleChange(updateTheme, key)}
+                className={`flex-shrink-0 w-11 h-11 rounded-full transition-all ${currentThemeKey === key ? 'ring-2 ring-white ring-offset-4 ring-offset-transparent scale-90' : 'opacity-40 hover:opacity-100'}`}
+                style={{ background: t.bgGradient }}
               />
-              <button onClick={onEditSpreadsheet} className="bg-white/10 px-3 rounded-xl text-[10px] font-bold uppercase">Éditer</button>
-            </div>
+            ))}
           </div>
-          <button
-            onClick={onLogout}
-            className="w-full bg-red-500/10 border border-red-500/20 text-red-500 font-black py-4 rounded-3xl active:scale-95 transition-all uppercase text-xs flex items-center justify-center gap-2 shadow-lg"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-            </svg>
-            Se déconnecter
-          </button>
-        </div>
+        </section>
+
+        <section className="bg-black/20 border border-white/10 rounded-[2.5rem] p-4 flex items-center justify-between backdrop-blur-md">
+            <span className="ml-4 font-galinoy text-2xl text-white italic opacity-80">Notation</span>
+            <div 
+              onClick={() => handleChange(updateRatingScale, ratingScale === 5 ? 10 : 5)}
+              className="relative w-32 h-12 bg-black/40 rounded-full border border-white/10 cursor-pointer p-1"
+            >
+              <div className={`absolute inset-1 w-1/2 rounded-full bg-white transition-all duration-500 flex items-center justify-center shadow-lg ${ratingScale === 10 ? 'translate-x-full' : 'translate-x-0'}`}>
+                <span className="font-black text-black text-[10px]">/{ratingScale}</span>
+              </div>
+              <div className="flex w-full h-full items-center justify-around text-white/20 text-[9px] font-black">
+                <span>5</span>
+                <span>10</span>
+              </div>
+            </div>
+        </section>
+
+        <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 py-6 rounded-[2.5rem] bg-white/5 border border-white/10 text-white/30 hover:text-red-400 transition-all mt-10">
+          <LogOut size={16} />
+          <span className="text-[9px] font-black uppercase tracking-[0.4em]">Déconnexion</span>
+        </button>
       </main>
+
+      {isSheetModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsSheetModalOpen(false)} />
+          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-[3rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+            <button onClick={() => setIsSheetModalOpen(false)} className="absolute top-6 right-6 text-white/20 hover:text-white"><X size={20} /></button>
+            <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 mx-auto">
+              <Database size={28} className="text-white" />
+            </div>
+            <h2 className="font-galinoy text-3xl text-white mb-2">Base de données</h2>
+            <p className="text-white/40 text-[10px] uppercase font-black mb-8">ID Google Sheet</p>
+            <input
+              type="text"
+              value={tempSheetId}
+              onChange={(e) => setTempSheetId(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-mono text-xs text-white outline-none focus:border-white mb-4"
+            />
+            <button
+              onClick={() => { onEditSpreadsheet(tempSheetId); setIsSheetModalOpen(false); }}
+              className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all"
+            >
+              Mettre à jour
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

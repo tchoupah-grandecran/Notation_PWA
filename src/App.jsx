@@ -363,17 +363,18 @@ function App() {
         )}
 
         {activeTab === 'history' && (
-          <History
-            historyData={historyData}
-            isLoadingHistory={isLoadingHistory}
-            ratingScale={prefs.ratingScale}
-            isScrolled={isScrolled}
-            handleScan={handleScan}
-            setSelectedFilm={setSelectedFilm}
-            displayCount={displayCount}
-            setDisplayCount={setDisplayCount}
-          />
-        )}
+  <History
+    historyData={historyData}
+    isLoadingHistory={isLoadingHistory}
+    ratingScale={prefs.ratingScale}
+    isScrolled={isScrolled}
+    handleScan={handleScan}
+    setSelectedFilm={setSelectedFilm}
+    displayCount={displayCount}
+    setDisplayCount={setDisplayCount}
+    currentThemeKey={prefs.currentThemeKey} // <-- AJOUTE CETTE LIGNE
+  />
+)}
 
         {activeTab === 'profile' && (
           <Profile
@@ -424,9 +425,13 @@ function App() {
       )}
 
       {/* Modale de détail film */}
-      {selectedFilm && (
-        <FilmDetailModal film={selectedFilm} onClose={() => setSelectedFilm(null)} />
-      )}
+{selectedFilm && (
+  <FilmDetailModal 
+    film={selectedFilm} 
+    onClose={() => setSelectedFilm(null)} 
+    ratingScale={prefs.ratingScale} // <--- AJOUTE CETTE LIGNE
+  />
+)}
 
       {/* Écran de notation (BLOQUANT) */}
       {films.length > 0 && (

@@ -57,7 +57,7 @@ function LangFilmsOverlay({ lang, films, onClose }) {
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] mb-0.5">
                 {matchingFilms.length} film{matchingFilms.length > 1 ? 's' : ''}
               </p>
-              <h3 className="font-syne font-black text-2xl text-white leading-none">
+              <h3 className="font-galinoy text-2xl text-white leading-none">
                 {lang === 'VF' ? 'Version Française' : `VO — ${lang}`}
               </h3>
             </div>
@@ -89,10 +89,10 @@ function LangFilmsOverlay({ lang, films, onClose }) {
                 </div>
                 {/* Infos */}
                 <div className="flex-1 min-w-0 py-2">
-                  <p className="font-syne font-bold text-white text-sm leading-tight mb-1 truncate">{film.titre}</p>
+                  <p className="font-galinoy text-white text-lg leading-tight mb-1 truncate">{film.titre}</p>
                   <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{film.date}</p>
                   
-                  {/* --- NOUVEAU : Zone de tags flexible --- */}
+                  {/* Zone de tags flexible */}
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     
                     {/* Tag Note */}
@@ -112,7 +112,7 @@ function LangFilmsOverlay({ lang, films, onClose }) {
                       </span>
                     )}
 
-                    {/* Tag IMAX (Appelle le composant qu'on a créé précédemment) */}
+                    {/* Tag IMAX */}
                     <div className="scale-[0.85] origin-left -ml-0.5">
                       <ImaxTag salle={film.salle} commentaire={film.commentaire} />
                     </div>
@@ -241,7 +241,7 @@ function StreakCard({ historyData }) {
           </div>
           <div>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-syne font-black text-3xl text-white leading-none">{streakCount}</span>
+              <span className="font-galinoy text-3xl text-white leading-none tracking-tight">{streakCount}</span>
               <span className="text-[9px] font-bold uppercase tracking-widest text-white/70">Semaines</span>
             </div>
             <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 block ${streakCount === 0 ? 'text-white/40' : streakAtRisk ? 'text-orange-400' : 'text-orange-200'}`}>
@@ -267,7 +267,7 @@ function StreakCard({ historyData }) {
             {lastExpiredStreak ? (
               <>
                 <div className="flex items-baseline gap-1">
-                  <p className="font-syne font-black text-lg text-white leading-none">{lastExpiredStreak.count}</p>
+                  <p className="font-galinoy text-xl text-white leading-none">{lastExpiredStreak.count}</p>
                   <p className="text-[8px] font-bold uppercase tracking-widest text-white/60">Semaines</p>
                 </div>
                 <p className="text-[8px] font-bold uppercase tracking-widest text-white/40 mt-1">Fini le {getLabel(lastExpiredStreak.end)}</p>
@@ -279,7 +279,7 @@ function StreakCard({ historyData }) {
           <div>
             <p className="text-[9px] uppercase font-bold tracking-widest text-[var(--color-primary)]/80 mb-1">Record Absolu</p>
             <div className="flex items-baseline gap-1">
-              <p className="font-syne font-black text-lg text-[var(--color-primary)] leading-none">{longestStreak.count}</p>
+              <p className="font-galinoy text-xl text-[var(--color-primary)] leading-none">{longestStreak.count}</p>
               <p className="text-[8px] font-bold uppercase tracking-widest text-[var(--color-primary)]/80">Semaines</p>
             </div>
             <p className="text-[8px] font-bold uppercase tracking-widest text-[var(--color-primary)]/60 mt-1">
@@ -304,22 +304,20 @@ export function Dashboard({
   handleScan,
   setActiveTab,
   setSelectedFilm,
+  currentThemeKey,
 }) {
   const [dashView, setDashView] = useState('all');
   const [dashValue, setDashValue] = useState('');
   const [showDetailedLang, setShowDetailedLang] = useState(false);
-  const [langOverlay, setLangOverlay] = useState(null); // code langue ou null
+  const [langOverlay, setLangOverlay] = useState(null);
   const [showAllRooms, setShowAllRooms] = useState(false);
 
   // Résolution des CSS variables du thème pour recharts
-  // (recharts ne supporte pas var(--...) dans les props JS)
   const colorPrimary = typeof window !== 'undefined'
     ? getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#D4AF37'
     : '#D4AF37';
-  // Couleur secondaire : blanc à 50% — neutre, lisible sur tous les thèmes
   const colorSecondary = 'rgba(255,255,255,0.45)';
-  // Couleur d'accentuation atténuée pour les fills
-  const colorPrimaryFaded = colorPrimary + '33'; // ~20% opacité
+  const colorPrimaryFaded = colorPrimary + '33';
 
   const now = new Date();
   const currentYear = now.getFullYear().toString();
@@ -398,7 +396,7 @@ export function Dashboard({
   });
 
   const favoriteSeat = Object.entries(seatCounts).sort((a, b) => b[1] - a[1])[0] || null;
-  const allRooms = Object.entries(roomCounts).sort((a, b) => b[1] - a[1]); // toutes les salles
+  const allRooms = Object.entries(roomCounts).sort((a, b) => b[1] - a[1]);
   const topRooms = allRooms.slice(0, 3);
   const maxRoomCount = allRooms.length > 0 ? allRooms[0][1] : 1;
   const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -409,16 +407,14 @@ export function Dashboard({
   const voPct = totalLang > 0 ? Math.round((voCount / totalLang) * 100) : 0;
   const vfPct = totalLang > 0 ? 100 - voPct : 0;
   const topVoDetails = Object.entries(voDetails).sort((a, b) => b[1] - a[1]);
-  // Toutes les langues incluant VF, pour les gélules cliquables
   const allLangDetails = vfCount > 0
     ? [['FRA', vfCount], ...topVoDetails]
     : topVoDetails;
 
-// --- Calcul du jour moyen de rentabilité (pour vues Global & Annuel) ---
+  // Calcul du jour moyen de rentabilité
   let averageBreakEvenDay = null;
   if (dashView !== 'month' && dashData.length > 0) {
     const monthGroups = {};
-    // Grouper les films par mois (ex: "2023-10")
     dashData.forEach(f => {
       if (!f.date) return;
       const [d, m, y] = f.date.split('/');
@@ -433,16 +429,15 @@ export function Dashboard({
     Object.entries(monthGroups).forEach(([key, films]) => {
       const y = key.split('-')[0];
       const subP = getPrice(y, 'sub');
-      // Trier les films du mois chronologiquement
       films.sort((a, b) => a.day - b.day);
       
       let cumulated = 0;
       for (let i = 0; i < films.length; i++) {
-        cumulated += films[i].price; // <-- CORRECTION : films[i] au lieu de films
+        cumulated += films[i].price;
         if (cumulated >= subP) {
-          totalBreakEvenDays += films[i].day; // <-- CORRECTION : films[i] au lieu de films
+          totalBreakEvenDays += films[i].day;
           amortizedMonthsCount++;
-          break; // On a trouvé le jour de rentabilité pour ce mois
+          break;
         }
       }
     });
@@ -479,7 +474,6 @@ export function Dashboard({
       const yearTotalMin = yearDurations.reduce((a, b) => a + b, 0);
       const yearAvgMin = yearDurations.length > 0 ? Math.round(yearTotalMin / yearDurations.length) : 0;
 
-      // On passe les valeurs pures en minutes, le formatage "h+min" se fait au niveau de l'affichage
       return { 
         name: year, 
         'Films vus': count, 
@@ -531,11 +525,11 @@ export function Dashboard({
               Cinéphile
             </span>
             <div className="flex items-center">
-              <h1 className={`font-syne font-black text-white leading-none transition-all duration-500 origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+              <h1 className={`font-galinoy text-white leading-none transition-all duration-500 origin-left ${isScrolled ? 'text-2xl' : 'text-5xl'}`}>
                 {userName}
               </h1>
               
-              {/* --- NOUVEAU : Badge Période (Visible uniquement au scroll) --- */}
+              {/* Badge Période (Visible uniquement au scroll) */}
               <div 
                 className={`flex items-center justify-center bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 text-[var(--color-primary)] rounded-full font-black uppercase tracking-widest transition-all duration-500 origin-left whitespace-nowrap 
                 ${isScrolled ? 'opacity-100 scale-100 px-2.5 py-1 text-[9px] ml-3' : 'opacity-0 scale-50 w-0 h-0 px-0 py-0 text-[0px] ml-0 overflow-hidden'}`}
@@ -565,11 +559,11 @@ export function Dashboard({
         {/* KPIs */}
         <div className="relative z-10 grid grid-cols-2 gap-3 px-6">
           <div className={`bg-black/50 backdrop-blur-xl border border-white/10 rounded-3xl flex flex-col items-center justify-center shadow-lg transition-all duration-500 ${isScrolled ? 'h-16' : 'h-28'}`}>
-            <span className={`font-syne font-black text-white leading-none tracking-tight transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-5xl'}`}>{totalFilms}</span>
+            <span className={`font-galinoy text-white leading-none tracking-tight transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-5xl'}`}>{totalFilms}</span>
             <span className={`font-bold text-white/60 transition-all duration-500 uppercase tracking-widest ${isScrolled ? 'text-[8px] mt-0.5' : 'text-[10px] mt-2'}`}>Total Films</span>
           </div>
           <div className={`bg-black/50 backdrop-blur-xl border border-white/10 rounded-3xl flex flex-col items-center justify-center shadow-lg transition-all duration-500 ${isScrolled ? 'h-16' : 'h-28'}`}>
-            <span className={`font-syne font-black text-[var(--color-primary)] leading-none tracking-tight transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-5xl'}`}>{avgNote > 0 ? avgNote.toFixed(1).replace('.', ',') : '--'}</span>
+            <span className={`font-galinoy text-[var(--color-primary)] leading-none tracking-tight transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-5xl'}`}>{avgNote > 0 ? avgNote.toFixed(1).replace('.', ',') : '--'}</span>
             <span className={`font-bold text-white/60 transition-all duration-500 uppercase tracking-widest ${isScrolled ? 'text-[8px] mt-0.5' : 'text-[10px] mt-2'}`}>Note Moyenne</span>
           </div>
         </div>
@@ -652,7 +646,7 @@ export function Dashboard({
           {dashView === 'all' && globalChartData.length > 0 ? (
             <div className="animate-in fade-in duration-500">
               <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-                <h2 className="text-xs font-bold text-white uppercase tracking-widest">Évolution du Temps Passé</h2>
+                <h2 className="font-galinoy text-2xl text-white leading-none">Évolution du Temps Passé</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col">
                 
@@ -681,50 +675,45 @@ export function Dashboard({
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '15px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} />
                       <Bar yAxisId="left" dataKey="Temps Total" fill="url(#colorTotal)" barSize={12} radius={[10, 10, 10, 10]} animationDuration={1500} />
 
-                      {/* --- CORRECTION ICI --- */}
-                      
-                      {/* LIGNE 1 (DESSOUS) : La ligne pure avec effet GLOW, mais SANS les points */}
-                      <Line 
-                        yAxisId="right" 
-                        type="monotone" 
-                        dataKey="Durée Moyenne" 
-                        stroke={colorPrimary} 
-                        strokeWidth={4} 
-                        filter="url(#glow)" /* Glow appliqué ici */
-                        dot={false} /* PAS DE POINTS */
+                      {/* Ligne glow sans points */}
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="Durée Moyenne" 
+                        stroke={colorPrimary} 
+                        strokeWidth={4} 
+                        filter="url(#glow)"
+                        dot={false}
                         activeDot={false}
-                        legendType="none" /* On cache de la légende pour ne pas doubler */
-                        animationDuration={1500} 
-                        animationBegin={500} 
+                        legendType="none"
+                        animationDuration={1500} 
+                        animationBegin={500} 
                       />
 
-                      {/* LIGNE 2 (DESSUS) : La ligne transparente, mais AVEC les points nets (sans glow) */}
-                      <Line 
-                        yAxisId="right" 
-                        type="monotone" 
-                        dataKey="Durée Moyenne" 
-                        stroke="transparent" /* Ligne invisible */
+                      {/* Ligne transparente avec points nets */}
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="Durée Moyenne" 
+                        stroke="transparent"
                         strokeWidth={0}
-                        dot={{ r: 5, fill: colorPrimary, stroke: colorPrimary, strokeWidth: 3 }} /* Points nets appliqué ici */
-                        activeDot={{ r: 7, fill: colorPrimary, stroke: '#fff', strokeWidth: 2 }} 
-                        // Mêmes timings d'animation pour qu'elles se superposent parfaitement
-                        animationDuration={1500} 
-                        animationBegin={500} 
+                        dot={{ r: 5, fill: colorPrimary, stroke: colorPrimary, strokeWidth: 3 }}
+                        activeDot={{ r: 7, fill: colorPrimary, stroke: '#fff', strokeWidth: 2 }} 
+                        animationDuration={1500} 
+                        animationBegin={500} 
                       />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* --- NOUVEAU : EXTRÊMES DURÉE MOYENNE --- */}
+                {/* Extrêmes durée moyenne */}
                 {(() => {
-                  if (globalChartData.length < 2) return null; // Inutile s'il n'y a qu'une seule année
+                  if (globalChartData.length < 2) return null;
                   
-                  // On clone le tableau pour le trier sans affecter le graphique
                   const sortedByAvg = [...globalChartData].sort((a, b) => a['Durée Moyenne'] - b['Durée Moyenne']);
                   const minAvg = sortedByAvg[0];
                   const maxAvg = sortedByAvg[sortedByAvg.length - 1];
 
-                  // Si le min et le max sont identiques, pas besoin de l'afficher
                   if (minAvg['Durée Moyenne'] === maxAvg['Durée Moyenne']) return null;
 
                   return (
@@ -732,7 +721,7 @@ export function Dashboard({
                       <div>
                         <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mb-1">Moyenne la + courte</p>
                         <div className="flex items-baseline gap-1.5">
-                          <p className="font-syne font-black text-white text-lg leading-none">
+                          <p className="font-galinoy text-white text-xl leading-none">
                             {formatDurationChart(minAvg['Durée Moyenne'])}
                           </p>
                           <p className="text-[10px] font-bold text-white/40">en {minAvg.name}</p>
@@ -741,7 +730,7 @@ export function Dashboard({
                       <div className="text-right">
                         <p className="text-[9px] uppercase font-bold tracking-widest text-[var(--color-primary)]/80 mb-1">Moyenne la + longue</p>
                         <div className="flex items-baseline justify-end gap-1.5">
-                          <p className="font-syne font-black text-[var(--color-primary)] text-lg leading-none">
+                          <p className="font-galinoy text-[var(--color-primary)] text-xl leading-none">
                             {formatDurationChart(maxAvg['Durée Moyenne'])}
                           </p>
                           <p className="text-[10px] font-bold text-[var(--color-primary)]/50">en {maxAvg.name}</p>
@@ -756,20 +745,20 @@ export function Dashboard({
           ) : (
             <div className="animate-in fade-in duration-500">
               <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-                <h2 className="text-xs font-bold text-white uppercase tracking-widest">Temps Passé</h2>
+                <h2 className="font-galinoy text-2xl text-white leading-none">Temps Passé</h2>
               </div>
               <div className="flex items-start gap-8 bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg">
                 <div>
-                  <p className="font-syne text-2xl font-black text-white leading-none tracking-tight uppercase">
+                  <p className="font-galinoy text-3xl text-white leading-none tracking-tight uppercase">
                     {Math.floor(totalMinutes / 60)}H{' '}
-                    <span className="text-xl text-white/60">{String(totalMinutes % 60).padStart(2, '0')}M</span>
+                    <span className="text-2xl text-white/60">{String(totalMinutes % 60).padStart(2, '0')}M</span>
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)] mt-1.5">au total</p>
                 </div>
                 <div>
-                  <p className="font-syne text-l font-black text-white leading-none tracking-tight uppercase mt-2">
+                  <p className="font-galinoy text-xl text-white leading-none tracking-tight uppercase mt-2">
                     {Math.floor(avgDuration / 60)}H{' '}
-                    <span className="text-sm text-white/60">{String(avgDuration % 60).padStart(2, '0')}M</span>
+                    <span className="text-lg text-white/60">{String(avgDuration % 60).padStart(2, '0')}M</span>
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1.5">en moyenne</p>
                 </div>
@@ -781,17 +770,17 @@ export function Dashboard({
         {/* Rentabilité */}
         <div>
           <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest">Rentabilité Abonnement</h2>
+            <h2 className="font-galinoy text-2xl text-white leading-none">Rentabilité Abonnement</h2>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div className="bg-white/5 rounded-3xl p-4 border border-white/5 shadow-lg flex flex-col justify-center">
               <span className="text-[9px] uppercase font-bold tracking-widest text-white/60 mb-2">Prix de Revient</span>
-              <span className="font-syne font-black text-2xl text-white leading-none">{costPerFilm.toFixed(2)}€</span>
+              <span className="font-galinoy text-3xl text-white leading-none">{costPerFilm.toFixed(2)}€</span>
               <span className="text-[8px] uppercase tracking-widest mt-1 text-white/40">/ film vu</span>
             </div>
             <div className="bg-white/5 rounded-3xl p-4 border border-white/5 shadow-lg flex flex-col justify-center">
               <span className="text-[9px] uppercase font-bold tracking-widest text-white/60 mb-2">Le Butin</span>
-              <span className={`font-syne font-black text-2xl leading-none ${isProfitable ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-galinoy text-3xl leading-none ${isProfitable ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {savings > 0 ? '+' : ''}{savings.toFixed(0)}€
               </span>
               <span className="text-[8px] uppercase tracking-widest mt-1 text-white/40">Économisés</span>
@@ -815,7 +804,7 @@ export function Dashboard({
                 <span className="text-[8px] font-bold text-white/40 uppercase">Valeur: {totalStandardValue.toFixed(0)}€</span>
               </div>
               
-              {/* --- NOUVEAU : PHRASE DE MOYENNE D'AMORTISSEMENT --- */}
+              {/* Phrase de moyenne d'amortissement */}
               {averageBreakEvenDay && (
                 <div className="pt-3 border-t border-white/10 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse flex-shrink-0"></span>
@@ -832,15 +821,13 @@ export function Dashboard({
         {dashView === 'month' && dailyBreakEvenData.length > 0 && (
           <div className="animate-in fade-in duration-500">
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Le Point d'Équilibre</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Le Point d'Équilibre</h2>
             </div>
             
-            {/* On ajoute "relative" ici pour pouvoir positionner la gélule par-dessus */}
             <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg h-56 relative overflow-hidden">
               
-              {/* --- GÉLULE FLOTTANTE --- */}
+              {/* Gélule flottante */}
               {(() => {
-                // On cherche le premier jour où la valeur cumulée dépasse ou égale le coût de l'abo
                 const bePoint = dailyBreakEvenData.find(d => d['Valeur Billets'] >= d['Coût Abo']);
                 if (bePoint && bePoint['Valeur Billets'] > 0) {
                   return (
@@ -856,7 +843,6 @@ export function Dashboard({
               })()}
 
               <ResponsiveContainer width="100%" height="100%">
-                {/* On augmente la marge "top" (de 10 à 35) pour que la gélule ne cache pas la courbe */}
                 <ComposedChart data={dailyBreakEvenData} margin={{ top: 35, right: 0, left: -40, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }} interval="preserveStartEnd" minTickGap={20} />
@@ -867,7 +853,7 @@ export function Dashboard({
                   <Area type="stepAfter" dataKey="Valeur Billets" stroke={colorPrimary} fill={colorPrimary} fillOpacity={0.2} strokeWidth={2} animationDuration={1500} />
                   <Line type="monotone" dataKey="Coût Abo" stroke={colorSecondary} strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1000} />
 
-                  {/* --- POINT D'INTERSECTION --- */}
+                  {/* Point d'intersection */}
                   {(() => {
                     const bePoint = dailyBreakEvenData.find(d => d['Valeur Billets'] >= d['Coût Abo']);
                     if (bePoint && bePoint['Valeur Billets'] > 0) {
@@ -877,7 +863,7 @@ export function Dashboard({
                           y={bePoint['Coût Abo']} 
                           r={5} 
                           fill="#10b981" 
-                          stroke= 'none'
+                          stroke='none'
                           strokeWidth={2} 
                           isFront={true} 
                         />
@@ -895,10 +881,10 @@ export function Dashboard({
         {(favoriteSeat || topRooms.length > 0) && (
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Habitudes</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Habitudes</h2>
             </div>
 
-            {/* Card Rituels — Moment préféré + Siège favori côte à côte */}
+            {/* Card Rituels */}
             {dashView !== 'month' && (favDay !== '--' || favoriteSeat) && (
               <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex items-stretch mb-3 overflow-hidden">
 
@@ -913,7 +899,7 @@ export function Dashboard({
                         {(favTime === 'Soirée' || favTime === 'Nuit') && <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
                       </div>
                       <div>
-                        <p className="font-syne font-black text-base text-white leading-tight capitalize">Le {favDay}</p>
+                        <p className="font-galinoy text-lg text-white leading-tight capitalize">Le {favDay}</p>
                         <p className="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest">en {favTime}</p>
                       </div>
                     </div>
@@ -926,7 +912,7 @@ export function Dashboard({
                     <span className="text-[9px] uppercase font-bold tracking-widest text-white/50 mb-1.5">Place VIP</span>
                     <div className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse flex-shrink-0" />
-                      <p className="font-syne text-2xl font-black text-[var(--color-primary)] drop-shadow-[0_0_10px_var(--color-primary-muted)] leading-none">
+                      <p className="font-galinoy text-3xl text-[var(--color-primary)] drop-shadow-[0_0_10px_var(--color-primary-muted)] leading-none">
                         {favoriteSeat[0]}
                       </p>
                     </div>
@@ -944,7 +930,7 @@ export function Dashboard({
               </div>
             )}
 
-            {/* Card Top Salles — pleine largeur, expandable */}
+            {/* Card Top Salles */}
             <div
               className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-lg flex flex-col cursor-pointer active:scale-[0.98] transition-all"
               onClick={() => setShowAllRooms(!showAllRooms)}
@@ -1006,7 +992,7 @@ export function Dashboard({
         {totalLang > 0 && (
           <div className="animate-in fade-in duration-500">
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Préférence Linguistique</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Préférence Linguistique</h2>
             </div>
             <div
               onClick={() => setShowDetailedLang(!showDetailedLang)}
@@ -1014,11 +1000,11 @@ export function Dashboard({
             >
               <div className="flex justify-between items-end mb-4">
                 <div>
-                  <p className="font-syne text-2xl font-black text-[var(--color-primary)] leading-none">{voPct}%</p>
+                  <p className="font-galinoy text-3xl text-[var(--color-primary)] leading-none">{voPct}%</p>
                   <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">En langue étrangère</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-syne text-2xl font-black text-white leading-none">{vfPct}%</p>
+                  <p className="font-galinoy text-3xl text-white leading-none">{vfPct}%</p>
                   <p className="text-[9px] uppercase font-bold tracking-widest text-white/50 mt-1">En français</p>
                 </div>
               </div>
@@ -1040,7 +1026,7 @@ export function Dashboard({
                       <button
                         key={lang}
                         onClick={(e) => {
-                          e.stopPropagation(); // ne pas refermer le détail
+                          e.stopPropagation();
                           setLangOverlay(lang);
                         }}
                         className="bg-black/40 border border-white/10 hover:border-[var(--color-primary)]/40 px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-inner active:scale-95 transition-all group"
@@ -1079,7 +1065,7 @@ export function Dashboard({
         {dashData.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Derniers Billets</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Derniers Billets</h2>
             </div>
             <div className="-mx-6 px-6 flex overflow-x-auto gap-3 pb-2 scrollbar-hide snap-x scroll-px-6">
               {dashData.slice(0, 8).map((film, idx) => (
@@ -1109,12 +1095,10 @@ export function Dashboard({
         {topGenres.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Genres Dominants</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Genres Dominants</h2>
             </div>
             <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg">
               {(() => {
-                // Palette de teintes dérivées de la couleur primaire
-                // On génère des variantes en jouant sur l'opacité et la luminosité
                 const OPACITIES = [1, 0.75, 0.55, 0.38, 0.25, 0.15];
                 const genreColors = topGenres.map((_, i) =>
                   i === 0
@@ -1154,9 +1138,9 @@ export function Dashboard({
                       {/* Label central */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span
-                          className="font-syne font-black leading-none text-center px-2"
+                          className="font-galinoy leading-none text-center px-2"
                           style={{
-                            fontSize: topGenre.length > 8 ? '9px' : '11px',
+                            fontSize: topGenre.length > 8 ? '10px' : '13px',
                             color: colorPrimary,
                             textShadow: `0 0 12px ${colorPrimary}60`,
                           }}
@@ -1173,7 +1157,6 @@ export function Dashboard({
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
                       {topGenres.slice(0, 6).map(([genre, count], i) => (
                         <div key={genre} className="flex items-center gap-2 min-w-0">
-                          {/* Pastille couleur */}
                           <div
                             className="w-2 h-2 rounded-full flex-shrink-0"
                             style={{ background: genreColors[i] }}
@@ -1199,7 +1182,7 @@ export function Dashboard({
         {dashView === 'year' && chartData.length > 0 && (
           <div className="animate-in fade-in duration-500">
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Activité Mensuelle {activeYear}</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Activité Mensuelle {activeYear}</h2>
             </div>
             <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -1221,11 +1204,11 @@ export function Dashboard({
         {dashView === 'all' && globalChartData.length > 0 && (
           <div className="animate-in fade-in duration-500">
             <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-              <h2 className="text-xs font-bold text-white uppercase tracking-widest">Bilan : Qualité & Volume</h2>
+              <h2 className="font-galinoy text-2xl text-white leading-none">Bilan : Qualité & Volume</h2>
             </div>
             <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-lg h-80 relative overflow-hidden">
               
-              {/* Légende intégrée façon infographie */}
+              {/* Légende intégrée */}
               <div className="absolute top-4 left-5 flex flex-col gap-1.5 z-10 pointer-events-none">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full border border-[var(--color-primary)] border-dashed bg-[var(--color-primary)]/20"></span>
@@ -1243,10 +1226,8 @@ export function Dashboard({
                 <LineChart data={globalChartData} margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
                   
-                  {/* Axe X épuré avec dy={15} pour pousser l'année plus bas et éviter le conflit */}
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }} dy={15} />
                   
-                  {/* CORRECTION : On crée DEUX axes Y invisibles pour que le volume n'écrase pas l'échelle des notes */}
                   <YAxis yAxisId="note" domain={['dataMin - 0.4', 'dataMax + 0.6']} hide={true} />
                   <YAxis yAxisId="volume" hide={true} />
                   
@@ -1257,10 +1238,8 @@ export function Dashboard({
                     formatter={chartTooltipFormatter} 
                   />
 
-                  {/* La Ligne fantôme est branchée sur l'axe "volume" */}
                   <Line yAxisId="volume" type="monotone" dataKey="Films vus" stroke="transparent" dot={false} activeDot={false} />
 
-                  {/* La Ligne principale est branchée sur l'axe "note" */}
                   <Line 
                     yAxisId="note"
                     type="monotone" 
@@ -1281,12 +1260,10 @@ export function Dashboard({
                           <circle cx={cx} cy={cy} r={r} fill={colorPrimary} fillOpacity={0.15} stroke={colorPrimary} strokeWidth={1} strokeDasharray="2 2" />
                           <circle cx={cx} cy={cy} r={4} fill={colorPrimary} stroke='colorPrimary' strokeWidth={2} />
                           
-                          {/* Label remonté d'un ou deux pixels */}
                           <text x={cx} y={cy - r - 8} textAnchor="middle" fill={colorPrimary} fontSize="12" fontWeight="900" style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}>
                             {payload['Note moy.']}
                           </text>
                           
-                          {/* Label de volume */}
                           <text x={cx} y={cy + r + 12} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="9" fontWeight="bold">
                             {payload['Films vus']} films
                           </text>
