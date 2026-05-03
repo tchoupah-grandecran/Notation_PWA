@@ -45,13 +45,14 @@ export function NavBar({ activeTab, setActiveTab }) {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* Fond avec flou progressif (Glassmorphism de haut niveau) */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-3xl" />
+      {/* Background using theme variables with backdrop-blur */}
+      <div className="absolute inset-0 bg-[var(--theme-nav-bg)] backdrop-blur-3xl" />
       
-      {/* Une ligne de séparation quasi-invisible pour le contraste */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      {/* Top border line */}
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[var(--theme-border)] to-transparent opacity-50" />
 
-      <div className="relative flex flex-row justify-around items-stretch px-4 h-16">
+      {/* Container with new h-[4.5rem] */}
+      <div className="relative flex flex-row justify-around items-stretch px-4 h-[4.5rem]">
         {tabs.map(({ id, label, icon }) => {
           const active = activeTab === id;
           return (
@@ -61,35 +62,22 @@ export function NavBar({ activeTab, setActiveTab }) {
               className="relative flex-1 flex flex-col items-center justify-center outline-none group"
             >
               <div
-                className={`flex flex-col items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-                  active ? 'text-white scale-110' : 'text-white/30 hover:text-white/50'
+                className={`flex flex-col items-center justify-center transition-colors duration-300 ease-out ${
+                  active 
+                    ? 'text-[var(--theme-accent)]' 
+                    : 'text-[var(--theme-text-secondary)] hover:text-[var(--theme-accent)]/70'
                 }`}
               >
-                {/* Icône */}
-                <div className="relative">
+                {/* Icon */}
+                <div className="relative mb-1.5">
                   {icon(active)}
-                  {/* Petit halo lumineux derrière l'icône active */}
-                  {active && (
-                    <div className="absolute inset-0 bg-[var(--color-primary)]/20 blur-xl scale-150 -z-10" />
-                  )}
                 </div>
 
-                {/* Label — Utilisation de Outfit */}
-                <span
-                  className={`text-[8px] mt-1.5 uppercase tracking-[0.15em] transition-all duration-300 font-outfit ${
-                    active ? 'font-black opacity-100' : 'font-medium opacity-50'
-                  }`}
-                >
+                {/* Label - Consistent sizing, color inherits from parent container */}
+                <span className="text-[8px] uppercase tracking-[0.15em] font-outfit font-medium">
                   {label}
                 </span>
               </div>
-
-              {/* Indicateur de position (la petite barre sous l'onglet) */}
-              <div 
-                className={`absolute bottom-2 w-1 h-1 rounded-full bg-[var(--color-primary)] transition-all duration-500 ease-out ${
-                  active ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                }`}
-              />
             </button>
           );
         })}

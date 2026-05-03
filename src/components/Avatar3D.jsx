@@ -1,23 +1,3 @@
-/**
- * Avatar3D — effet pop-out où la tête dépasse au-dessus du cercle.
- *
- * Architecture 3 couches :
- *  1. Fond cercle  — overflow:hidden, image à l'intérieur
- *  2. Bordure      — anneau coloré par-dessus
- *  3. Tête         — image dupliquée + clipPath qui laisse sortir
- *                    uniquement le haut (environ 22% de la hauteur)
- *
- * ⚠️  Le wrapper ne doit JAMAIS avoir overflow:hidden — c'est ce qui
- *     permet à la 3e couche de sortir du cercle.
- *
- * Props :
- *  src      — URL de l'avatar
- *  size     — diamètre en pixels (défaut 56)
- *  primary  — couleur de la bordure (ex: '#D4AF37')
- *  glow     — couleur du halo (ex: 'rgba(212,175,55,0.12)')
- *  opacity  — opacité globale (défaut 1, utile pour les non-sélectionnés)
- *  borderWidth — épaisseur de la bordure en px (défaut 2.5)
- */
 export function Avatar3D({
   src,
   size = 56,
@@ -25,7 +5,7 @@ export function Avatar3D({
   glow = 'var(--color-primary-muted)',
   opacity = 1,
   borderWidth = 2.5,
-  className = '',
+  className = '', 
 }) {
   const px = `${size}px`;
 

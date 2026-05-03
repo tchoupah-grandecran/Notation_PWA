@@ -1,4 +1,4 @@
-/* 1. TOUS les imports en premier, sans rien avant */
+/* 1. TOUS les imports en premier */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 
 /* 2. Les directives Tailwind */
@@ -6,7 +6,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 3. Tes polices locales et variables */
+/* 3. Polices locales et variables */
 @font-face {
   font-family: 'galinoy';
   src: url('/fonts/galinoy.otf') format('opentype');
@@ -29,8 +29,10 @@
 
 @layer base {
   html {
-    background-color: black;
+    /* Utilise la variable de thème pour éviter le flash noir au chargement */
+    background-color: var(--theme-bg, #0A0A0A);
     -webkit-tap-highlight-color: transparent;
+    overflow: hidden; /* Empêche le rebond élastique sur iOS au niveau du html */
   }
 
   body {
@@ -38,10 +40,11 @@
     padding: 0;
     width: 100%;
     min-height: 100dvh;
-    background-color: black;
-    color: white;
+    background-color: var(--theme-bg, #0A0A0A);
+    color: var(--theme-text, white);
     font-family: var(--font-outfit);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -51,6 +54,22 @@
   
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Utilité pour le grain si tu ne veux pas passer par du style inline uniquement */
+  .grain-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: var(--theme-grain-url);
+    opacity: var(--theme-grain-opacity);
+    /* "Multiply" est la clé pour que le grain se mélange aux fibres du papier 
+       sans éclaircir les zones sombres */
+    mix-blend-mode: multiply; 
+  }
 }
 
 /* 4. Animations */
@@ -67,4 +86,11 @@
 #root {
   width: 100%;
   min-height: 100dvh;
+  /* On s'assure que le grain reste visible au dessus du root si besoin */
+  position: relative;
+}
+
+/* Optimisation pour le rendu du texte sur les fonds papier (Light mode) */
+[data-theme='light'] body {
+  text-rendering: optimizeLegibility;
 }

@@ -1,36 +1,19 @@
-import { useState, useMemo } from 'react';
-import { THEME_COLORS, AVATAR_PRESETS } from '../constants';
+import { useState } from 'react';
+import { AVATAR_PRESETS } from '../constants';
 import { Avatar3D } from '../components/Avatar3D';
-import { RefreshCw, ChevronRight, LogOut, Save, Check, Database, Edit2, X } from 'lucide-react';
+import { 
+  RefreshCw, ChevronRight, LogOut, Save, Check, 
+  Database, Edit2, Sun, Moon, Sparkles, CreditCard, Ticket, X
+} from 'lucide-react';
 
 export function Profile({
-  isScrolled,
-  handleScan,
-  userName,
-  userAvatar,
-  currentThemeKey,
-  ratingScale,
-  pricing,
-  spreadsheetId,
-  historyData,
-  updateUserName,
-  updateAvatar,
-  updateTheme,
-  updateRatingScale,
-  updatePricing,
-  triggerCloudSave,
-  onEditSpreadsheet,
-  onLogout,
+  isScrolled, handleScan, userName, userAvatar, isDark, themeMode, toggleDarkMode,
+  ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
+  updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
 }) {
-  const activeTheme = useMemo(() => THEME_COLORS[currentThemeKey] || THEME_COLORS.default, [currentThemeKey]);
-  const anneesDisponibles = useMemo(() => [
-    ...new Set(historyData.map((f) => f.date?.split('/')[2]).filter(Boolean)),
-  ].sort((a, b) => b - a), [historyData]);
-
-  const [pricingYearEditor, setPricingYearEditor] = useState('default');
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isDirty, setIsDirty] = useState(false);
-  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
+  const [showSheetModal, setShowSheetModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
 
   const handleChange = (updateFn, ...args) => {
@@ -38,193 +21,240 @@ export function Profile({
     setIsDirty(true);
   };
 
-  const handleManualSave = async () => {
-    setSaveStatus('saving');
-    try {
-      await triggerCloudSave();
-      setSaveStatus('success');
-      setTimeout(() => { setSaveStatus('idle'); setIsDirty(false); }, 1500);
-    } catch (e) { setSaveStatus('idle'); }
+  const handlePriceChange = (key, value) => {
+    const displayValue = value.replace('.', ',');
+    const dataValue = value.replace(',', '.');
+    if (/^\d*[.,]?\d{0,2}$/.test(displayValue) || displayValue === '') {
+      handleChange(updatePricing, { ...pricing, [key]: dataValue });
+    }
   };
 
   return (
-    <div 
-      className="min-h-screen font-outfit pb-40 transition-all duration-1000"
-      style={{ 
-        background: activeTheme.bgGradient || '#000',
-        '--color-primary': activeTheme.primary 
-      }}
-    >
-      <header className={`z-40 sticky top-0 w-full transition-all duration-700 ${
-        isScrolled ? 'bg-black/20 backdrop-blur-2xl border-b border-white/5' : 'bg-transparent'
-      }`}>
-        <div className="px-6 pt-safe pb-4 flex justify-between items-end">
-          <div>
-            {!isScrolled && <span className="text-[var(--color-primary)] font-black text-[10px] uppercase tracking-[0.3em] ml-1">Configuration</span>}
-            <h1 className={`font-galinoy text-white transition-all ${isScrolled ? 'text-3xl' : 'text-6xl'}`}>Profil</h1>
-          </div>
-          
-          <div className={`transition-all duration-500 ${isDirty ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}>
-            <button
-              onClick={handleManualSave}
-              className="h-9 px-4 rounded-full flex items-center gap-2 font-black text-[9px] uppercase tracking-widest bg-white text-black shadow-2xl active:scale-95 transition-all"
-            >
-              {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
-               saveStatus === 'success' ? <Check size={14} className="text-green-600" /> : <Save size={12} />}
-              {saveStatus === 'idle' && "Appliquer"}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="px-6 mt-12 space-y-16">
-        <section className="flex flex-col items-center">
-          <Avatar3D src={userAvatar} size={130} primary="var(--color-primary)" glow="rgba(255,255,255,0.1)" borderWidth={0} />
-          <div className="mt-8 flex flex-col items-center">
-            <div className="relative inline-flex items-center group">
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => handleChange(updateUserName, e.target.value)}
-                style={{ width: `${Math.max(userName.length, 1)}ch`, minWidth: '160px' }}
-                className="font-galinoy text-4xl bg-transparent outline-none text-white text-center focus:text-white transition-colors pr-2"
-              />
-              <Edit2 size={16} className="text-white/20 group-focus-within:text-white transition-colors shrink-0" />
-            </div>
-            <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] mt-3 italic">Premium Cinephile</p>
-          </div>
-        </section>
-
-        <section className="space-y-4">
-           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Système</h3>
-           <div className="bg-black/20 rounded-[2.5rem] border border-white/10 overflow-hidden backdrop-blur-md">
-              <button onClick={() => setIsSheetModalOpen(true)} className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors border-b border-white/5">
-                <div className="flex items-center gap-4 text-left">
-                  <Database size={18} className="text-white/70" />
-                  <div>
-                    <p className="text-[10px] font-black text-white uppercase">Google Sheet ID</p>
-                    <p className="text-[9px] text-white/40 truncate max-w-[140px] font-mono mt-1 italic">{spreadsheetId}</p>
-                  </div>
-                </div>
-                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest border border-white/20 px-2 py-1 rounded">Changer</span>
-              </button>
-              <button onClick={handleScan} className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors">
-                <div className="flex items-center gap-4 text-left">
-                  <RefreshCw size={18} className="text-white/40" />
-                  <p className="text-[10px] font-black text-white uppercase">Forcer Sync Cloud</p>
-                </div>
-                <ChevronRight size={14} className="text-white/10" />
-              </button>
-           </div>
-        </section>
-
-        <section className="space-y-6">
-          <div className="flex justify-between items-end px-1">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Finance</h3>
-            <select
-              value={pricingYearEditor}
-              onChange={(e) => setPricingYearEditor(e.target.value)}
-              className="bg-white/10 text-white text-[9px] font-black uppercase tracking-widest outline-none rounded-full px-3 py-1"
-            >
-              <option value="default">Global</option>
-              {anneesDisponibles.map((y) => <option key={y} value={y} className="text-black">{y}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {[{ k: 'sub', l: 'Mensuel' }, { k: 'ticket', l: 'Ticket' }].map((item) => (
-              <div key={item.k} className="bg-black/20 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/10">
-                <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2">{item.l}</p>
-                <div className="flex items-baseline gap-1">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={pricing[pricingYearEditor]?.[item.k] ?? pricing.default?.[item.k] ?? ''}
-                    onChange={(e) => {
-                      let v = e.target.value.replace(',', '.');
-                      const newPricing = { ...pricing, [pricingYearEditor]: { ...pricing[pricingYearEditor], [item.k]: v } };
-                      handleChange(updatePricing, newPricing);
-                    }}
-                    className="w-full bg-transparent outline-none font-galinoy text-4xl text-white focus:text-[var(--color-primary)] transition-colors"
-                  />
-                  <span className="text-white/50 font-black text-xs">€</span>
-                </div>
+    <div className="min-h-screen font-outfit pb-40 transition-colors duration-1000 bg-[var(--theme-bg)]">
+      
+      {/* MODAL GOOGLE SHEET */}
+      {showSheetModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowSheetModal(false)} />
+          <div className="relative w-full max-w-sm bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[2.5rem] p-8 shadow-2xl">
+            <div className="flex justify-between items-start mb-6 text-left">
+              <div>
+                <h3 className="text-xl font-bold text-[var(--theme-text)]">Base de données</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--theme-accent)] mt-1">Google Sheets ID</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-6">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Apparence</h3>
-          <div className="flex gap-5 overflow-x-auto scrollbar-hide py-2 px-1">
-            {AVATAR_PRESETS.map((url, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleChange(updateAvatar, url)}
-                className={`flex-shrink-0 transition-all duration-500 ${userAvatar === url ? 'scale-110' : 'opacity-20 grayscale hover:opacity-100 hover:grayscale-0'}`}
-              >
-                <Avatar3D src={url} size={64} primary={userAvatar === url ? 'white' : 'transparent'} borderWidth={userAvatar === url ? 2 : 0} />
+              <button onClick={() => setShowSheetModal(false)} className="p-2 rounded-full bg-[var(--theme-bg)] text-[var(--theme-text)] opacity-40">
+                <X size={18} />
               </button>
-            ))}
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1">
-            {Object.entries(THEME_COLORS).map(([key, t]) => (
-              <button
-                key={key}
-                onClick={() => handleChange(updateTheme, key)}
-                className={`flex-shrink-0 w-11 h-11 rounded-full transition-all ${currentThemeKey === key ? 'ring-2 ring-white ring-offset-4 ring-offset-transparent scale-90' : 'opacity-40 hover:opacity-100'}`}
-                style={{ background: t.bgGradient }}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-black/20 border border-white/10 rounded-[2.5rem] p-4 flex items-center justify-between backdrop-blur-md">
-            <span className="ml-4 font-galinoy text-2xl text-white italic opacity-80">Notation</span>
-            <div 
-              onClick={() => handleChange(updateRatingScale, ratingScale === 5 ? 10 : 5)}
-              className="relative w-32 h-12 bg-black/40 rounded-full border border-white/10 cursor-pointer p-1"
-            >
-              <div className={`absolute inset-1 w-1/2 rounded-full bg-white transition-all duration-500 flex items-center justify-center shadow-lg ${ratingScale === 10 ? 'translate-x-full' : 'translate-x-0'}`}>
-                <span className="font-black text-black text-[10px]">/{ratingScale}</span>
-              </div>
-              <div className="flex w-full h-full items-center justify-around text-white/20 text-[9px] font-black">
-                <span>5</span>
-                <span>10</span>
-              </div>
             </div>
-        </section>
-
-        <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 py-6 rounded-[2.5rem] bg-white/5 border border-white/10 text-white/30 hover:text-red-400 transition-all mt-10">
-          <LogOut size={16} />
-          <span className="text-[9px] font-black uppercase tracking-[0.4em]">Déconnexion</span>
-        </button>
-      </main>
-
-      {isSheetModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsSheetModalOpen(false)} />
-          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-[3rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
-            <button onClick={() => setIsSheetModalOpen(false)} className="absolute top-6 right-6 text-white/20 hover:text-white"><X size={20} /></button>
-            <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 mx-auto">
-              <Database size={28} className="text-white" />
-            </div>
-            <h2 className="font-galinoy text-3xl text-white mb-2">Base de données</h2>
-            <p className="text-white/40 text-[10px] uppercase font-black mb-8">ID Google Sheet</p>
-            <input
+            <input 
               type="text"
               value={tempSheetId}
               onChange={(e) => setTempSheetId(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-mono text-xs text-white outline-none focus:border-white mb-4"
+              className="w-full bg-[var(--theme-bg)] border border-[var(--theme-border)] rounded-2xl px-5 py-4 font-mono text-xs text-[var(--theme-text)] outline-none"
             />
-            <button
-              onClick={() => { onEditSpreadsheet(tempSheetId); setIsSheetModalOpen(false); }}
-              className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all"
+            <button 
+              onClick={() => { onEditSpreadsheet(tempSheetId); setShowSheetModal(false); setIsDirty(true); }}
+              className="w-full mt-6 bg-[var(--theme-text)] text-[var(--theme-bg)] h-14 rounded-2xl font-black text-xs uppercase tracking-widest"
             >
-              Mettre à jour
+              Confirmer
             </button>
           </div>
         </div>
       )}
+
+      {/* HEADER STICKY - PADDING HARMONISÉ */}
+      <header className={`z-[90] sticky top-0 w-full transition-all duration-500 ${
+        isScrolled ? 'bg-[var(--theme-bg)]/90 backdrop-blur-xl border-b border-[var(--theme-border)]' : 'bg-transparent'
+      }`}>
+        <div className="px-8 pt-safe pb-safe flex justify-between items-center h-20">
+          <h1 className={`font-galinoy text-[var(--theme-text)] transition-all duration-500 ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+            Mon compte
+          </h1>
+
+          <button
+            onClick={async () => {
+              setSaveStatus('saving');
+              await triggerCloudSave();
+              setSaveStatus('success');
+              setTimeout(() => { setSaveStatus('idle'); setIsDirty(false); }, 1500);
+            }}
+            className={`h-11 px-6 rounded-full flex items-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all duration-500 shadow-2xl ${
+              isDirty ? 'bg-[var(--theme-text)] text-[var(--theme-bg)] scale-100 opacity-100' : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          >
+            {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
+             saveStatus === 'success' ? <Check size={14} /> : <Save size={12} />}
+            {saveStatus === 'success' ? 'Enregistré' : 'Sauvegarder'}
+          </button>
+        </div>
+      </header>
+
+      <main className="px-6 mt-8 space-y-12 !overflow-visible">
+        
+        {/* IDENTITY */}
+        <section className="flex flex-col items-center !overflow-visible">
+          <div className="relative rounded-full ring-4 ring-inset ring-[var(--theme-accent)] p-1 !overflow-visible">
+            <Avatar3D src={userAvatar} size={140} primary="transparent" borderWidth={0} />
+          </div>
+          <div className="mt-6 flex items-center gap-3 group">
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => handleChange(updateUserName, e.target.value)}
+              style={{ width: `${Math.max(userName.length, 1)}ch`, minWidth: '100px' }}
+              className="font-galinoy text-4xl bg-transparent outline-none text-[var(--theme-text)] text-center focus:text-[var(--theme-accent)] transition-colors"
+            />
+            <Edit2 size={18} className="text-[var(--theme-text)] opacity-20 group-focus-within:text-[var(--theme-accent)] group-focus-within:opacity-100 transition-all" />
+          </div>
+        </section>
+
+        {/* PRÉFÉRENCES */}
+        <div className="space-y-6 !overflow-visible">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--theme-text)] opacity-30 ml-4 text-left">Préférences</h3>
+          
+          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[2.5rem] p-5 space-y-8 backdrop-blur-md !overflow-visible">
+            
+            {/* THÈME */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col ml-2 text-left">
+                <span className="text-lg font-bold text-[var(--theme-text)]">Apparence</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--theme-accent)] mt-1">
+                  {themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-[var(--theme-bg)] p-1.5 rounded-full border border-[var(--theme-border)]">
+                <div className="relative flex items-center bg-[var(--theme-surface)] rounded-full p-1">
+                  <div 
+                    className="absolute h-7 w-7 bg-[var(--theme-text)] rounded-full transition-all duration-500"
+                    style={{ transform: `translateX(${isDark ? '100%' : '0%'})`, left: '4px', opacity: themeMode === 'system' ? 0.2 : 1 }}
+                  />
+                  <button onClick={() => handleChange(toggleDarkMode, 'light')} className={`relative z-10 w-7 h-7 flex items-center justify-center transition-colors ${themeMode === 'light' ? 'text-[var(--theme-bg)]' : 'text-[var(--theme-text)] opacity-40'}`}>
+                    <Sun size={12} strokeWidth={2.5} />
+                  </button>
+                  <button onClick={() => handleChange(toggleDarkMode, 'dark')} className={`relative z-10 w-7 h-7 flex items-center justify-center transition-colors ${themeMode === 'dark' ? 'text-black' : 'text-[var(--theme-text)] opacity-40'}`}>
+                    <Moon size={12} strokeWidth={2.5} />
+                  </button>
+                </div>
+                <div className="w-[1px] h-3 bg-[var(--theme-border)] opacity-50" />
+                <button onClick={() => handleChange(toggleDarkMode, 'system')} className={`h-9 px-4 rounded-full flex items-center gap-2 transition-all font-black text-[9px] uppercase tracking-widest ${themeMode === 'system' ? 'bg-[var(--theme-text)] text-[var(--theme-bg)]' : 'text-[var(--theme-text)] opacity-30'}`}>
+                  <Sparkles size={10} /> Auto
+                </button>
+              </div>
+            </div>
+
+            {/* NOTATION /10 (FIXÉ) */}
+            <div className="flex items-center justify-between border-t border-[var(--theme-border)] pt-6">
+              <div className="flex flex-col ml-2 text-left">
+                <span className="text-lg font-bold text-[var(--theme-text)]">Notation</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--theme-text)] opacity-30 mt-1">Échelle</span>
+              </div>
+              
+              <div 
+                onClick={() => handleChange(updateRatingScale, ratingScale === 5 ? 10 : 5)}
+                className="relative w-40 h-14 bg-[var(--theme-bg)] rounded-full border border-[var(--theme-border)] cursor-pointer flex items-center"
+              >
+                <div 
+                  className="absolute h-11 w-20 bg-[var(--theme-text)] rounded-full transition-all duration-500 flex items-center justify-center shadow-xl"
+                  style={{ left: ratingScale === 5 ? '6px' : 'calc(100% - 80px - 6px)' }}
+                >
+                  <span className="font-black text-[var(--theme-bg)] text-[12px]">/{ratingScale}</span>
+                </div>
+                <div className="flex w-full items-center justify-around text-[var(--theme-text)] opacity-20 text-[10px] font-black uppercase pointer-events-none">
+                  <span className={ratingScale === 5 ? 'invisible' : ''}>Sur 5</span>
+                  <span className={ratingScale === 10 ? 'invisible' : ''}>Sur 10</span>
+                </div>
+              </div>
+            </div>
+
+            {/* AVATAR CAROUSEL - ANTI-CLIPPING FINAL */}
+            <div className="border-t border-[var(--theme-border)] pt-8 !overflow-visible">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--theme-text)] opacity-30 block ml-2 text-left mb-2">Avatar</span>
+              <div className="relative w-full !overflow-visible">
+                {/* On force l'overflow visible vertical via padding compensatoire */}
+                <div className="flex gap-6 overflow-x-auto scrollbar-hide py-10 -my-10 px-4 !overflow-y-visible">
+                  {AVATAR_PRESETS.map((url, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => handleChange(updateAvatar, url)} 
+                      className={`flex-shrink-0 transition-all duration-500 rounded-full p-0.5 border-2 ${
+                        userAvatar === url 
+                        ? 'border-[var(--theme-accent)] scale-[1.35] shadow-2xl z-20 translate-y-[-2px]' 
+                        : 'border-transparent opacity-20 grayscale scale-90 z-10 hover:opacity-40'
+                      }`}
+                    >
+                      <Avatar3D src={url} size={54} primary="transparent" borderWidth={0} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CONFIGURATION */}
+<div className="space-y-6">
+  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--theme-text)] opacity-30 ml-4 text-left">Configuration</h3>
+  <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[2.5rem] overflow-hidden backdrop-blur-md">
+    <div className="p-6 space-y-6">
+      {[
+        { label: 'Cinepass mensuel', key: 'monthlySub', icon: CreditCard, sub: 'Abonnement' },
+        { label: 'Ticket unitaire', key: 'ticketPrice', icon: Ticket, sub: 'Hors-forfait' }
+      ].map((item) => (
+        <div key={item.key} className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-[var(--theme-bg)] flex items-center justify-center text-[var(--theme-text)] border border-[var(--theme-border)]">
+              <item.icon size={18} />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-40 truncate">{item.sub}</p>
+              <p className="text-sm font-bold truncate">{item.label}</p>
+            </div>
+          </div>
+          
+          {/* Input ajusté : flex-shrink-0 et largeur fixe suffisante */}
+          <div className="flex-shrink-0 flex items-center gap-2 bg-[var(--theme-bg)] px-4 h-12 rounded-2xl border border-[var(--theme-border)] w-32">
+            <input 
+              type="text" 
+              inputMode="decimal"
+              value={pricing?.[item.key]?.toString().replace('.', ',') || ''}
+              onChange={(e) => handlePriceChange(item.key, e.target.value)}
+              className="bg-transparent flex-1 text-right font-black text-sm outline-none w-full text-[var(--theme-text)]"
+              placeholder="0"
+            />
+            <span className="text-[10px] opacity-40 font-black text-[var(--theme-text)]">€</span>
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    <div className="border-t border-[var(--theme-border)]">
+      <button onClick={() => { setTempSheetId(spreadsheetId); setShowSheetModal(true); }} className="w-full flex items-center justify-between p-6 hover:bg-[var(--theme-text)]/5 transition-colors border-b border-[var(--theme-border)]">
+        <div className="flex items-center gap-4 min-w-0">
+          <Database size={18} className="opacity-40 flex-shrink-0" />
+          <div className="text-left min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Base de données</p>
+            <p className="text-[10px] font-mono opacity-60 truncate">{spreadsheetId}</p>
+          </div>
+        </div>
+        <ChevronRight size={14} className="opacity-20 flex-shrink-0" />
+      </button>
+      <button onClick={handleScan} className="w-full flex items-center justify-between p-6 hover:bg-[var(--theme-text)]/5 transition-colors">
+        <div className="flex items-center gap-4 text-[var(--theme-text)]">
+          <RefreshCw size={18} className="opacity-40 flex-shrink-0" />
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Synchronisation forcée</p>
+        </div>
+        <ChevronRight size={14} className="opacity-20 flex-shrink-0" />
+      </button>
+    </div>
+  </div>
+</div>
+
+        {/* LOGOUT */}
+        <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 py-6 rounded-[2.5rem] bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-all duration-300">
+          <LogOut size={16} />
+          <span className="text-[10px] font-black uppercase tracking-[0.4em]">Fermer la session</span>
+        </button>
+      </main>
     </div>
   );
 }

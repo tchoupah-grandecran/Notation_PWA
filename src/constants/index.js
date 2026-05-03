@@ -1,124 +1,70 @@
 // ==========================================
-// THÈMES
+// THÈMES (Dark / Light avec texture Papier)
 // ==========================================
 export const THEME_COLORS = {
-  'dark-grey': {
-    bg: '#08090F',
-    bgGradient: 'linear-gradient(160deg, #08090F 0%, #0D0E18 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.65)',
-    text: '#FFFFFF',
-    textOnAccent: '#08090F',
-    primary: '#D4AF37',
-    primaryHover: '#F5CC2A',
-    primaryMuted: 'rgba(212,175,55,0.12)',
-    headerBg: 'rgba(18,17,14,0.75)',
-    navbarBg: 'rgba(18,17,14,0.88)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.75)',
+  dark: {
+    key: 'dark',
+    name: 'Sombre',
+    bg: '#0A0A0A',
+    surface: '#141414',
+    border: 'rgba(255,255,255,0.08)',
+    text: '#F0EAD6',
+    textSecondary: 'rgba(240,234,214,0.45)',
+    accent: '#C8A84B',
+    accentMuted: 'rgba(200,168,75,0.12)',
+    navBg: 'rgba(10,10,10,0.92)',
+    grainOpacity: '0.04', // Very subtle on dark
   },
-  'velvet-red': {
-    bg: '#7A0A0A',
-    bgGradient: 'linear-gradient(135deg, #7A0A0A 0%, #520606 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.70)',
-    text: '#FFFFFF',
-    textOnAccent: '#1A0000',
-    primary: '#FFD700',
-    primaryHover: '#FFE44D',
-    primaryMuted: 'rgba(255,215,0,0.15)',
-    headerBg: 'rgba(62,5,5,0.82)',
-    navbarBg: 'rgba(52,3,3,0.92)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.80)',
+  light: {
+    key: 'light',
+    name: 'Clair',
+    bg: '#F5F0E8', // Note: This cream color works perfectly with grain
+    surface: '#FFFFFF',
+    border: 'rgba(0,0,0,0.08)',
+    text: '#1A1A1A',
+    textSecondary: 'rgba(26,26,26,0.45)',
+    accent: '#1A1A1A',
+    accentMuted: 'rgba(26,26,26,0.06)',
+    navBg: 'rgba(245,240,232,0.92)',
+    grainOpacity: '0.07', // More visible on light for "analog" feel
   },
-  'pine-green': {
-    bg: '#0A4D3C',
-    bgGradient: 'linear-gradient(135deg, #0A4D3C 0%, #063227 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.65)',
-    text: '#FFFFFF',
-    textOnAccent: '#021A13',
-    primary: '#A8E063',
-    primaryHover: '#BFEE80',
-    primaryMuted: 'rgba(168,224,99,0.15)',
-    headerBg: 'rgba(5,35,27,0.80)',
-    navbarBg: 'rgba(4,28,21,0.90)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.75)',
-  },
-  'coffee-cream': {
-    bg: '#382618',
-    bgGradient: 'linear-gradient(135deg, #382618 0%, #4E3218 100%)',
-    surfaceOverlay: 'rgba(20,10,5,0.70)',
-    text: '#FAEDCD',
-    textOnAccent: '#2C1A0E',
-    primary: '#CF9060',
-    primaryHover: '#E0A878',
-    primaryMuted: 'rgba(207,144,96,0.18)',
-    headerBg: 'rgba(28,16,10,0.82)',
-    navbarBg: 'rgba(22,12,6,0.92)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.75)',
-  },
-  'pearl-white': {
-    bg: '#FAF8F3',
-    bgGradient: 'linear-gradient(135deg, #FFFFFF 0%, #EDE8DC 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.50)',
-    text: '#1C1C1E',
-    textOnAccent: '#FFFFFF',
-    primary: '#A07800',
-    primaryHover: '#8A6600',
-    primaryMuted: 'rgba(160,120,0,0.12)',
-    headerBg: 'rgba(255,255,255,0.82)',
-    navbarBg: 'rgba(255,255,255,0.92)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.18)',
-  },
-  'ocean-blue': {
-    bg: '#0A2463',
-    bgGradient: 'linear-gradient(135deg, #0A2463 0%, #0D3B7A 50%, #1E5B8E 100%)',
-    surfaceOverlay: 'rgba(0,10,40,0.70)',
-    text: '#FFFFFF',
-    textOnAccent: '#000D2E',
-    primary: '#4FC3F7',
-    primaryHover: '#81D4FA',
-    primaryMuted: 'rgba(79,195,247,0.15)',
-    headerBg: 'rgba(5,15,55,0.82)',
-    navbarBg: 'rgba(4,12,45,0.92)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.75)',
-  },
-  'rose-quartz': {
-    bg: '#4A1040',
-    bgGradient: 'linear-gradient(135deg, #4A1040 0%, #7B2560 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.65)',
-    text: '#FFFFFF',
-    textOnAccent: '#2A0018',
-    primary: '#F9A8D4',
-    primaryHover: '#FBC8E4',
-    primaryMuted: 'rgba(249,168,212,0.15)',
-    headerBg: 'rgba(38,6,32,0.82)',
-    navbarBg: 'rgba(30,4,25,0.92)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.75)',
-  },
-  'golden-age': {
-    bg: '#FCFAF5',
-    bgGradient: 'linear-gradient(135deg, #FFF8E7 0%, #F0E4CC 100%)',
-    surfaceOverlay: 'rgba(252,250,245,0.85)',
-    text: '#4A3B22',
-    textOnAccent: '#2C1A00',
-    primary: '#B8830A',
-    primaryHover: '#9A6E08',
-    primaryMuted: 'rgba(184,131,10,0.14)',
-    headerBg: 'rgba(255,255,255,0.82)',
-    navbarBg: 'rgba(255,255,255,0.92)',
-    shadowStrong: '0 8px 40px rgba(74,59,34,0.15)',
-  },
-  'pride': {
-    bg: '#1A1A2E',
-    bgGradient: 'linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)',
-    surfaceOverlay: 'rgba(0,0,0,0.68)',
-    text: '#FFFFFF',
-    textOnAccent: '#1A1A2E',
-    primary: '#B794F4',
-    primaryHover: '#C9A8FF',
-    primaryMuted: 'rgba(183,148,244,0.15)',
-    headerBg: 'linear-gradient(90deg, #E40303 0%, #FF8C00 20%, #FFED00 40%, #008026 60%, #004DFF 80%, #750787 100%)',
-    navbarBg: 'rgba(10,10,22,0.94)',
-    shadowStrong: '0 8px 40px rgba(0,0,0,0.80)',
-  },
+};
+
+/**
+ * Returns an object of CSS variable assignments.
+ * Includes a background-image definition for the noise grain.
+ */
+export const THEME_TOKENS = (key = 'dark') => {
+  const t = THEME_COLORS[key] || THEME_COLORS.dark;
+  
+  // This SVG creates a fractal noise pattern that simulates paper fiber/film grain
+  const grainSvg = `
+    <svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'>
+      <filter id='noiseFilter'>
+        <feTurbulence 
+          type='fractalNoise' 
+          baseFrequency='0.65' 
+          numOctaves='3' 
+          stitchTiles='stitch'/>
+      </filter>
+      <rect width='100%' height='100%' filter='url(#noiseFilter)'/>
+    </svg>
+  `.replace(/\n/g, "").replace(/"/g, "'");
+
+  const grainDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(grainSvg)}`;
+
+  return {
+    '--theme-bg':             t.bg,
+    '--theme-surface':        t.surface,
+    '--theme-border':         t.border,
+    '--theme-text':           t.text,
+    '--theme-text-secondary': t.textSecondary,
+    '--theme-accent':         t.accent,
+    '--theme-accent-muted':   t.accentMuted,
+    '--theme-nav-bg':         t.navBg,
+    '--theme-grain-opacity':  t.grainOpacity,
+    '--theme-grain-url':      `url("${grainDataUri}")`,
+  };
 };
 
 // ==========================================
@@ -157,17 +103,3 @@ export const AVATAR_PRESETS = [
   'https://i.imgur.com/cNIOilm.png', 'https://i.imgur.com/xEJPFzP.png',
   'https://i.imgur.com/SRm2Lvv.png',
 ];
-
-// ==========================================
-// ARCHÉTYPES STUDIO
-// ==========================================
-export const RW_ARCHETYPES = {
-  'Drame':     { high:{name:'Le\nSensible',  desc:'Tu cherches à être touché, bousculé. Le cinéma est un miroir dans lequel tu t\'autorises à regarder.'}, mid: {name:'Le\nLucide',    desc:'Tu acceptes que l\'émotion soit rare. Quand elle est là, elle compte.'}, low: {name:'Le\nSceptique', desc:'Beaucoup de drames, peu de conviction. Peut-être que le mois prochain sera différent.'} },
-  'Thriller':  { high:{name:'Le\nTendu',     desc:'Tu aimes les films qui ne te lâchent pas. La tension comme langage cinématographique.'}, mid: {name:'L\'Enquêteur', desc:'Tu analyses, tu décortiques. Le thriller est un puzzle que tu résous.'}, low: {name:'Le\nDéçu',     desc:'Beaucoup de promesses, peu de résolutions. Le genre t\'a laissé sur ta faim.'} },
-  'Biopic':    { high:{name:'Le\nCurieux',   desc:'Les vies des autres te fascinent. Tu sors de chaque film avec de nouvelles questions.'}, mid: {name:'L\'Historien', desc:'Entre le réel et la mise en scène, tu navigues avec un regard averti.'}, low: {name:'Le\nRéviseur', desc:'Tu connais trop bien les histoires pour te laisser convaincre facilement.'} },
-  'Horreur':   { high:{name:'Le\nCourageux', desc:'Tu affrontes tes peurs les yeux grands ouverts — et tu en ressors grandi.'}, mid: {name:'L\'Amateur',  desc:'Le genre t\'attire sans toujours te convaincre. La peur, ça se mérite.'}, low: {name:'Le\nRésistant',desc:'Ni convaincu, ni effrayé. Le genre a encore du travail pour t\'avoir.'} },
-  'Animation': { high:{name:'Le\nRêveur',   desc:'Tu crois que les images animées parlent aux adultes autant qu\'aux enfants. Tu as raison.'}, mid: {name:'L\'Ouvert',   desc:'Tu ne t\'interdis rien. L\'animation est un langage comme un autre.'}, low: {name:'L\'Exigeant', desc:'Pour toi, l\'animation doit justifier son format. Pas toujours évident.'} },
-  'Comédie':   { high:{name:'Le\nJoyeux',   desc:'Tu sors léger, tu rigoles fort. Le cinéma n\'a pas toujours besoin d\'être sérieux.'}, mid: {name:'Le\nMitigé',  desc:'Tu souris, parfois tu ris. Mais tu es venu pour plus que ça.'}, low: {name:'Le\nDifficile',desc:'Peu de choses te font rire au cinéma. Tu as des exigences.'} },
-  'Action':    { high:{name:'L\'Aventurier',desc:'Tu aimes que ça bouge. L\'adrénaline sur grand écran est ton carburant.'}, mid: {name:'Le\nSélectif',desc:'Pas toute l\'action — la bonne action. Celle qui raconte quelque chose.'}, low: {name:'Le\nDépassé', desc:'L\'action ne t\'a pas conquis ce mois-ci. Tu méritais mieux.'} },
-  'default':   { high:{name:'L\'Éclectique',desc:'Aucun genre ne te définit. Tu vas là où le cinéma t\'emmène.'}, mid: {name:'Le\nVoyageur',desc:'Tu explores sans carte. Chaque film est un territoire nouveau.'}, low: {name:'Le\nChercheur',desc:'Tu tâtonnes, tu essaies. La perle rare se mérite.'} },
-};
