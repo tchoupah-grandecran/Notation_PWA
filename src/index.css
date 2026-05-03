@@ -1,10 +1,12 @@
+/* 1. TOUS les imports en premier, sans rien avant */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+/* 2. Les directives Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 1. IMPORTS & FONTS */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
-
+/* 3. Tes polices locales et variables */
 @font-face {
   font-family: 'galinoy';
   src: url('/fonts/galinoy.otf') format('opentype');
@@ -25,7 +27,6 @@
   --font-outfit: 'Outfit', sans-serif;
 }
 
-/* 2. CONFIGURATION BASE */
 @layer base {
   html {
     background-color: black;
@@ -39,7 +40,8 @@
     min-height: 100dvh;
     background-color: black;
     color: white;
-    font-family: var(--font-outfit); /* Outfit pour l'interface */
+    font-family: var(--font-outfit);
+    -webkit-font-smoothing: antialiased;
   }
 }
 
@@ -51,17 +53,7 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-/* 3. ANIMATIONS & DIVERS */
-#root {
-  width: 100%;
-  min-height: 100dvh;
-  overflow: hidden;
-}
-
-.bg-capucine-pale { background-color: rgba(255, 192, 203, 0.05); }
-.pt-safe { padding-top: var(--sat); }
-.pb-safe { padding-bottom: var(--sab); }
-
+/* 4. Animations */
 @keyframes bubble-in {
   0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
   70%  { transform: scale(1.05) translateY(-2px); opacity: 1; }
@@ -70,4 +62,9 @@
 
 .animate-bubble {
   animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#root {
+  width: 100%;
+  min-height: 100dvh;
 }
