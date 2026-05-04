@@ -55,6 +55,7 @@ function App() {
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('grandecran_db_id') || '');
   const [activeTab, setActiveTab]       = useState('home');
   const [isScrolled, setIsScrolled]     = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   const [selectedFilm, setSelectedFilm] = useState(null);
   const [displayCount, setDisplayCount] = useState(15);
   const [films, setFilms]             = useState([]);
@@ -120,10 +121,11 @@ function App() {
         className="flex-1 overflow-y-auto scrollbar-hide relative z-10"
         style={{ paddingBottom: 'var(--navbar-total-height)' }}
         onScroll={(e) => {
-          const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-          setIsScrolled(scrollTop > 20);
-          if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150) setDisplayCount(prev => prev + 15);
-        }}
+  const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+  setScrollY(scrollTop);                        // ← new
+  if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150)
+    setDisplayCount(prev => prev + 15);
+}}
       >
         {activeTab === 'home' && films.length === 0 && (
           <Dashboard {...{historyData, isScrolled, handleScan, setActiveTab, setSelectedFilm}} 

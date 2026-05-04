@@ -1,24 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
-import { ImaxTag } from '../components/ImaxTag';
-import { GENRE_COLORS, THEME_COLORS } from '../constants';
-import { Minus, Plus, MessageSquare, CreditCard, Ticket } from 'lucide-react';
 
-const COMMON_LANGS = [
-  { code: "ENG", flag: "🇬🇧", label: "Anglais" },
-  { code: "JPN", flag: "🇯🇵", label: "Japonais" },
-  { code: "KOR", flag: "🇰🇷", label: "Coréen" },
-  { code: "ESP", flag: "🇪🇸", label: "Espagnol" },
-  { code: "ITA", flag: "🇮🇹", label: "Italien" },
-  { code: "GER", flag: "🇩🇪", label: "Allemand" },
-  { code: "CHI", flag: "🇨🇳", label: "Chinois" },
-  { code: "POR", flag: "🇵🇹", label: "Portugais" },
-  { code: "FRA", flag: "🇫🇷", label: "Français" }
-];
+// Dictionnaire des couleurs par genre
+const GENRE_COLORS = {
+  "Action": "bg-red-500/20 border-red-500/50 text-red-400",
+  "Comédie": "bg-yellow-500/20 border-yellow-500/50 text-yellow-400",
+  "Drame": "bg-blue-500/20 border-blue-500/50 text-blue-400",
+  "Science-Fiction": "bg-purple-500/20 border-purple-500/50 text-purple-400",
+  "Horreur": "bg-red-900/40 border-red-700/50 text-red-500",
+  "Thriller": "bg-emerald-500/20 border-emerald-500/50 text-emerald-400",
+  "Animation": "bg-pink-500/20 border-pink-500/50 text-pink-400",
+  "Aventure": "bg-orange-500/20 border-orange-500/50 text-orange-400",
+  "Romance": "bg-rose-500/20 border-rose-500/50 text-rose-400",
+  "Documentaire": "bg-teal-500/20 border-teal-500/50 text-teal-400",
+  // Valeur de secours si le genre n'est pas dans la liste ou est vide
+  "default": "bg-white/10 border-white/30 text-white"
+};
 
-function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting, ratingScale = 5 }) {
+function Notation({ films, token, spreadsheetId, onSaved, onSkip }) {
   const film = films[0];
-  const [rating, setRating] = useState(ratingScale / 2);
+  const [rating, setRating] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [comment, setComment] = useState("");
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCapucine, setIsCapucine] = useState(false);
@@ -26,7 +28,40 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting, rat
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [numeroSeance, setNumeroSeance] = useState("...");
-  const [showLangSelector, setShowLangSelector] = useState(false);
+  const starsRef = useRef(null);
+
+  const calculateRating = (e) => {
+    if (!starsRef.current) return;
+    const rect = starsRef.current.getBoundingClientRect();
+    
+    // Position X du doigt relative à la zone des étoiles
+    let x = e.clientX - rect.left;
+    // On contraint x pour qu'il ne dépasse pas les bords
+    x = Math.max(0, Math.min(x, rect.width));
+    
+    // Calcul du pourcentage et de la note sur 10
+    const percent = x / rect.width;
+    const rawRating = percent * 10;
+    
+    // Arrondi au demi-point le plus proche
+    setRating(Math.round(rawRating * 2) / 2);
+  };
+
+  const handlePointerDown = (e) => {
+    setIsDragging(true);
+    calculateRating(e);
+    // Capture le pointeur pour continuer à glisser même si le doigt sort un peu de la zone
+    e.target.setPointerCapture(e.pointerId); 
+  };
+
+  const handlePointerMove = (e) => {
+    if (isDragging) calculateRating(e);
+  };
+
+  const handlePointerUp = (e) => {
+    setIsDragging(false);
+    e.target.releasePointerCapture(e.pointerId);
+  };
 
   useEffect(() => {
     if (film && spreadsheetId && film.annee) {
@@ -36,25 +71,20 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting, rat
     }
   }, [film, spreadsheetId, token]);
 
-  const adjustRating = (amount) => {
-    setRating(prev => Math.max(0, Math.min(ratingScale, prev + amount)));
-  };
+  if (!film) return null;
 
-  const executeSave = async (langueFinale) => {
+  const handleSave = async () => {
     setLoading(true);
     const success = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
-      langue: langueFinale,
       note: rating,
       commentaire: comment,
-      coupDeCoeur: isFavorite ? 1 : 0,
+      coupDeCoeur: isFavorite ? "OUI" : "NON",
       capucine: isCapucine ? 1 : 0,
-      depense: price,
-      numeroSeance: numeroSeance
+      depense: price
     });
 
     if (success) {
-      setShowLangSelector(false);
       setShowConfirmation(true);
       setTimeout(() => onSaved(), 2000);
     } else {
@@ -63,213 +93,220 @@ function Notation({ films, token, spreadsheetId, onSaved, onSkip, isExiting, rat
     }
   };
 
-  const handleSaveClick = () => {
-    if (!film.langue || film.langue === "?" || film.langue.includes("VO")) {
-      setShowLangSelector(true);
-    } else {
-      executeSave(film.langue);
-    }
-  };
-
-  if (!film) return null;
-
   return (
-    <div 
-      className={`fixed inset-0 w-full h-[100dvh] overflow-hidden transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] z-50 ${isExiting ? 'translate-y-full' : 'translate-y-0'}`}
-      style={{ background: 'var(--theme-bg)' }}
-    >
-      {/* 1. BACKGROUND POSTER */}
+    <div className="h-full w-full bg-black text-white font-sans overflow-hidden">
+
+      {/* 1. AFFICHE */}
       {film.affiche && (
-        <div className="absolute inset-0 z-0 scale-110 blur-sm opacity-40">
-          <img src={film.affiche} className="w-full h-full object-cover" alt="" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--theme-bg)]/80 to-[var(--theme-bg)]" />
-        </div>
+        <img
+          src={film.affiche}
+          className="absolute top-0 left-0 w-full object-cover opacity-100 z-0"
+          style={{ height: 'calc(100dvh + env(safe-area-inset-bottom))' }}
+          alt=""
+        />
       )}
 
-      {/* 2. SKIP BUTTON */}
-      <div className="absolute top-0 right-0 pt-[env(safe-area-inset-top)] z-50 px-6">
+      {/* 2. BOUTON "Plus tard" */}
+      <div className="fixed top-0 left-0 right-0 pt-[env(safe-area-inset-top)] z-50 px-6 flex justify-end">
         <button
           onClick={onSkip}
-          className="mt-4 bg-[var(--theme-surface)]/40 backdrop-blur-md text-[var(--theme-text)] font-black text-[9px] tracking-[0.3em] uppercase px-5 py-2.5 rounded-full border border-[var(--theme-border)]"
+          className="mt-2 bg-white/90 backdrop-blur-md text-black font-bold text-[10px] tracking-widest uppercase px-4 py-2 rounded-full shadow-lg"
         >
           Plus tard
         </button>
       </div>
 
-      {/* 3. CONTENT CONTAINER */}
-      <div className="absolute inset-0 z-10 overflow-y-auto scrollbar-hide flex flex-col">
-        <div className="min-h-[35dvh] w-full" onClick={onSkip} />
+      {/* 3. ZONE SCROLLABLE
+          — top: 0, bottom négatif pour déborder sous la home bar
+          — le spacer en haut pousse l'overlay à 70dvh initialement
+          — on peut scroller vers le haut pour révéler le poster en dessous */}
+      <div
+        className="absolute left-0 right-0 z-10 overflow-y-auto scrollbar-hide"
+        style={{
+          top: 0,
+          bottom: 'calc(-3 * env(safe-area-inset-bottom))',
+        }}
+      >
+        {/* Spacer transparent — cliquable pour skip, pousse l'overlay vers le bas */}
+        <div style={{ height: '82dvh' }} onClick={onSkip} />
 
-        <div className="w-full bg-[var(--theme-bg)]/90 backdrop-blur-3xl rounded-t-[3.5rem] border-t border-[var(--theme-border)] px-8 pt-4 flex-grow shadow-[0_-20px_60px_rgba(0,0,0,0.5)]">
-          <div className="w-12 h-1 bg-[var(--theme-text)]/10 rounded-full mx-auto mb-10" />
+        {/* Overlay glassmorphism */}
+        <div
+          className="w-full bg-black/30 backdrop-blur-xl rounded-t-[25px] border-t border-white/20 px-8 pt-2 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+          style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+        >
+          <div className="w-20 h-1 bg-white/30 rounded-full mx-auto mb-8"></div>
 
-          {/* FILM HEADER */}
-          <div className="mb-10">
-             <div className="flex items-center gap-3 mb-2">
-                <span className="text-[var(--theme-accent)] font-black text-[10px] uppercase tracking-widest">#{numeroSeance}</span>
-                <ImaxTag salle={film.salle} commentaire={film.commentaire} />
-             </div>
-             <h2 className="font-galinoy text-5xl text-[var(--theme-text)] italic leading-[0.9] tracking-tight mb-4">
-                {film.titre}
-             </h2>
-             <div className="flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${GENRE_COLORS[film.genre] || 'border-[var(--theme-border)]'}`}>
-                  {film.genre || "Cinéma"}
-                </span>
-                <span className="bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text)]/60 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
-                  {film.annee}
-                </span>
-             </div>
+          {/* TITRE DU FILM EN SYNE BOLD */}
+          <h2 className="font-syne text-4xl font-bold uppercase tracking-tighter leading-none mb-4 drop-shadow-xl">
+            {film.titre}
+          </h2>
+
+          <div className="flex gap-2 mb-10">
+            {/* Gélule GENRE - Dynamique */}
+            <span 
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border transition-colors ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}
+            >
+              {film.genre || "Cinéma"}
+            </span>
+            
+            {/* Gélule ANNÉE - Reste neutre */}
+            <span className="bg-black/30 border border-white/30 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
+              {film.annee}
+            </span>
           </div>
 
-          {/* RATING SECTION */}
-          <div className="flex flex-col items-center mb-12">
-            <div className="flex items-center gap-8 mb-6">
-              <button 
-                onClick={() => adjustRating(-0.5)}
-                className="w-12 h-12 rounded-full border border-[var(--theme-border)] flex items-center justify-center active:scale-90 transition-transform"
-              >
-                <Minus size={20} className="text-[var(--theme-text)]/60" />
-              </button>
+          {/* NOTE & COUP DE COEUR */}
+          <div className="mb-14 flex items-center justify-between h-16">
+            
+            {/* ETOILES & ZONE TACTILE ÉLARGIE */}
+            {/* On ajoute ref={starsRef} ici pour mesurer cette div */}
+            <div ref={starsRef} className="relative flex-1 h-full flex items-center pr-2">
               
-              <div className="flex items-baseline">
-                <span className="font-galinoy text-8xl text-[var(--theme-text)] italic leading-none">{rating}</span>
-                <span className="font-galinoy text-2xl text-[var(--theme-accent)] opacity-40 ml-2 italic">/{ratingScale}</span>
+              {/* Bulle flottante (remontée à -top-16 pour éviter d'être sous le gros doigt) */}
+              <div 
+                className={`absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black px-3 py-1 rounded-xl text-xs transition-all duration-200 pointer-events-none z-50 ${isDragging ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-90'}`}
+              >
+                {rating}
               </div>
 
-              <button 
-                onClick={() => adjustRating(0.5)}
-                className="w-12 h-12 rounded-full border border-[var(--theme-border)] flex items-center justify-center active:scale-90 transition-transform"
-              >
-                <Plus size={20} className="text-[var(--theme-text)]/60" />
-              </button>
-            </div>
+              {/* Visuel des 10 Etoiles SVG */}
+              <div className="absolute inset-0 flex justify-between items-center pointer-events-none w-full">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => {
+                  const fillPercent = Math.max(0, Math.min(1, rating - (index - 1))) * 100;
+                  
+                  return (
+                    <div key={index} className="relative w-[22px] h-[22px] flex-shrink-0">
+                      <svg className="absolute inset-0 w-full h-full text-white/20" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                      </svg>
+                      {fillPercent > 0 && (
+                        <svg 
+                          className="absolute inset-0 w-full h-full text-yellow-500" 
+                          fill="currentColor" 
+                          viewBox="0 0 24 24"
+                          style={{ clipPath: `inset(0 ${100 - fillPercent}% 0 0)` }}
+                        >
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-            <button 
-              onClick={() => setIsFavorite(!isFavorite)}
-              className={`px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 border ${
-                isFavorite 
-                ? 'bg-red-500 border-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
-                : 'bg-transparent border-[var(--theme-border)] text-[var(--theme-text)]/40'
-              }`}
-            >
-              Coup de cœur
-            </button>
-          </div>
-
-          {/* COMMENT SECTION */}
-          <div className="mb-12">
-            <div className="flex items-center gap-2 mb-3 text-[var(--theme-text)]/30">
-               <MessageSquare size={12} />
-               <span className="text-[9px] font-black uppercase tracking-widest">Critique à chaud</span>
-            </div>
-            <textarea
-              value={comment} 
-              rows={1}
-              placeholder="Qu'as-tu pensé du film ?"
-              onChange={(e) => {
-                setComment(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              className="w-full bg-transparent border-0 border-b border-[var(--theme-border)] rounded-none pb-4 outline-none focus:border-[var(--theme-accent)] text-lg text-[var(--theme-text)] italic font-light resize-none transition-colors"
-            />
-          </div>
-
-          {/* TICKET FIELDS */}
-          <div className="grid grid-cols-2 gap-4 mb-12">
-            <div 
-              onClick={() => setIsCapucine(!isCapucine)}
-              className={`p-6 rounded-3xl border transition-all cursor-pointer ${
-                isCapucine ? 'bg-red-900/10 border-red-500/50' : 'bg-[var(--theme-surface)] border-[var(--theme-border)]'
-              }`}
-            >
-              <p className="text-[8px] font-black uppercase tracking-widest text-[var(--theme-text)]/30 mb-3">Expérience</p>
-              <img 
-                src={isCapucine ? "https://i.imgur.com/lg1bkrO.png" : "https://i.imgur.com/7SaHwd8.png"} 
-                className={`w-10 h-10 object-contain transition-opacity ${isCapucine ? 'opacity-100' : 'opacity-20'}`}
-                alt="Capucine" 
+              {/* NOUVELLE ZONE DE TOUCH (Remplaçant l'input range) */}
+              {/* -top-8 et -bottom-8 étendent massivement la zone cliquable en haut et en bas. touch-none empêche le scroll de la page pendant le swipe */}
+              <div
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                className="absolute -top-8 -bottom-8 left-0 right-0 z-10 touch-none cursor-pointer"
               />
             </div>
 
-            <div className="p-6 rounded-3xl bg-[var(--theme-surface)] border border-[var(--theme-border)]">
-              <p className="text-[8px] font-black uppercase tracking-widest text-[var(--theme-text)]/30 mb-2">Investissement</p>
-              <div className="flex items-baseline gap-1">
-                <input
-                  type="text" 
-                  inputMode="decimal"
-                  value={price === "0" ? "" : price} 
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.00"
-                  className="bg-transparent outline-none font-galinoy text-3xl text-[var(--theme-text)] w-20"
-                />
-                <span className="text-sm font-black text-[var(--theme-text)]/40">€</span>
+            {/* LIGNE DE SÉPARATION DISCRÈTE */}
+            <div className="w-px h-8 bg-white/10 mx-3"></div>
+
+            {/* BOUTON COEUR (Design plat, 100% fiable sur iOS) */}
+            <button 
+              onClick={() => setIsFavorite(!isFavorite)} 
+              className={`relative h-full flex items-center justify-center transition-all duration-300 active:scale-75 focus:outline-none flex-shrink-0 z-20 px-1 ${isFavorite ? 'text-red-500 scale-110' : 'text-white/20 hover:text-white/60'}`}
+              aria-label="Coup de coeur"
+            >
+              <div className="relative w-[22px] h-[22px]">
+                
+                {/* Cœur vide */}
+                <svg 
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isFavorite ? 'opacity-0' : 'opacity-100'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor" 
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+                </svg>
+
+                {/* Cœur plein : Finis les effets d'ombre, place à la simplicité */}
+                <svg 
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isFavorite ? 'opacity-100' : 'opacity-0'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor" 
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+                </svg>
+                
               </div>
+            </button>
+          </div>
+
+          {/* AVIS */}
+          <div className="mb-12">
+            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-4 block">Avis express</label>
+            <textarea
+              value={comment} onChange={(e) => setComment(e.target.value)}
+              placeholder="Qu'as-tu pensé du film ?"
+              className="w-full bg-black/30 border border-white/10 rounded-3xl p-5 outline-none focus:border-yellow-500 text-sm h-28 resize-none placeholder:text-white/30"
+            />
+          </div>
+
+          {/* OPTIONS */}
+          <div className="mb-12 space-y-4">
+            <div onClick={() => setIsCapucine(!isCapucine)} className={`flex items-center justify-between p-5 rounded-3xl border cursor-pointer transition-all ${isCapucine ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' : 'bg-black/30 border-white/10 text-white/50'}`}>
+              <span className="font-bold text-xs uppercase tracking-widest">Sélection Capucines</span>
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isCapucine ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'}`}>
+                {isCapucine && <span className="text-black text-xs font-bold">✓</span>}
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-5 bg-black/30 rounded-3xl border border-white/10 text-white">
+              <span className="font-bold text-xs uppercase tracking-widest text-white/50">Dépense séance (€)</span>
+              <input
+                type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+                className="bg-transparent text-right outline-none font-black text-2xl w-24"
+              />
             </div>
           </div>
 
-          {/* TICKET STUB RECAP */}
-          <div className="mb-12 space-y-4 px-2">
-            {[
-              { label: 'Date', val: film.date },
-              { label: 'Heure', val: film.heure },
-              { label: 'Durée', val: film.duree },
-              { label: 'Salle', val: film.salle || '?' },
-              { label: 'Siège', val: film.siege || '?' },
-              { label: 'Langue', val: film.langue || '?' }
-            ].map((item, i) => (
-              <div key={i} className="flex items-end justify-between gap-4">
-                <span className="text-[9px] font-black uppercase tracking-widest text-[var(--theme-text)]/30 whitespace-nowrap">{item.label}</span>
-                <div className="h-[1px] flex-1 border-b border-dotted border-[var(--theme-border)] mb-1" />
-                <span className="text-[11px] font-bold text-[var(--theme-text)]/80 uppercase">{item.val}</span>
-              </div>
-            ))}
+          {/* RÉCAP TECHNIQUE */}
+          <div className="bg-black/50 rounded-3xl p-6 mb-12 border border-white/10 grid grid-cols-2 gap-y-6">
+            <div className="col-span-2 border-b border-white/10 pb-4 mb-2 flex justify-between items-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">Séance de l'année</p>
+              <p className="text-2xl font-black italic tracking-tighter">#{numeroSeance}</p>
+            </div>
+            <DetailItem label="Date" value={film.date} />
+            <DetailItem label="Heure" value={film.heure} />
+            <DetailItem label="Salle" value={film.salle || "?"} />
+            <DetailItem label="Siège" value={film.siege || "?"} />
+            <DetailItem label="Langue" value={film.langue || "?"} />
+            <DetailItem label="Durée" value={film.duree} />
           </div>
 
           <button
             disabled={loading}
-            onClick={handleSaveClick}
-            className="w-full font-black py-6 rounded-3xl shadow-xl active:scale-[0.98] transition-all text-lg italic uppercase tracking-tighter mb-20"
-            style={{ background: 'var(--theme-accent)', color: 'var(--theme-bg)' }}
+            onClick={handleSave}
+            className="w-full bg-white text-black font-black py-6 rounded-3xl shadow-xl active:scale-95 transition-all text-xl italic uppercase tracking-tighter"
           >
-            {loading ? 'Archivage...' : 'Enregistrer la séance'}
+            {loading ? 'CHARGEMENT...' : 'ENREGISTRER'}
           </button>
+
         </div>
       </div>
 
-      {/* LANGUAGE MODAL */}
-      {showLangSelector && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowLangSelector(false)} />
-          <div className="relative w-full rounded-t-[3.5rem] p-8 pb-[calc(2rem+env(safe-area-inset-bottom))] border-t border-[var(--theme-border)] bg-[var(--theme-surface)] shadow-2xl">
-            <div className="w-12 h-1 bg-[var(--theme-text)]/10 rounded-full mx-auto mb-8" />
-            <h3 className="font-galinoy text-3xl italic text-center text-[var(--theme-text)] mb-8">Langue originale ?</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {COMMON_LANGS.map((l) => (
-                <button 
-                  key={l.code}
-                  onClick={() => executeSave(l.code)}
-                  className="flex flex-col items-center justify-center py-5 bg-[var(--theme-bg)]/50 rounded-2xl border border-[var(--theme-border)] active:bg-[var(--theme-accent)] transition-all group"
-                >
-                  <span className="text-3xl mb-2">{l.flag}</span>
-                  <span className="text-[10px] font-black tracking-widest text-[var(--theme-text)] group-active:text-[var(--theme-bg)]">{l.code}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONFIRMATION OVERLAY */}
+      {/* CONFIRMATION */}
       {showConfirmation && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[var(--theme-bg)]">
-          <div className="relative">
-            <div className="absolute inset-0 bg-[var(--theme-accent)] blur-3xl opacity-20 animate-pulse" />
-            <span className="relative text-8xl mb-6 block animate-bounce">🍿</span>
-          </div>
-          <h2 className="text-5xl font-galinoy italic tracking-tighter text-[var(--theme-accent)] uppercase">Archivé !</h2>
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
+          <span className="text-8xl mb-6">🍿</span>
+          <h2 className="text-4xl font-black uppercase italic tracking-tighter text-yellow-500">Archivé !</h2>
         </div>
       )}
+    </div>
+  );
+}
+
+function DetailItem({ label, value }) {
+  return (
+    <div>
+      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 mb-1">{label}</p>
+      <p className="text-sm font-bold uppercase tracking-tight">{value}</p>
     </div>
   );
 }

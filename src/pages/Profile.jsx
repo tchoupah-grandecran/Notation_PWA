@@ -171,7 +171,7 @@ export function Profile({
               <span className="text-[10px] font-black uppercase tracking-widest text-[var(--theme-text)] opacity-30 block ml-2 text-left mb-2">Avatar</span>
               <div className="relative w-full !overflow-visible">
                 {/* On force l'overflow visible vertical via padding compensatoire */}
-                <div className="flex gap-6 overflow-x-auto scrollbar-hide py-10 -my-10 px-4 !overflow-y-visible">
+                <div className="flex gap-6 overflow-x-auto scrollbar-hide py-14 -my-10 px-4 !overflow-y-visible">
                   {AVATAR_PRESETS.map((url, idx) => (
                     <button 
                       key={idx} 
