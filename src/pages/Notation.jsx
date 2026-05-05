@@ -1,274 +1,438 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
 
-const GENRE_COLORS = {
-  "Action": "bg-red-500/20 border-red-500/50 text-red-400",
-  "Comédie": "bg-yellow-500/20 border-yellow-500/50 text-yellow-400",
-  "Drame": "bg-blue-500/20 border-blue-500/50 text-blue-400",
-  "Science-Fiction": "bg-purple-500/20 border-purple-500/50 text-purple-400",
-  "Horreur": "bg-red-900/40 border-red-700/50 text-red-500",
-  "Thriller": "bg-emerald-500/20 border-emerald-500/50 text-emerald-400",
-  "Animation": "bg-pink-500/20 border-pink-500/50 text-pink-400",
-  "Aventure": "bg-orange-500/20 border-orange-500/50 text-orange-400",
-  "Romance": "bg-rose-500/20 border-rose-500/50 text-rose-400",
-  "Documentaire": "bg-teal-500/20 border-teal-500/50 text-teal-400",
-  "default": "bg-white/10 border-white/30 text-white"
-};
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const CalendarIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <rect x="1" y="2.5" width="14" height="12" rx="2" />
+    <path strokeLinecap="round" d="M1 6.5h14M5 1v3M11 1v3" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <circle cx="8" cy="8" r="6.5" />
+    <path strokeLinecap="round" d="M8 4.5V8l2.5 2" />
+  </svg>
+);
+const TimerIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <path strokeLinecap="round" d="M8 2.5V1M6 1h4M8 2.5a6 6 0 100 11 6 6 0 000-11z" />
+    <path strokeLinecap="round" d="M8 5.5V8.5l2 1.5" />
+  </svg>
+);
+const GlobeIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <circle cx="8" cy="8" r="6.5" />
+    <path strokeLinecap="round" d="M1.5 8h13M8 1.5c-2 2-3 4-3 6.5s1 4.5 3 6.5M8 1.5c2 2 3 4 3 6.5s-1 4.5-3 6.5" />
+  </svg>
+);
+const TheaterIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <rect x="1" y="3.5" width="14" height="9" rx="1.5" />
+    <path strokeLinecap="round" d="M4 3.5V2.5a1 1 0 011-1h6a1 1 0 011 1v1" />
+    <path strokeLinecap="round" d="M5 8.5h6M8 6.5v4" />
+  </svg>
+);
+const SeatIcon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px] flex-shrink-0">
+    <path strokeLinecap="round" d="M3 4a1 1 0 011-1h8a1 1 0 011 1v5H3V4zM1.5 9h13v2a1 1 0 01-1 1H13M2.5 9v3.5M1.5 11h2M12.5 9v3.5M13.5 11h-2" />
+  </svg>
+);
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+const ChubbyHeart = ({ filled, className }) => (
+  <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" className={className}>
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
-// Ajout de ratingScale dans les props
-function Notation({ films, token, spreadsheetId, ratingScale = 10, onSaved, onSkip }) {
+// ─── Star component ────────────────────────────────────────────────────────────
+function Star({ fill = 0, size = 34 }) {
+  const id = `star-grad-${Math.random().toString(36).slice(2)}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className="flex-shrink-0">
+      <defs>
+        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
+          <stop offset={`${fill * 100}%`} stopColor="#F5C842" />
+          <stop offset={`${fill * 100}%`} stopColor="#D9D9D9" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+        fill={`url(#${id})`}
+      />
+    </svg>
+  );
+}
+
+// ─── Trigram Language Modal ────────────────────────────────────────────────────
+const TRIGRAMS = ['ENG', 'ITA', 'GER', 'SPA', 'JAP', 'KOR'];
+
+function VostModal({ onSelect, onCancel }) {
+  const [customTrigram, setCustomTrigram] = useState('');
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onCancel} />
+
+      <motion.div
+        className="relative w-full max-w-sm rounded-[29px] bg-[#1E1E1E] border border-[#FFFDF2]/10 p-6 overflow-hidden"
+        initial={{ y: 50, scale: 0.95 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 50, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      >
+        <h3 className="font-galinoy text-[22px] text-[#FFFDF2] mb-1">Trigramme VOST</h3>
+        <p className="font-outfit text-xs text-[#FFFDF2]/40 mb-6">Choisis la langue d'origine</p>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {TRIGRAMS.map((lang) => (
+            <button
+              key={lang}
+              onClick={() => onSelect(lang)}
+              className="font-outfit text-sm py-2.5 rounded-[12px] border border-[#FFFDF2]/20 text-[#FFFDF2] active:scale-95 transition-all bg-[#FFFDF2]/5"
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            value={customTrigram}
+            onChange={(e) => setCustomTrigram(e.target.value.toUpperCase().slice(0, 3))}
+            placeholder="Autre (ex: POR)"
+            className="flex-1 bg-[#FFFDF2]/5 border border-[#FFFDF2]/20 rounded-[12px] px-4 font-outfit text-sm text-[#FFFDF2] outline-none uppercase placeholder:text-[#FFFDF2]/30"
+          />
+          <button
+            onClick={() => customTrigram.length > 0 && onSelect(customTrigram)}
+            className="font-outfit font-bold text-sm px-5 rounded-[12px] bg-[#FFFDF2] text-[#1E1E1E] active:scale-95 transition-all"
+          >
+            OK
+          </button>
+        </div>
+
+        <button
+          onClick={onCancel}
+          className="font-outfit text-xs text-[#FFFDF2]/30 w-full text-center mt-5 py-2 uppercase tracking-widest"
+        >
+          Annuler
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
   const film = films[0];
+
   const [rating, setRating] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCapucine, setIsCapucine] = useState(false);
-  const [price, setPrice] = useState("0");
+  const [price, setPrice] = useState('0.00');
   const [loading, setLoading] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [numeroSeance, setNumeroSeance] = useState("...");
+  const [saved, setSaved] = useState(false);
+  const [showVostModal, setShowVostModal] = useState(false);
+  const [numeroSeance, setNumeroSeance] = useState('...');
+
   const starsRef = useRef(null);
 
-  const calculateRating = (e) => {
-    if (!starsRef.current) return;
-    const rect = starsRef.current.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    x = Math.max(0, Math.min(x, rect.width));
-    
-    const percent = x / rect.width;
-    // On multiplie par ratingScale (5 ou 10) au lieu d'une valeur fixe
-    const rawRating = percent * ratingScale;
-    
-    // Arrondi au demi-point
-    setRating(Math.round(rawRating * 2) / 2);
-  };
-
-  const handlePointerDown = (e) => {
-    setIsDragging(true);
-    calculateRating(e);
-    e.target.setPointerCapture(e.pointerId); 
-  };
-
-  const handlePointerMove = (e) => {
-    if (isDragging) calculateRating(e);
-  };
-
-  const handlePointerUp = (e) => {
-    setIsDragging(false);
-    e.target.releasePointerCapture(e.pointerId);
-  };
+  const posterUrl = film?.affiche
+    ? (import.meta.env.DEV
+        ? `/tmdb-proxy?url=${encodeURIComponent(film.affiche)}`
+        : `/api/proxy-image?url=${encodeURIComponent(film.affiche)}`)
+    : null;
 
   useEffect(() => {
     if (film && spreadsheetId && film.annee) {
-      getProchainNumeroSeance(token, spreadsheetId, film.annee).then(num => {
-        setNumeroSeance(num);
-      });
+      getProchainNumeroSeance(token, spreadsheetId, film.annee).then(setNumeroSeance);
     }
   }, [film, spreadsheetId, token]);
 
   if (!film) return null;
 
-  const handleSave = async () => {
+  // ── Star drag logic ──────────────────────────────────────────────────────────
+  const calculateRating = (e) => {
+    if (!starsRef.current) return;
+    const rect = starsRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const raw = (x / rect.width) * ratingScale;
+    setRating(Math.round(raw * 2) / 2);
+  };
+
+  const handlePointerDown = (e) => {
+    setIsDragging(true);
+    calculateRating(e);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const handlePointerMove = (e) => { if (isDragging) calculateRating(e); };
+  const handlePointerUp = (e) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  // ── Save flow ────────────────────────────────────────────────────────────────
+  const handleNotClick = () => {
+    const baseLang = (film.langue || '').toUpperCase();
+    if (baseLang === 'VF') {
+      doSave('FRA');
+    } else {
+      setShowVostModal(true);
+    }
+  };
+
+  const handleVostSelect = (selectedLang) => {
+    setShowVostModal(false);
+    doSave(selectedLang);
+  };
+
+  const doSave = async (finalLangue) => {
     setLoading(true);
-    // On sauvegarde la note telle quelle (elle sera soit /5 soit /10 selon le scale)
     const success = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
+      numeroSeance,
       note: rating,
       commentaire: comment,
-      coupDeCoeur: isFavorite ? "OUI" : "NON",
+      coupDeCoeur: isFavorite ? 1 : 0,
       capucine: isCapucine ? 1 : 0,
-      depense: price
+      depense: price,
+      langue: finalLangue,
     });
 
     if (success) {
-      setShowConfirmation(true);
-      setTimeout(() => onSaved(), 2000);
+      setSaved(true);
+      setTimeout(() => onSaved(), 1500);
     } else {
-      alert("Erreur de sauvegarde");
+      alert('Erreur de sauvegarde');
       setLoading(false);
     }
   };
 
-  // Générer le tableau d'index basé sur l'échelle (ex: [1,2,3,4,5])
-  const starIndices = Array.from({ length: ratingScale }, (_, i) => i + 1);
+  const starFills = Array.from({ length: ratingScale }, (_, i) =>
+    Math.max(0, Math.min(1, rating - i))
+  );
 
   return (
-    <div className="h-full w-full bg-black text-white font-outfit overflow-hidden">
-      {/* 1. BACKGROUND AFFICHE */}
-      {film.affiche && (
-        <img
-          src={film.affiche}
-          className="fixed top-0 left-0 w-full object-cover z-0"
-          style={{ height: 'calc(100dvh + env(safe-area-inset-bottom))' }}
-          alt=""
-        />
-      )}
+    <>
+      <div className="fixed inset-0 z-[50] bg-[#1F1F1F] font-outfit overflow-hidden">
+        
+        {/* ── Fixed Background Poster ─────────────────────────────────────────── */}
+        <div className="fixed top-0 left-0 right-0 h-[62dvh] z-0">
+          {posterUrl ? (
+            <img src={posterUrl} alt="" className="w-full h-full object-cover object-top" />
+          ) : (
+            <div className="w-full h-full bg-zinc-800" />
+          )}
+          {/* Léger dégradé pour adoucir le bas du poster */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1F1F1F]/70 pointer-events-none" />
+        </div>
 
-      {/* 2. SKIP BUTTON */}
-      <div className="fixed top-0 left-0 right-0 pt-[env(safe-area-inset-top)] z-50 px-6 flex justify-end">
+        {/* ── Fixed "Plus tard" Button ──────────────────────────────────────── */}
         <button
           onClick={onSkip}
-          className="mt-2 bg-white/90 backdrop-blur-md text-black font-black text-[10px] tracking-[0.2em] uppercase px-5 py-2.5 rounded-full shadow-lg"
+          className="fixed top-[62px] right-4 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-[11px] border border-[#1E1E1E]/20 text-[#FFFDF2] text-[9px] font-semibold active:scale-95 transition-transform z-20"
         >
           Plus tard
         </button>
-      </div>
 
-      {/* 3. SCROLLABLE CONTENT */}
-      <div
-        className="absolute left-0 right-0 z-10 overflow-y-auto scrollbar-hide"
-        style={{ top: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom))' }}
-      >
-        <div style={{ height: '70dvh' }} onClick={onSkip} />
+        {/* ── Scrollable Overlay ────────────────────────────────────────────── */}
+        <div className="absolute inset-0 z-10 overflow-y-auto scrollbar-hide flex flex-col">
+          
+          {/* Spacer transparent qui pousse le drawer vers le bas. 
+              La hauteur est exactement la taille du poster moins les 28px d'empiètement */}
+          <div style={{ height: 'calc(62dvh - 28px)' }} className="w-full flex-shrink-0" />
 
-        <div
-          className="w-full bg-black/30 backdrop-blur-xl rounded-t-[32px] border-t border-white/20 px-8 pt-3 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
-          style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
-        >
-          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-10"></div>
+          {/* ── Bottom Drawer ─────────────────────────────────────────────────── */}
+          <div className="bg-[#1E1E1E] rounded-t-[29px] relative px-[15px] pt-[15px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] h-[435px] w-full flex-shrink-0">
+            {/* Handle */}
+            <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[70px] h-[3px] bg-[#D9D9D9] rounded-full" />
 
-          <h2 
-            className="font-galinoy italic text-white drop-shadow-lg mb-4"
-            style={{ fontSize: 'clamp(36px, 9vw, 52px)', lineHeight: '0.88', letterSpacing: '-0.04em' }}
-          >
-            {film.titre}
-          </h2>
+            <div className="flex h-full w-full">
+              {/* Colonne de Gauche (Affiche + Inputs annexes) */}
+              <div className="w-[129px] flex-shrink-0 flex flex-col pt-1">
+                <img
+                  src={posterUrl}
+                  alt="Poster"
+                  className="w-[129px] h-[172px] rounded-[14px] object-cover shadow-[0px_0px_12px_rgba(0,0,0,0.30)]"
+                />
 
-          <div className="flex gap-2 mb-12">
-            <span className={`px-3 py-1 rounded-full text-[9px] font-black font-outfit uppercase tracking-widest border ${GENRE_COLORS[film.genre] || GENRE_COLORS.default}`}>
-              {film.genre || "Cinéma"}
-            </span>
-            <span className="bg-white/10 border border-white/20 text-white px-3 py-1 rounded-full text-[9px] font-black font-outfit uppercase tracking-widest">
-              {film.annee}
-            </span>
-          </div>
+                <div className="mt-[17px] flex flex-col gap-3">
+                  {/* Capucine Toggle */}
+                  <button
+                    onClick={() => setIsCapucine(!isCapucine)}
+                    className="flex items-center gap-[11px] p-[2px] pr-[10px] rounded-[15px] border border-[#FFFDF2] transition-colors"
+                  >
+                    {isCapucine ? (
+                      <img src="https://i.imgur.com/lg1bkrO.png" className="w-[25px] h-[25px] rounded-[13px] object-cover" alt="" />
+                    ) : (
+                      <div className="w-[25px] h-[25px] bg-[#FFFDF2] rounded-[13px] flex-shrink-0" />
+                    )}
+                    <span className="text-[#FFFDF2] text-xs font-light">Pas Capucine</span>
+                  </button>
 
-          {/* RATING & FAVORITE */}
-          <div className="mb-14 flex items-center justify-between h-16">
-            <div ref={starsRef} className="relative flex-1 h-full flex items-center pr-4">
-              {/* RATING BUBBLE */}
-              <div 
-                className={`absolute -top-6 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-galinoy italic px-4 py-1.5 rounded-2xl text-[22px] transition-all duration-200 pointer-events-none z-50 ${isDragging ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-90'}`}
-              >
-                {rating}
+                  {/* Dépense */}
+                  <div className="flex items-center gap-[7px] h-[29px] px-[10px] rounded-[15px] border border-[#FFFDF2]">
+                    <span className="text-[#FFFDF2] text-xs font-light">Dépense</span>
+                    <input
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      className="w-[30px] bg-transparent text-[#FFFDF2]/40 text-xs font-light outline-none text-right"
+                      step="0.50"
+                    />
+                    <span className="text-[#FFFDF2] text-xs font-light">€</span>
+                  </div>
+                </div>
+
+                {/* Movie Details Grid */}
+                <div className="grid grid-cols-2 gap-x-1 gap-y-1 mt-[14px] opacity-40">
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <CalendarIcon /> {film.date || 'DD/MM'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <ClockIcon /> {film.heure || 'HH:MM'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <TimerIcon /> {film.duree || 'xxhxx'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <GlobeIcon /> {film.langue || 'LANG'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <TheaterIcon /> {film.salle || 'Salle XX'}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#FFFDF2] text-[10px] font-light">
+                    <SeatIcon /> {film.siege || 'Siège XX'}
+                  </div>
+                </div>
               </div>
 
-              {/* DYNAMIC STAR VISUALS */}
-              <div className="absolute inset-0 flex justify-between items-center pointer-events-none w-full">
-                {starIndices.map((index) => {
-                  const fillPercent = Math.max(0, Math.min(1, rating - (index - 1))) * 100;
-                  return (
-                    <div key={index} 
-                      className="relative flex-shrink-0"
-                      style={{ width: ratingScale === 5 ? '32px' : '20px', height: ratingScale === 5 ? '32px' : '20px' }}
-                    >
-                      <svg className="absolute inset-0 w-full h-full text-white/10" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                      </svg>
-                      {fillPercent > 0 && (
-                        <svg 
-                          className="absolute inset-0 w-full h-full text-yellow-500" 
-                          fill="currentColor" 
-                          viewBox="0 0 24 24"
-                          style={{ clipPath: `inset(0 ${100 - fillPercent}% 0 0)` }}
-                        >
-                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                        </svg>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* Colonne de Droite (Textes, Notes et Bouton) */}
+              <div className="flex-1 relative ml-[18px] pt-[22px]">
+                
+                <div className="text-[#FFFDF2] text-xs font-light">#{numeroSeance}è séance</div>
+                <h2 className="text-[#FFFDF2] text-2xl font-galinoy mt-1 mb-2 leading-tight">
+                  {film.titre}
+                </h2>
+                
+                <div className="inline-flex items-center justify-center px-[10px] py-[2px] rounded-[14px] border border-[#FFFDF2]">
+                  <span className="text-[#FFFDF2] text-xs font-light">{film.genre || 'Cinéma'}</span>
+                </div>
+
+                {/* Stars Layout */}
+                <div className="relative mt-4 flex items-center gap-[5px] h-[34px]">
+                  {/* Rating Number Bubble */}
+                  <AnimatePresence>
+                    {isDragging && (
+                      <motion.div
+                        className="absolute -top-10 left-8 bg-[#F5C842] text-black font-galinoy italic px-3 py-1 rounded-xl text-xl pointer-events-none z-20"
+                        initial={{ opacity: 0, y: 4, scale: 0.8 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.8 }}
+                      >
+                        {rating}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div ref={starsRef} className="flex items-center gap-[5px] w-full h-full">
+                    {starFills.map((fill, i) => (
+                      <Star key={i} fill={fill} size={34} />
+                    ))}
+                  </div>
+                  {/* Touch layer */}
+                  <div
+                    className="absolute inset-0 z-10 touch-none cursor-pointer"
+                    style={{ margin: '-10px' }}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                  />
+                </div>
+
+                {/* Heart */}
+                <div className="mt-4">
+                  <button
+                    onClick={() => setIsFavorite(!isFavorite)}
+                    className={`inline-flex items-center justify-center px-[10px] py-[2px] rounded-[15px] border transition-colors ${
+                      isFavorite ? 'border-red-500 bg-red-500/20 text-red-500' : 'border-[#FFFDF2] text-[#FFFDF2]'
+                    }`}
+                  >
+                    <ChubbyHeart filled={isFavorite} className="w-[25px] h-[25px]" />
+                  </button>
+                </div>
+
+                {/* Textarea */}
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Ton avis à chaud"
+                  className="absolute bottom-[65px] left-0 right-0 w-full h-[117px] bg-[#FFFDF2]/10 rounded-[15px] p-[10px] text-xs font-light text-[#FFFDF2] placeholder:text-[#FFFDF2]/60 outline-none resize-none"
+                />
+
+                {/* Submit Button */}
+                <motion.button
+                  disabled={loading}
+                  onClick={handleNotClick}
+                  className="absolute bottom-[10px] right-0 bg-[#FFFDF2] text-[#1E1E1E] rounded-[22px] px-[30px] py-[8px] flex justify-center items-center font-outfit"
+                  animate={saved ? { scale: [1, 1.05, 1], backgroundColor: '#22c55e', color: '#fff' } : {}}
+                >
+                  <AnimatePresence mode="wait">
+                    {saved ? (
+                      <motion.span
+                        key="saved"
+                        className="flex items-center gap-2 font-medium text-lg"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <CheckIcon /> Fait
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="noter"
+                        className="text-2xl font-light"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        {loading ? '...' : 'Noter'}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
               </div>
-
-              <div
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                className="absolute -top-10 -bottom-10 left-0 right-0 z-10 touch-none cursor-pointer"
-              />
-            </div>
-
-            <div className="w-px h-8 bg-white/10 mx-4"></div>
-
-            <button 
-              onClick={() => setIsFavorite(!isFavorite)} 
-              className={`relative h-full flex items-center justify-center transition-all duration-300 active:scale-75 flex-shrink-0 px-2 ${isFavorite ? 'text-red-500 scale-110' : 'text-white/20'}`}
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
-              </svg>
-            </button>
-          </div>
-
-          {/* AVIS EXPRESS */}
-          <div className="mb-12">
-            <label className="text-[9px] font-black font-outfit uppercase tracking-[0.3em] text-white opacity-60 mb-4 block">Avis express</label>
-            <textarea
-              value={comment} onChange={(e) => setComment(e.target.value)}
-              placeholder="Qu'as-tu pensé du film ?"
-              className="w-full bg-black/40 border border-white/5 rounded-3xl p-6 outline-none focus:border-white/20 font-outfit text-sm h-32 resize-none placeholder:text-white/20"
-            />
-          </div>
-
-          {/* OPTIONS */}
-          <div className="mb-12 space-y-4">
-            <div onClick={() => setIsCapucine(!isCapucine)} className={`flex items-center justify-between p-6 rounded-3xl border transition-all ${isCapucine ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-500' : 'bg-black/30 border-white/5 text-white/40'}`}>
-              <span className="font-outfit font-black text-[9px] uppercase tracking-[0.3em]">Sélection Capucines</span>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isCapucine ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'}`}>
-                {isCapucine && <span className="text-black text-[10px] font-black">✓</span>}
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-6 bg-black/30 rounded-3xl border border-white/5">
-              <span className="font-outfit font-black text-[9px] uppercase tracking-[0.3em] text-white opacity-60">Dépense séance (€)</span>
-              <input
-                type="number" value={price} onChange={(e) => setPrice(e.target.value)}
-                className="bg-transparent text-right outline-none font-outfit font-black text-2xl w-24 text-white"
-              />
             </div>
           </div>
-
-          {/* TECHNICAL RECAP */}
-          <div className="bg-black/40 rounded-3xl p-8 mb-12 border border-white/5 grid grid-cols-2 gap-y-8">
-            <div className="col-span-2 border-b border-white/5 pb-5 mb-2 flex justify-between items-end">
-              <p className="font-outfit text-[9px] font-black uppercase tracking-[0.3em] text-yellow-500">Séance de l'année</p>
-              <p className="font-outfit text-[26px] font-black tracking-tighter leading-none">#{numeroSeance}</p>
-            </div>
-            <DetailItem label="Date" value={film.date} />
-            <DetailItem label="Heure" value={film.heure} />
-            <DetailItem label="Salle" value={film.salle || "?"} />
-            <DetailItem label="Siège" value={film.siege || "?"} />
-            <DetailItem label="Langue" value={film.langue || "?"} />
-            <DetailItem label="Durée" value={film.duree} />
-          </div>
-
-          <button
-            disabled={loading}
-            onClick={handleSave}
-            className="w-full bg-white text-black font-outfit font-black py-6 rounded-3xl shadow-2xl active:scale-[0.98] transition-all text-[16px] uppercase tracking-tighter"
-          >
-            {loading ? 'CHARGEMENT...' : 'ENREGISTRER'}
-          </button>
+          
+          {/* Permet de combler l'espace restant en bas de l'écran (si jamais l'écran est très grand) */}
+          <div className="flex-1 bg-[#1E1E1E] w-full" />
         </div>
       </div>
 
-      {/* CONFIRMATION */}
-      {showConfirmation && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-2xl animate-in fade-in duration-300">
-          <span className="text-8xl mb-8">🍿</span>
-          <h2 className="font-galinoy italic text-4xl tracking-tighter text-yellow-500">Archivé !</h2>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DetailItem({ label, value }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="font-outfit text-[8px] font-black uppercase tracking-[0.2em] text-white opacity-40">{label}</p>
-      <p className="font-outfit text-[13px] font-bold uppercase tracking-wide text-white">{value}</p>
-    </div>
+      {/* ── VOST Language Modal ───────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showVostModal && (
+          <VostModal
+            onSelect={handleVostSelect}
+            onCancel={() => setShowVostModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
