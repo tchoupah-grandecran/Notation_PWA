@@ -177,7 +177,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
         {/* ── INTERFACE DE NOTATION (DRAWER) ── */}
         <div 
-          className="relative w-full rounded-t-[29px] px-[15px] pt-[20px] pb-10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-[var(--theme-border)] flex-shrink-0"
+          className="relative w-full rounded-t-[28px] px-[15px] pt-[20px] pb-10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-[var(--theme-border)] flex-shrink-0"
           style={{ backgroundColor: 'var(--theme-surface)' }}
         >
           {/* Handle visuelle */}
@@ -214,7 +214,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
                 {/* INPUT DEPENSE (NUMPAD FORCE) */}
                 <div className="flex items-center gap-[7px] h-[30px] px-[12px] rounded-[15px] border border-[var(--theme-border)]">
-                  <span className="text-[10px] text-[var(--theme-text-secondary)] font-medium uppercase">Dépense</span>
+                  <span className="text-[10px] text-[var(--theme-text-secondary)] font-medium">Dépense</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -269,7 +269,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                 <AnimatePresence>
                   {isDragging && (
                     <motion.div
-                      className="absolute -top-12 left-0 bg-[var(--theme-accent)] text-[var(--theme-bg)] font-galinoy italic px-3 py-1 rounded-xl text-xl pointer-events-none z-20"
+                      className="absolute -top-12 right-10 bg-[var(--theme-accent)] text-[var(--theme-bg)] font-galinoy italic px-3 py-1 rounded-xl text-xl pointer-events-none z-20"
                       initial={{ opacity: 0, y: 5, scale: 0.8 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 5, scale: 0.8 }}
@@ -312,7 +312,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Ton avis à chaud"
-                className="mt-4 w-full h-[110px] bg-[var(--theme-bg)] rounded-[15px] p-3 text-xs font-light text-[var(--theme-text)] placeholder:text-[var(--theme-text-secondary)] outline-none resize-none border border-[var(--theme-border)] transition-colors focus:border-[var(--theme-accent)]"
+                className="mt-4 w-full h-[80px] bg-[var(--theme-bg)] rounded-[15px] p-3 text-xs font-light text-[var(--theme-text)] placeholder:text-[var(--theme-text-secondary)] outline-none resize-none border border-[var(--theme-border)] transition-colors focus:border-[var(--theme-accent)]"
               />
             </div>
           </div>
