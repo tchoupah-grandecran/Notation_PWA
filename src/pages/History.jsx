@@ -20,9 +20,9 @@ const CapucinePill = () => (
 );
 
 const FavoriPill = () => (
-  <div className="flex items-center gap-1.5 bg-[var(--theme-accent)] px-3 py-1 rounded-full shadow-sm w-fit">
-    <ChubbyHeart className="w-3 h-3 text-[var(--theme-bg)]" />
-    <span className="text-[9px] font-black uppercase tracking-wider text-[var(--theme-bg)]">Favori</span>
+  <div className="flex items-center gap-1.5 bg-[#E14A4A] px-3 py-1 rounded-full shadow-sm w-fit">
+    <ChubbyHeart className="w-3 h-3 text-white" />
+    <span className="text-[9px] font-black uppercase text-white">Coup de coeur</span>
   </div>
 );
 
@@ -81,31 +81,81 @@ function StandardRow({ film, onClick, showSeparator }) {
 
 function FilterSheet({ isOpen, onClose, activeYear, setActiveYear, activeType, setActiveType, availableYears, onReset }) {
   if (!isOpen) return null;
-  const types = [{ id: 'all', label: 'Tout' }, { id: 'coeur', label: 'Favoris' }, { id: 'capucine', label: 'Capucine' }];
+
+  const types = [
+    { id: 'all', label: 'Tout' }, 
+    { id: 'coeur', label: 'Favoris' }, 
+    { id: 'capucine', label: 'Capucine' }
+  ];
+
+  // Helper pour uniformiser le style des boutons actifs/inactifs
+  const getBtnClass = (isActive) => `
+    px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border transition-all duration-200
+    ${isActive 
+      ? 'bg-[var(--theme-accent)] text-[var(--theme-bg)] border-transparent shadow-sm' 
+      : 'bg-transparent text-[var(--theme-text)] border-[var(--theme-border)] opacity-60 active:scale-95'
+    }
+  `;
+
   return (
     <div className="fixed inset-0 z-[300] flex items-end">
+      {/* Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full rounded-t-[3rem] bg-[var(--theme-surface)] border-x border-t border-[var(--theme-border)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)] px-8 pt-6">
+      
+      {/* Sheet Container */}
+      <div className="relative w-full rounded-t-[3rem] bg-[var(--theme-surface)] border-x border-t border-[var(--theme-border)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)] px-8 pt-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+        
+        {/* Handle de drag visuel */}
         <div className="w-12 h-1.5 rounded-full bg-[var(--theme-text)] opacity-10 mx-auto mb-8" />
+
         <div className="space-y-8">
+          
+          {/* Section: Type */}
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-30">Type</p>
             <div className="flex gap-2">
               {types.map(t => (
-                <button key={t.id} onClick={() => setActiveType(t.id)} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border transition-all ${activeType === t.id ? 'bg-[var(--theme-accent)] text-[var(--theme-bg)] border-transparent' : 'bg-transparent text-[var(--theme-text)] border-[var(--theme-border)] opacity-60'}`}>{t.label}</button>
+                <button 
+                  key={t.id} 
+                  onClick={() => setActiveType(t.id)} 
+                  className={getBtnClass(activeType === t.id)}
+                >
+                  {t.label}
+                </button>
               ))}
             </div>
           </div>
+
+          {/* Section: Année */}
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-30">Année</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setActiveYear('all')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border ${activeYear === 'all' ? 'bg-[var(--theme-accent)]' : ''}`}>Tout</button>
+              <button 
+                onClick={() => setActiveYear('all')} 
+                className={getBtnClass(activeYear === 'all')}
+              >
+                Tout
+              </button>
+              
               {availableYears.map(y => (
-                <button key={y} onClick={() => setActiveYear(y)} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border ${activeYear === y ? 'bg-[var(--theme-accent)]' : ''}`}>{y}</button>
+                <button 
+                  key={y} 
+                  onClick={() => setActiveYear(y)} 
+                  className={getBtnClass(activeYear === y)}
+                >
+                  {y}
+                </button>
               ))}
             </div>
           </div>
-          <button onClick={() => { onReset(); onClose(); }} className="w-full py-4 rounded-2xl border border-[var(--theme-border)] opacity-40 uppercase text-[11px] font-black">Réinitialiser</button>
+
+          {/* Action: Reset */}
+          <button 
+            onClick={() => { onReset(); onClose(); }} 
+            className="w-full py-4 rounded-2xl border border-[var(--theme-border)] text-[var(--theme-text)] opacity-40 uppercase text-[11px] font-black hover:opacity-100 transition-opacity active:bg-[var(--theme-text)]/5"
+          >
+            Réinitialiser les filtres
+          </button>
         </div>
       </div>
     </div>
@@ -201,7 +251,7 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
         </h1>
       </header>
 
-      <main className="px-5 pb-24">
+      <main className="px-5 pb-8">
         {groupedByMonth.length === 0 ? (
           <div className="py-32 text-center opacity-20">
             <Ticket size={48} className="mx-auto mb-4" />

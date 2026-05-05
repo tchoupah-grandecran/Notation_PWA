@@ -69,53 +69,31 @@ const parsePatheEmail = (htmlBody, plainBody) => {
     }
   }
 
-  // ── Durée — 4 stratégies ────────────────────────────────────────────────
-  // Stratégie 1 : label explicite "Durée : Xh YY"
-  m = html.match(/[Dd]ur[ée]{1,2}[^:]*:\s*(\d{1,2})\s*h\s*(\d{2})\s*(?:min)?/i)
-   || plain.match(/[Dd]ur[ée]{1,2}[^:]*:\s*(\d{1,2})\s*h\s*(\d{2})\s*(?:min)?/i);
-  if (m) {
-    data.duree = `${parseInt(m[1])}h${m[2]}`;
-  }
-
-  // Stratégie 2 : "XhYY" standalone
-  if (!data.duree) {
-    const durPattern = /\b(\d{1,2})h(\d{2})\b/g;
-    let candidate, match2;
-    while ((match2 = durPattern.exec(html)) !== null) {
-      const h     = parseInt(match2[1]);
-      const min   = parseInt(match2[2]);
-      const total = h * 60 + min;
-      if (total >= 45 && total <= 270) {
-        if (h < 7 || (h >= 1 && min > 0 && total <= 270)) {
-          if (!candidate) candidate = match2;
-        }
-      }
-    }
-    if (candidate) data.duree = `${parseInt(candidate[1])}h${candidate[2]}`;
-  }
-
-  // Stratégie 3 : calcul depuis "Fin prévue à HH:MM"
-  if (!data.duree && data.heure) {
-    m = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}:\d{2})/i)
-     || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}:\d{2})/i);
-    if (m) {
-      const d1   = data.heure.split(':').map(Number);
-      const d2   = m[1].split(':').map(Number);
-      const min1 = d1[0] * 60 + d1[1];
-      let min2   = d2[0] * 60 + d2[1];
-      if (min2 < min1) min2 += 24 * 60;
-      const dur  = Math.max(0, min2 - min1 - 15);
-      if (dur >= 45) data.duree = `${Math.floor(dur/60)}h${String(dur%60).padStart(2,'0')}`;
-    }
-  }
-
-  // Stratégie 4 : "XX minutes"
-  if (!data.duree) {
-    m = plain.match(/\b(\d{2,3})\s*min(?:utes?)?\b/i);
-    if (m) {
-      const total = parseInt(m[1]);
-      if (total >= 45 && total <= 270) {
-        data.duree = `${Math.floor(total/60)}h${String(total%60).padStart(2,'0')}`;
+// ── Durée — Stratégie de secours via Email ──────────────────────────────
+  // On ne garde ici que le calcul basé sur l'email. 
+  // La durée officielle TMDB sera injectée plus tard dans getFilmsANoter.
+  
+  if (data.heure) {
+    // On cherche l'heure de fin dans le HTML ou le Plain Text
+    const finMatch = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i)
+                  || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i);
+    
+    if (finMatch) {
+      // Normalisation des formats (20h15 -> 20:15)
+      const startParts = data.heure.replace('h', ':').split(':').map(Number);
+      const endParts   = finMatch[1].replace('h', ':').split(':').map(Number);
+      
+      const startMin = startParts[0] * 60 + startParts[1];
+      let endMin     = endParts[0] * 60 + endParts[1];
+      
+      // Gestion du passage à minuit (si fin < début)
+      if (endMin < startMin) endMin += 1440; 
+      
+      // Calcul : Durée totale - 15 minutes (publicités/bandes-annonces)
+      const diff = endMin - startMin - 15;
+      
+      if (diff >= 45) {
+        data.duree = `${Math.floor(diff / 60)}h${String(diff % 60).padStart(2, '0')}`;
       }
     }
   }
@@ -166,23 +144,32 @@ const parsePatheEmail = (htmlBody, plainBody) => {
 
 // Récupération TMDB
 const getMovieDataFromTMDB = async (titre) => {
-  if (!titre || !TMDB_API_KEY) return { affiche: null, genre: "Cinéma" };
+  const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+  if (!titre || !TMDB_API_KEY) return { affiche: null, genre: "Cinéma", tmdbDuree: null };
+
   try {
     const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
     const json = await res.json();
+    
     if (json.results?.[0]) {
       const movie = json.results[0];
       const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=fr-FR`);
       const details = await detailRes.json();
+      
       return {
         affiche: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
         genre: details.genres?.[0]?.name || "Cinéma",
         tmdbId: movie.id,
-        dureeReelle: details.runtime ? Math.floor(details.runtime/60)+'h'+String(details.runtime%60).padStart(2,'0') : "—"
+        // On renvoie la durée formatée ou null si absente
+        tmdbDuree: details.runtime 
+          ? `${Math.floor(details.runtime / 60)}h${String(details.runtime % 60).padStart(2, '0')}` 
+          : null
       };
     }
-  } catch (e) { console.error("TMDB Error", e); }
-  return { affiche: null, genre: "Cinéma" };
+  } catch (e) { 
+    console.error("TMDB Error", e); 
+  }
+  return { affiche: null, genre: "Cinéma", tmdbDuree: null };
 };
 
 // LA FONCTION PRINCIPALE EXPORTÉE
@@ -195,67 +182,92 @@ export const getFilmsANoter = async (token) => {
     const data = await res.json();
     if (!data.messages) return [];
 
-    const films = [];
-    for (const msg of data.messages) {
-      const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const mData = await mRes.json();
-      
-      let htmlData = null;
-      let plainData = null;
-      
-      if (mData.payload.parts) {
-        htmlData = findEmailPart(mData.payload.parts, 'text/html');
-        plainData = findEmailPart(mData.payload.parts, 'text/plain');
-      } else if (mData.payload.body?.data) {
-        if (mData.payload.mimeType === 'text/html') htmlData = mData.payload.body.data;
-        if (mData.payload.mimeType === 'text/plain') plainData = mData.payload.body.data;
-      }
-
-      const html = decodeEmailBody(htmlData);
-      const plain = decodeEmailBody(plainData);
-      
-      const parsed = parsePatheEmail(html, plain);
-      
-      if (parsed) {
-        const tmdb = await getMovieDataFromTMDB(parsed.titre);
-        if (!parsed.duree && tmdb.dureeReelle) parsed.duree = tmdb.dureeReelle;
-        
-        films.push({ ...parsed, ...tmdb, messageId: msg.id });
-      }
-    }
-
-    // === NOUVEAU : TRI CHRONOLOGIQUE DES SÉANCES ===
-    films.sort((a, b) => {
+    // On prépare la liste des promesses pour traiter les messages en parallèle
+    const filmsPromises = data.messages.map(async (msg) => {
       try {
-        const getTimestamp = (film) => {
-          if (!film.date) return 0;
-          
-          // Sépare "24/10/2023" en jour=24, mois=10, annee=2023
-          const partsDate = film.date.split('/'); 
-          const dateObj = new Date(partsDate[2], partsDate[1] - 1, partsDate[0]);
-          
-          // Ajoute l'heure si elle existe (gère "20:15" et "20h15")
-          if (film.heure) {
-            const partsHeure = film.heure.replace('h', ':').split(':');
-            dateObj.setHours(parseInt(partsHeure[0], 10) || 0, parseInt(partsHeure[1], 10) || 0);
-          }
-          
-          return dateObj.getTime();
-        };
-
-        // Tri du plus ancien au plus récent
-        return getTimestamp(a) - getTimestamp(b);
+        const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const mData = await mRes.json();
         
-      } catch (erreur) {
-        return 0; // En cas de problème de format, on garde l'ordre de base
+        let htmlData = null;
+        let plainData = null;
+        
+        if (mData.payload.parts) {
+          htmlData = findEmailPart(mData.payload.parts, 'text/html');
+          plainData = findEmailPart(mData.payload.parts, 'text/plain');
+        } else if (mData.payload.body?.data) {
+          if (mData.payload.mimeType === 'text/html') htmlData = mData.payload.body.data;
+          if (mData.payload.mimeType === 'text/plain') plainData = mData.payload.body.data;
+        }
+
+        const html = decodeEmailBody(htmlData);
+        const plain = decodeEmailBody(plainData);
+        
+        // 1. Parsing de base depuis l'email
+        const parsed = parsePatheEmail(html, plain);
+        if (!parsed) return null;
+
+        // 2. Récupération simultanée des infos TMDB
+        const tmdb = await getMovieDataFromTMDB(parsed.titre?.trim());
+        
+        // 3. Gestion de la Durée (TMDB > Calcul Email > Défaut)
+        let finalDuree = "--h--";
+        
+        if (tmdb && tmdb.tmdbDuree) {
+          finalDuree = tmdb.tmdbDuree;
+        } else if (parsed.heure) {
+          const finMatch = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i)
+                        || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i);
+          
+          if (finMatch) {
+            const startParts = parsed.heure.replace('h', ':').split(':').map(Number);
+            const endParts   = finMatch[1].replace('h', ':').split(':').map(Number);
+            const startMin   = startParts[0] * 60 + startParts[1];
+            let endMin       = endParts[0] * 60 + endParts[1];
+            
+            if (endMin < startMin) endMin += 1440;
+            const diff = endMin - startMin - 15;
+            if (diff >= 45) {
+              finalDuree = `${Math.floor(diff / 60)}h${String(diff % 60).padStart(2, '0')}`;
+            }
+          }
+        }
+
+        return { 
+          ...parsed, 
+          ...tmdb, 
+          duree: finalDuree, 
+          messageId: msg.id 
+        };
+      } catch (err) {
+        console.error(`Erreur sur le message ${msg.id}:`, err);
+        return null;
       }
+    });
+
+    // On attend que tous les mails soient traités
+    const results = await Promise.all(filmsPromises);
+    const films = results.filter(f => f !== null);
+
+    // === TRI CHRONOLOGIQUE ===
+    films.sort((a, b) => {
+      const getTimestamp = (f) => {
+        if (!f.date) return 0;
+        const p = f.date.split('/');
+        const d = new Date(p[2], p[1] - 1, p[0]);
+        if (f.heure) {
+          const h = f.heure.replace('h', ':').split(':');
+          d.setHours(parseInt(h[0]) || 0, parseInt(h[1]) || 0);
+        }
+        return d.getTime();
+      };
+      return getTimestamp(a) - getTimestamp(b);
     });
 
     return films;
   } catch (e) { 
-    console.error("Erreur Fetch API:", e); 
+    console.error("Erreur globale Fetch API:", e); 
     return []; 
   }
 };

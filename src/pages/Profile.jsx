@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AVATAR_PRESETS } from '../constants';
 import { Avatar3D } from '../components/Avatar3D';
-import { AppHeader } from '../components/AppHeader'; // Import de l'en-tête réécrit
+import * as api from '../api';
 import { 
   RefreshCw, ChevronRight, LogOut, Save, Check, 
   Database, Edit2, Sun, Moon, Sparkles, CreditCard, Ticket, X 
@@ -11,11 +11,23 @@ export function Profile({
   isScrolled, handleScan, userName, userAvatar, isDark, themeMode, toggleDarkMode,
   ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
   updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
+  userToken,
 }) {
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isDirty, setIsDirty] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+
+  // Synchronisation du scroll local pour l'animation du titre
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrolled = scrollY > 20;
 
   const handleChange = (updateFn, ...args) => {
     updateFn(...args);
@@ -25,6 +37,13 @@ export function Profile({
   const handleSave = async () => {
     setSaveStatus('saving');
     await triggerCloudSave();
+    if (userToken && spreadsheetId && pricing) {
+      try {
+        await api.saveConfigPricing(userToken, spreadsheetId, pricing);
+      } catch (err) {
+        console.error('[Profile] Failed to save pricing to sheet:', err);
+      }
+    }
     setSaveStatus('success');
     setTimeout(() => { 
       setSaveStatus('idle'); 
@@ -39,7 +58,18 @@ export function Profile({
     }
   };
 
-  // Composants internes pour le style
+  const handleForceSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await handleScan();
+    } catch (err) {
+      console.error('Erreur lors de la synchro forcée:', err);
+    } finally {
+      setTimeout(() => setIsSyncing(false), 800);
+    }
+  };
+
   const SectionLabel = ({ children }) => (
     <h3 className="font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 ml-5 mb-2">
       {children}
@@ -63,16 +93,37 @@ export function Profile({
   );
 
   return (
-    <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-32">
+    <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-8 relative">
       
-      {/* 1. APP HEADER INTEGRATION */}
-      <AppHeader 
-        title="Réglages"
-        scrolled={isScrolled}
-        rightSlot={
+      {/* HEADER STICKY CORRIGÉ */}
+      <header
+        className="sticky top-0 z-50 flex justify-between items-center px-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-2 transition-all duration-300"
+        style={{
+          // On mixe le background du thème avec de la transparence en fonction du scroll
+          backgroundColor: `color-mix(in srgb, var(--theme-bg) ${scrolled ? 80 : 0}%, transparent)`,
+          // L'effet "Frosted" (Givré)
+          backdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'blur(20px) saturate(180%)',
+          // Optionnel : une bordure très fine en bas pour marquer la séparation au scroll
+          borderBottom: scrolled ? '1px solid var(--theme-border)' : '1px solid transparent',
+        }}
+      >
+        <div className="flex flex-col justify-center">
+          <h1 
+            className="font-galinoy italic text-[var(--theme-text)] text-4xl tracking-tight leading-none transition-transform duration-300"
+            style={{
+              opacity: Math.max(0.2, 1 - scrollY / 60),
+              transform: `translateY(${-scrollY * 0.1}px)`,
+            }}
+          >
+            Réglages
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
-            className={`flex items-center gap-2 h-9 px-4 rounded-full font-outfit text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+            className={`flex items-center gap-2 h-10 px-5 rounded-full font-outfit text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
               isDirty 
                 ? 'bg-[var(--theme-text)] text-[var(--theme-bg)] scale-100 opacity-100 shadow-lg' 
                 : 'scale-90 opacity-0 pointer-events-none'
@@ -80,10 +131,10 @@ export function Profile({
           >
             {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
              saveStatus === 'success' ? <Check size={14} /> : <Save size={12} />}
-            <span>{saveStatus === 'success' ? 'OK' : 'Sauver'}</span>
+            <span>{saveStatus === 'success' ? 'OK' : 'Appliquer'}</span>
           </button>
-        }
-      />
+        </div>
+      </header>
 
       {/* MODAL GOOGLE SHEET */}
       {showSheetModal && (
@@ -113,8 +164,7 @@ export function Profile({
         </div>
       )}
 
-      {/* Padding top pour compenser le Header fixe */}
-      <main className="px-4 pt-[calc(env(safe-area-inset-top)+80px)] space-y-7">
+      <main className="px-4 mt-8 space-y-7">
         
         {/* SECTION 1: IDENTITY */}
         <section className="flex flex-col items-center">
@@ -196,27 +246,29 @@ export function Profile({
         {/* SECTION 4: TARIFS */}
         <div>
           <SectionLabel>Tarifs & Forfaits</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]/40">
+          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]">
             <Row icon={CreditCard} label="Cinepass" sublabel="Mensualité abonnement">
-              <div className="flex items-center gap-2 bg-[var(--theme-bg)] px-3 h-10 rounded-xl border border-[var(--theme-border)] w-24">
-                <input 
-                  type="text" inputMode="decimal"
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
                   value={pricing?.monthlySub?.toString().replace('.', ',') || ''}
                   onChange={(e) => handlePriceChange('monthlySub', e.target.value)}
-                  className="bg-transparent flex-1 text-right font-outfit font-bold text-sm outline-none"
+                  className="bg-transparent outline-none text-right font-bold text-sm text-[var(--theme-text)] w-[72px]"
                 />
-                <span className="text-[10px] font-black opacity-30">€</span>
+                <span className="text-[11px] font-black opacity-30">€</span>
               </div>
             </Row>
             <Row icon={Ticket} label="Ticket" sublabel="Prix moyen hors-forfait">
-              <div className="flex items-center gap-2 bg-[var(--theme-bg)] px-3 h-10 rounded-xl border border-[var(--theme-border)] w-24">
-                <input 
-                  type="text" inputMode="decimal"
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
                   value={pricing?.ticketPrice?.toString().replace('.', ',') || ''}
                   onChange={(e) => handlePriceChange('ticketPrice', e.target.value)}
-                  className="bg-transparent flex-1 text-right font-outfit font-bold text-sm outline-none"
+                  className="bg-transparent outline-none text-right font-bold text-sm text-[var(--theme-text)] w-[72px]"
                 />
-                <span className="text-[10px] font-black opacity-30">€</span>
+                <span className="text-[11px] font-black opacity-30">€</span>
               </div>
             </Row>
           </div>
@@ -225,7 +277,7 @@ export function Profile({
         {/* SECTION 5: DATABASE & SYNC */}
         <div>
           <SectionLabel>Données & Sync</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]/40">
+          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]">
             <Row 
               icon={Database} 
               label="Google Sheet" 
@@ -234,13 +286,16 @@ export function Profile({
             >
               <ChevronRight size={16} className="opacity-20" />
             </Row>
+            
             <Row 
               icon={RefreshCw} 
               label="Synchronisation" 
-              sublabel="Forcer la mise à jour"
-              onClick={handleScan}
+              sublabel={isSyncing ? "Mise à jour..." : "Forcer la mise à jour"}
+              onClick={handleForceSync}
             >
-              <ChevronRight size={16} className="opacity-20" />
+              <div className={`${isSyncing ? 'animate-spin text-[var(--theme-accent)]' : 'opacity-20'}`}>
+                <RefreshCw size={16} />
+              </div>
             </Row>
           </div>
         </div>

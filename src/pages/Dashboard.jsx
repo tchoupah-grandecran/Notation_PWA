@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SmartPoster } from '../components/SmartPoster';
-import { Ticket, Clock } from 'lucide-react';
+import { Ticket, Clock, SlidersHorizontal } from 'lucide-react';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const parseDuration = (duree) => {
@@ -49,7 +49,7 @@ const FilterIcon = () => (
     <line x1="12" y1="8" x2="12" y2="3"></line>
     <line x1="20" y1="21" x2="20" y2="16"></line>
     <line x1="20" y1="12" x2="20" y2="3"></line>
-    <line x1="1" y1="14" x2="7" y2="14"></line>
+    <line x1="1" y1="14" x2="7" y1="14"></line>
     <line x1="9" y1="8" x2="15" y2="8"></line>
     <line x1="17" y1="16" x2="23" y2="16"></line>
   </svg>
@@ -82,9 +82,10 @@ export function Dashboard({
   userName,
   setSelectedFilm,
 }) {
-  const [dashView, setDashView] = useState('year');
+  const [dashView, setDashView] = useState('all');
   const [dashValue, setDashValue] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   
   const now = new Date();
   const currentYear = now.getFullYear().toString();
@@ -267,72 +268,108 @@ export function Dashboard({
     return `${monthNames[parseInt(mm, 10) - 1]} ${yy}`;
   };
 
+  const scrolled = scrollY > 20;
+  
+
   return (
-    <div className="bg-[var(--theme-bg)] min-h-[100dvh] text-[var(--theme-text)] pb-32 relative overflow-x-hidden w-full">
+    <div
+      className="bg-[var(--theme-bg)] h-[100dvh] overflow-x-hidden text-[var(--theme-text)] pb-8 relative w-full"
+      onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}
+    >
       
       {/* ── STICKY HEADER ── */}
-      <header className="sticky top-0 bg-[var(--theme-bg)]/90 backdrop-blur-md flex justify-between items-start px-6 pt-12 pb-4 relative z-50 shadow-sm">
-        <div className="flex flex-col">
-          <span className="font-outfit text-white text-[19px] tracking-wide mb-[-2px]">{userName}, découvre</span>
-          <span className="font-galinoy italic text-white text-[42px] leading-none">ton cinéma</span>
+<header
+        className="sticky top-0 z-50 flex justify-between items-center px-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-2 transition-all duration-300"
+        style={{
+          backgroundColor: `color-mix(in srgb, var(--theme-bg) ${scrolled ? 90 : 0}%, transparent)`,
+          backdropFilter: scrolled ? 'blur(20px)' : 'none',
+          WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
+        }}
+      >
+        <div className="flex flex-col justify-center">
+          <div
+            className="transition-all duration-300"
+            style={{
+              height: scrolled ? '0px' : '22px',
+              opacity: Math.max(0, 1 - scrollY / 60),
+              overflow: 'hidden',
+            }}
+          >
+            <span className="font-outfit text-[var(--theme-text)] text-base tracking-wide leading-none">
+              {userName}, découvre
+            </span>
+          </div>
+          <h1 className="font-galinoy italic text-[var(--theme-text)] text-4xl tracking-tight leading-none">
+            ton cinéma
+          </h1>
         </div>
-        <button 
-          onClick={() => setShowFilter(true)}
-          className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black active:scale-95 transition-transform shrink-0"
-        >
-          <FilterIcon />
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilter(true)}
+            className={`relative w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 ${
+              dashView !== 'all'
+                ? 'bg-[var(--theme-accent)] border-transparent text-[var(--theme-bg)]'
+                : 'bg-[var(--theme-surface)] border-[var(--theme-border)] text-[var(--theme-text)]'
+            }`}
+          >
+            <SlidersHorizontal size={16} />
+            {dashView !== 'all' && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[var(--theme-bg)]" />
+            )}
+          </button>
+        </div>
       </header>
 
       {/* ── FILTER DRAWER ── */}
       {showFilter && (
         <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div 
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
             onClick={() => setShowFilter(false)} 
           />
-          <div className="relative bg-[#1E1E1E] w-full rounded-t-[32px] p-6 pb-12 flex flex-col gap-4 animate-in slide-in-from-bottom duration-300 shadow-[0_-20px_60px_rgba(0,0,0,0.8)] border-t border-white/10 max-h-[85vh]">
-            <div className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-2" />
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-outfit text-white font-bold text-2xl">Période</h3>
-              <button onClick={() => setShowFilter(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
+          <div className="relative bg-[var(--theme-surface)] w-full rounded-t-[24px] p-5 pb-6 flex flex-col animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-[var(--theme-border)] max-h-[55vh]">
+            <div className="w-10 h-1 bg-[var(--theme-text)] opacity-10 rounded-full self-center mb-4" />
+            
+            <div className="flex justify-between items-center mb-4 px-2">
+              <h3 className="font-outfit text-[var(--theme-text)] font-bold text-lg italic">Timeline</h3>
+              <button onClick={() => setShowFilter(false)} className="text-[var(--theme-accent)] font-outfit text-sm font-bold">OK</button>
             </div>
             
-            <div className="overflow-y-auto scrollbar-hide flex flex-col gap-3 pb-8">
+            <div className="overflow-y-auto scrollbar-hide flex flex-col px-4">
+              
               <button 
-                onClick={() => { setDashView('all'); setDashValue(''); setShowFilter(false); }} 
-                className={`p-4 rounded-2xl text-left font-outfit text-[16px] transition-colors ${dashView === 'all' ? 'bg-[var(--theme-accent)] text-black font-bold' : 'bg-white/5 text-white'}`}
+                onClick={() => { setDashView('all'); setDashValue(''); setShowFilter(false); }}
+                className={`py-3 text-left font-outfit text-[16px] transition-all border-l-2 pl-4 mb-2 ${dashView === 'all' ? 'border-[var(--theme-accent)] text-[var(--theme-accent)] font-bold' : 'border-[var(--theme-border)]/20 text-[var(--theme-text)] opacity-40'}`}
               >
                 Bilan Global
               </button>
-              
-              <p className="font-outfit text-[var(--theme-accent)] font-bold text-[11px] mt-4 mb-1 uppercase tracking-widest pl-2">Années</p>
-              <div className="grid grid-cols-2 gap-3">
-                {availableYears.map(y => (
-                  <button 
-                    key={y}
-                    onClick={() => { setDashView('year'); setDashValue(y); setShowFilter(false); }}
-                    className={`p-3 rounded-xl text-center font-outfit text-[15px] transition-colors ${dashView === 'year' && dashValue === y ? 'bg-[var(--theme-accent)] text-black font-bold' : 'bg-white/5 text-white/80'}`}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
 
-              <p className="font-outfit text-[var(--theme-accent)] font-bold text-[11px] mt-4 mb-1 uppercase tracking-widest pl-2">Mois</p>
-              <div className="grid grid-cols-2 gap-3">
-                {availableMonthsRaw.map(m => (
+              {availableYears.map(year => (
+                <div key={year} className="flex flex-col border-l-2 border-[var(--theme-border)]/20 ml-0">
                   <button 
-                    key={m}
-                    onClick={() => { setDashView('month'); setDashValue(m); setShowFilter(false); }}
-                    className={`p-3 rounded-xl text-center font-outfit text-[15px] transition-colors ${dashView === 'month' && dashValue === m ? 'bg-[var(--theme-accent)] text-black font-bold' : 'bg-white/5 text-white/80'}`}
+                    onClick={() => { setDashView('year'); setDashValue(year); setShowFilter(false); }}
+                    className={`py-2 text-left pl-4 font-outfit text-[15px] transition-all ${dashView === 'year' && dashValue === year ? 'text-[var(--theme-accent)] font-bold' : 'text-[var(--theme-text)] opacity-60 font-medium'}`}
                   >
-                    {formatLabel(m, 'month')}
+                    {year}
                   </button>
-                ))}
-              </div>
+
+                  <div className="flex flex-col mb-2">
+                    {availableMonthsRaw
+                      .filter(m => m.startsWith(year))
+                      .map(m => (
+                        <button 
+                          key={m}
+                          onClick={() => { setDashView('month'); setDashValue(m); setShowFilter(false); }}
+                          className={`py-1.5 text-left pl-8 font-outfit text-[14px] relative transition-all ${dashView === 'month' && dashValue === m ? 'text-[var(--theme-accent)] font-bold' : 'text-[var(--theme-text)] opacity-30'}`}
+                        >
+                          <div className={`absolute left-[-1px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] rounded-full ${dashView === 'month' && dashValue === m ? 'bg-[var(--theme-accent)] scale-150' : 'bg-[var(--theme-border)]'}`} />
+                          {formatLabel(m, 'month').split(' ')[0]}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -345,20 +382,20 @@ export function Dashboard({
         <div className="px-6 flex flex-col">
           <div className="flex items-baseline gap-3 flex-wrap">
             {dashView === 'all' ? (
-              <span className="font-outfit text-white text-xl">
+              <span className="font-outfit text-[var(--theme-text)] text-xl">
                 Avec ton <span className="font-bold">Cinépass</span>, tu as vu
               </span>
             ) : (
-              <span className="font-outfit text-white text-xl">
+              <span className="font-outfit text-[var(--theme-text)] text-xl">
                 En <span className="font-bold">{periodLabel}</span>, tu as vu
               </span>
             )}
             <span className="font-galinoy italic text-[var(--theme-accent)] text-[80px] leading-[0.8] tracking-tighter">
               {totalFilms}
             </span>
-            <span className="font-outfit text-white text-xl font-medium">films.</span>
+            <span className="font-outfit text-[var(--theme-text)] text-xl font-medium">films.</span>
           </div>
-          <p className="font-outfit text-xs text-white/60 mt-3">
+          <p className="font-outfit text-xs text-[var(--theme-text)] opacity-60 mt-3">
             Cela représente {Math.round(totalMinutes / (60 * 24 * 7))} semaines dans l'obscurité, quel dévouement !
           </p>
         </div>
@@ -366,33 +403,31 @@ export function Dashboard({
         {/* SECTION 2 — MONTHLY FREQUENCY */}
         <div className="px-6 relative flex justify-between items-center overflow-hidden h-32">
           <div className="z-10 flex flex-col">
-            <p className="font-outfit text-white text-[15px]">Tu t'es rendu au ciné</p>
+            <p className="font-outfit text-[var(--theme-text)] text-[15px]">Tu t'es rendu au ciné</p>
             <div className="flex flex-col items-center w-fit ml-8 mt-2">
               <span className="font-galinoy italic text-[var(--theme-accent)] text-[64px] leading-none">
                 {monthlyAvg}
               </span>
-              <p className="font-outfit text-[10px] text-white/60 mt-1">fois par mois en moyenne</p>
+              <p className="font-outfit text-[10px] text-[var(--theme-text)] opacity-60 mt-1">fois par mois en moyenne</p>
             </div>
           </div>
-          <Ticket size={180} className="absolute -right-8 text-white/5 rotate-[-15deg] pointer-events-none" strokeWidth={1} />
+          <Ticket size={180} className="absolute -right-8 text-[var(--theme-text)] opacity-5 rotate-[-15deg] pointer-events-none" strokeWidth={1} />
         </div>
 
         {/* SECTION 3 — LAST SESSIONS */}
         {latestFour.length > 0 && (
           <div className="flex flex-col items-center w-full">
-            <p className="font-outfit text-white text-base mb-6 px-6 self-start w-full text-center">Tes dernières séances</p>
+            <p className="font-outfit text-[var(--theme-text)] text-base mb-6 px-6 self-start w-full text-center">Tes dernières séances</p>
             
-            {/* Centered grid holding 130% width effectively */}
             <div className="w-full overflow-hidden flex justify-center py-2">
               <div className="w-[130%] max-w-[600px] flex justify-center gap-3 px-[4vw]">
                 {latestFour.map((film, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedFilm(film)}
-                    className="w-1/4 aspect-[2/3] bg-[#2A2A2A] rounded-2xl overflow-hidden relative shadow-lg active:scale-95 transition-transform"
+                    className="w-1/4 aspect-[2/3] bg-[var(--theme-surface)] rounded-2xl overflow-hidden relative shadow-lg active:scale-95 transition-transform"
                   >
                     <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover" />
-                    {/* Rating on poster */}
                     {film.note && (
                       <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md px-1.5 py-0.5 rounded-md flex items-center border border-white/10">
                         <span className="text-[10px] font-outfit font-bold text-white leading-none">{film.note.toString().replace('.', ',')}</span>
@@ -404,9 +439,9 @@ export function Dashboard({
             </div>
 
             {avgNote > 0 && (
-              <p className="font-outfit text-[11px] text-white/60 mt-6 text-center px-8 leading-relaxed">
+              <p className="font-outfit text-[11px] text-[var(--theme-text)] opacity-60 mt-6 text-center px-8 leading-relaxed">
                 Avec une note moyenne de <span className="font-bold text-[var(--theme-accent)]">{avgNote.toFixed(1).replace('.', ',')}/5</span>, tu es ce qu'on appelle<br/>
-                <span className="font-bold text-white text-xs">un fin connaisseur !</span>
+                <span className="font-bold text-[var(--theme-text)] text-xs">un fin connaisseur !</span>
               </p>
             )}
           </div>
@@ -415,7 +450,7 @@ export function Dashboard({
         {/* SECTION 4 — COUPS DE CŒUR */}
         {coupsDeCoeur.length > 0 && (
           <div className="px-6">
-            <p className="font-outfit text-white text-base text-right mb-6">Tes derniers coups de coeur</p>
+            <p className="font-outfit text-[var(--theme-text)] text-base text-right mb-6">Tes derniers coups de coeur</p>
             <div className="flex items-center gap-6">
               <div className="flex flex-col gap-3 justify-center w-12 pt-4">
                 <ChubbyHeart className="w-10 h-10 text-[var(--theme-text)]" />
@@ -427,7 +462,6 @@ export function Dashboard({
                   <div key={i} className="flex-1 flex flex-col">
                     <div className="w-full aspect-[2/3] bg-gradient-to-b from-[#E0E0E0] to-[#A0A0A0] rounded-[24px] overflow-hidden shadow-lg relative">
                       <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover" />
-                      {/* Rating pill specific to coups de coeur if available */}
                       {film.note && (
                         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
                           <span className="text-[9px] font-outfit font-black text-black">
@@ -437,7 +471,7 @@ export function Dashboard({
                         </div>
                       )}
                     </div>
-                    <p className="font-galinoy italic text-white mt-3 text-center text-[15px] leading-tight break-words px-1">
+                    <p className="font-galinoy italic text-[var(--theme-text)] mt-3 text-center text-[15px] leading-tight break-words px-1">
                       {film.titre}
                     </p>
                   </div>
@@ -449,16 +483,16 @@ export function Dashboard({
 
         {/* SECTION 5 — AVERAGE DURATION */}
         <div className="px-6 relative h-40 flex items-center">
-          <Clock size={220} className="absolute -right-16 top-1/2 -translate-y-1/2 text-white/5 pointer-events-none" strokeWidth={1} />
+          <Clock size={220} className="absolute -right-16 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-5 pointer-events-none" strokeWidth={1} />
           <div className="z-10 relative flex flex-col">
-            <p className="font-outfit text-white text-[15px] leading-snug">
+            <p className="font-outfit text-[var(--theme-text)] text-[15px] leading-snug">
               En moyenne, les films que<br/>tu vas voir durent
             </p>
             <span className="font-galinoy italic text-[var(--theme-accent)] text-[72px] leading-none mt-2">
               {formatAvgDuration(avgDuration)}
             </span>
-            <p className="font-outfit text-[10px] text-white/60 w-[60%] mt-3 leading-relaxed">
-              C'est <span className="font-bold text-white">{Math.abs(durationDeltaPct)}% {durationDeltaPct >= 0 ? 'plus long' : 'plus court'}</span> que la période précédente. On ne t'arrête plus !
+            <p className="font-outfit text-[10px] text-[var(--theme-text)] opacity-60 w-[60%] mt-3 leading-relaxed">
+              C'est <span className="font-bold text-[var(--theme-text)]">{Math.abs(durationDeltaPct)}% {durationDeltaPct >= 0 ? 'plus long' : 'plus court'}</span> que la période précédente. On ne t'arrête plus !
             </p>
           </div>
         </div>
@@ -469,9 +503,9 @@ export function Dashboard({
             {voPct}%
           </span>
           <div className="flex flex-col">
-            <p className="font-outfit text-white font-bold text-[17px] mb-2 leading-tight">Hello! Ciao! Guten Tag!</p>
-            <p className="font-outfit text-[13px] text-white/80 leading-snug">
-              Sur la période, tu as vu 43% de films en version originale étrangère. Un vrai cinéphile du monde !
+            <p className="font-outfit text-[var(--theme-text)] font-bold text-[17px] mb-2 leading-tight">Hello! Ciao! Salut ! Guten Tag!</p>
+            <p className="font-outfit text-[13px] text-[var(--theme-text)] opacity-80 leading-snug">
+              Sur la période, tu as vu {voPct}% de films en version originale étrangère. Un vrai cinéphile du monde !
             </p>
           </div>
         </div>
@@ -479,15 +513,15 @@ export function Dashboard({
         {/* SECTION 7 — FAVORITE ROOM */}
         {topRoom && (
           <div className="px-6 flex items-center relative h-32">
-            <DoorIcon size={160} className="text-white/5 absolute -left-12" />
+            <DoorIcon size={160} className="text-[var(--theme-text)] opacity-5 absolute -left-12" />
             <div className="ml-auto w-2/3 flex flex-col items-start">
-              <p className="font-outfit text-white text-[15px]">C'est en</p>
+              <p className="font-outfit text-[var(--theme-text)] text-[15px]">C'est en</p>
               <span className="font-galinoy italic text-[var(--theme-accent)] text-[42px] leading-none mt-1 block">
                 {topRoom[0]}
               </span>
-              <p className="font-outfit text-white text-[13px] mt-1">où tu as passé le plus de temps.</p>
-              <p className="font-outfit text-[9px] text-white/60 mt-3 leading-relaxed w-4/5">
-                Elle représente <span className="font-bold text-white">{roomSharePct}%</span> de tes réservations.<br/>The place to be !
+              <p className="font-outfit text-[var(--theme-text)] text-[13px] mt-1">où tu as passé le plus de temps.</p>
+              <p className="font-outfit text-[9px] text-[var(--theme-text)] opacity-60 mt-3 leading-relaxed w-4/5">
+                Elle représente <span className="font-bold text-[var(--theme-text)]">{roomSharePct}%</span> de tes réservations.<br/>The place to be !
               </p>
             </div>
           </div>
@@ -497,44 +531,44 @@ export function Dashboard({
         {favoriteSeat && (
           <div className="px-6 relative flex justify-between items-center h-32">
             <div className="z-10 w-2/3 flex flex-col items-end text-right">
-              <p className="font-outfit text-white text-[15px]">Tu adores t'asseoir en</p>
+              <p className="font-outfit text-[var(--theme-text)] text-[15px]">Tu adores t'asseoir en</p>
               <span className="font-galinoy italic text-[var(--theme-accent)] text-[48px] leading-none mt-1 block">
                 {favoriteSeat[0]}
               </span>
-              <p className="font-outfit text-[9px] text-white/60 mt-3 leading-relaxed w-5/6">
-                Cela correspond à <span className="font-bold text-white">{seatSharePct}%</span> de tes séances à cette place. Ta deuxième maison en somme !
+              <p className="font-outfit text-[9px] text-[var(--theme-text)] opacity-60 mt-3 leading-relaxed w-5/6">
+                Cela correspond à <span className="font-bold text-[var(--theme-text)]">{seatSharePct}%</span> de tes séances à cette place. Ta deuxième maison en somme !
               </p>
             </div>
-            <SeatIcon size={160} className="text-white/5 absolute -right-10" />
+            <SeatIcon size={160} className="text-[var(--theme-text)] opacity-5 absolute -right-10" />
           </div>
         )}
 
         {/* SECTION 9 — FAVORITE DAY */}
         {favDay !== '--' && (
           <div className="px-6">
-            <p className="font-outfit text-white text-[15px] mb-8 leading-snug">
+            <p className="font-outfit text-[var(--theme-text)] text-[15px] mb-8 leading-snug">
               Après analyse... Il semblerait que tu trouves le plus souvent le chemin du cinéma
             </p>
             <div className="flex justify-between items-start gap-4">
               <div className="flex items-center gap-4 flex-shrink-0">
-                <div className="w-14 h-14 rounded-full bg-[#E5E7EB] flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-[var(--theme-text)] opacity-5 flex items-center justify-center">
                   {favTime === 'Matin' || favTime === 'Après-midi' ? <SunIcon /> : <MoonIcon />}
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-outfit font-bold text-white text-[22px] leading-none">Le {favDay}</span>
+                  <span className="font-outfit font-bold text-[var(--theme-text)] text-[22px] leading-none">Le {favDay}</span>
                   <span className="font-outfit font-bold text-[var(--theme-accent)] text-[14px] mt-1">en {favTime.toLowerCase()}</span>
                 </div>
               </div>
               
               {lastFilmOnFavDay && (
                 <div className="flex flex-col items-end max-w-[120px]">
-                  <p className="font-outfit text-[9px] text-white/60 mb-2 text-right leading-tight">
+                  <p className="font-outfit text-[9px] text-[var(--theme-text)] opacity-60 mb-2 text-right leading-tight">
                     Ta dernière séance sur ce créneau c'était pour :
                   </p>
                   <div className="w-[72px] h-[100px] bg-[#E0E0E0] rounded-lg overflow-hidden shadow-md">
                     <SmartPoster afficheInitiale={lastFilmOnFavDay.affiche} titre={lastFilmOnFavDay.titre} className="w-full h-full object-cover" />
                   </div>
-                  <span className="font-galinoy text-white text-[11px] mt-2 italic font-bold">
+                  <span className="font-galinoy text-[var(--theme-text)] text-[11px] mt-2 italic font-bold">
                     {lastFilmOnFavDay.date}
                   </span>
                 </div>
@@ -547,7 +581,7 @@ export function Dashboard({
         <div className="px-6">
           <div className="flex items-end justify-between gap-4">
             <div className="flex flex-col flex-1 pb-1">
-              <p className="font-outfit text-white text-[15px] leading-snug">
+              <p className="font-outfit text-[var(--theme-text)] text-[15px] leading-snug">
                 Tu as fait le bon choix en prenant un Cinépass.<br/>
                 Avec ton abonnement,<br/>une séance te revient à :
               </p>
@@ -558,20 +592,20 @@ export function Dashboard({
               </span>
             </div>
           </div>
-          <p className="font-outfit text-[10px] text-white/60 mt-6 leading-relaxed">
-            Sans abonnement, tu aurais dépensé <span className="font-bold text-white">{totalStandardValue.toFixed(0)}€</span> sur la période (au lieu de <span className="font-bold text-white">{totalSubCost.toFixed(0)}€</span>). Cela représente une économie de <span className="font-bold text-white">{Math.round((savings / totalStandardValue) * 100)}%</span> ! Une affaire !
+          <p className="font-outfit text-[10px] text-[var(--theme-text)] opacity-60 mt-6 leading-relaxed">
+            Sans abonnement, tu aurais dépensé <span className="font-bold text-[var(--theme-text)]">{totalStandardValue.toFixed(0)}€</span> sur la période (au lieu de <span className="font-bold text-[var(--theme-text)]">{totalSubCost.toFixed(0)}€</span>). Cela représente une économie de <span className="font-bold text-[var(--theme-text)]">{Math.round((savings / totalStandardValue) * 100)}%</span> ! Une affaire !
           </p>
         </div>
 
         {/* SECTION 11 — COMPARE */}
         <div className="px-6 pb-8 text-center flex flex-col items-center">
-          <p className="font-outfit text-white text-[17px] mb-8 leading-snug">
+          <p className="font-outfit text-[var(--theme-text)] text-[17px] mb-8 leading-snug">
             Quelle aventure que cette période <span className="font-bold">{dashView === 'all' ? 'Global' : periodLabel}</span> !<br/>
             Tu veux la comparer avec une autre ?
           </p>
           <button 
             onClick={() => console.log('Compare clicked')}
-            className="border border-white text-white rounded-full px-10 py-2.5 font-outfit text-[15px] active:scale-95 transition-transform"
+            className="border border-[var(--theme-text)] text-[var(--theme-text)] rounded-full px-10 py-2.5 font-outfit text-[15px] active:scale-95 transition-transform"
           >
             Comparer
           </button>
