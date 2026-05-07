@@ -47,7 +47,7 @@ export function AppHeader({
 
         .app-header[data-scrolled="true"] {
           --header-pb: 12px;
-          --bg-opacity: 0.9;
+          --bg-opacity: 0.2;
           --blur: 20px;
         }
 

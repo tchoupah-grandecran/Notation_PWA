@@ -302,16 +302,18 @@ function App() {
         }}
       >
         {activeTab === 'home' && !showNotation && (
-          <Dashboard {...{historyData, isScrolled, handleScan, setActiveTab, setSelectedFilm}} 
-            ratingScale={prefs.ratingScale} pricing={prefs.pricing} userAvatar={prefs.userAvatar} userName={prefs.userName} isDark={prefs.isDark} 
-          />
-        )}
+  <Dashboard {...{historyData, isScrolled, handleScan, setActiveTab, setSelectedFilm}}
+    scrollY={scrollY}   // ADD THIS
+    ratingScale={prefs.ratingScale} pricing={prefs.pricing} userAvatar={prefs.userAvatar} userName={prefs.userName} isDark={prefs.isDark}
+  />
+)}
 
-        {activeTab === 'history' && (
-          <History {...{historyData, isLoadingHistory, isScrolled, handleScan, setSelectedFilm, displayCount, setDisplayCount}} 
-            ratingScale={prefs.ratingScale} isDark={prefs.isDark} 
-          />
-        )}
+{activeTab === 'history' && (
+  <History {...{historyData, isLoadingHistory, isScrolled, handleScan, setSelectedFilm, displayCount, setDisplayCount}}
+    scrollY={scrollY}   // ADD THIS
+    ratingScale={prefs.ratingScale} isDark={prefs.isDark}
+  />
+)}
 
         {activeTab === 'profile' && (
           <Profile
