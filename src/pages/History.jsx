@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from '../components/SmartPoster';
 import { AppHeader } from '../components/AppHeader';
@@ -133,6 +133,92 @@ function FilterSheet({ isOpen, onClose, activeYear, setActiveYear, activeType, s
   );
 }
 
+// ── INLINE SEARCH BAR ────────────────────────────────────────────────────────
+
+function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose }) {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Small delay so the CSS transition kicks in before focusing
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setSearchQuery('');
+    onClose();
+  };
+
+  return (
+    <div
+      className="flex items-center overflow-hidden transition-all duration-300 ease-in-out"
+      style={{
+        width: isOpen ? '100%' : '2.75rem',
+        maxWidth: isOpen ? '100%' : '2.75rem',
+      }}
+    >
+      {/* The pill container */}
+      <div
+        className="flex items-center gap-2 rounded-full border transition-all duration-300 ease-in-out overflow-hidden"
+        style={{
+          width: '100%',
+          height: '2.75rem',
+          backgroundColor: isOpen
+            ? 'var(--theme-surface)'
+            : 'var(--theme-surface)',
+          borderColor: isOpen
+            ? 'var(--theme-accent)'
+            : 'var(--theme-border)',
+          boxShadow: isOpen ? '0 0 0 2px color-mix(in srgb, var(--theme-accent) 20%, transparent)' : 'none',
+          paddingLeft: '0.625rem',
+          paddingRight: isOpen ? '0.5rem' : '0.625rem',
+        }}
+      >
+        {/* Search icon — always visible, acts as open button when closed */}
+        <button
+          onClick={isOpen ? undefined : onOpen}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center transition-colors duration-200"
+          style={{ color: isOpen ? 'var(--theme-accent)' : 'var(--theme-text)' }}
+          aria-label="Rechercher"
+        >
+          <svg className="w-[1.05rem] h-[1.05rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+
+        {/* Text input — only rendered (and takes space) when open */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Rechercher…"
+          className="bg-transparent outline-none font-outfit text-[13px] text-[var(--theme-text)] placeholder:text-[var(--theme-text)] placeholder:opacity-25 transition-all duration-300"
+          style={{
+            width: isOpen ? '100%' : '0',
+            opacity: isOpen ? 1 : 0,
+            pointerEvents: isOpen ? 'auto' : 'none',
+          }}
+        />
+
+        {/* Close / clear button */}
+        {isOpen && (
+          <button
+            onClick={handleClose}
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90"
+            style={{ color: 'var(--theme-text)', opacity: 0.4 }}
+            aria-label="Fermer la recherche"
+          >
+            <X size={14} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN HISTORY ────────────────────────────────────────────────────────────
 
 export function History({ historyData = [], setSelectedFilm, displayCount, scrollY = 0 }) {
@@ -143,7 +229,6 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState('');
 
-  // Le grand titre est visible jusqu'à ~80px de scroll
   const TITLE_FADE_END = 80;
   const scrolled = scrollY > 20;
   const titleOpacity = Math.max(0, 1 - scrollY / TITLE_FADE_END);
@@ -154,7 +239,9 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
   ].sort((a, b) => b - a), [historyData]);
 
   const filteredData = useMemo(() => {
-    let data = historyData.filter(f => !searchQuery || f.titre.toLowerCase().includes(searchQuery.toLowerCase()));
+    let data = historyData.filter(f =>
+      !searchQuery || f.titre.toLowerCase().includes(searchQuery.toLowerCase())
+    );
     if (activeType === 'coeur') data = data.filter(f => f.coupDeCoeur);
     if (activeType === 'capucine') data = data.filter(f => f.capucine);
     if (activeYear !== 'all') data = data.filter(f => f.date?.endsWith(activeYear));
@@ -191,22 +278,35 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
   }, [scrollY, currentMonth]);
 
   const rightSlot = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-1 justify-end">
+      {/* Filter button — hidden while search is open to save space */}
       <button
         onClick={() => setIsFilterOpen(true)}
-        className={`relative w-11 h-11 rounded-full flex items-center justify-center border transition-all ${hasActiveFilters ? 'bg-[var(--theme-accent)] border-transparent text-[var(--theme-bg)]' : 'bg-[var(--theme-surface)] border-[var(--theme-border)] text-[var(--theme-text)]'}`}
+        className={`
+          relative w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center border transition-all duration-300
+          ${isSearchOpen ? 'opacity-0 pointer-events-none w-0 overflow-hidden border-transparent p-0' : ''}
+          ${hasActiveFilters
+            ? 'bg-[var(--theme-accent)] border-transparent text-[var(--theme-bg)]'
+            : 'bg-[var(--theme-surface)] border-[var(--theme-border)] text-[var(--theme-text)]'
+          }
+        `}
+        style={{ minWidth: isSearchOpen ? 0 : undefined }}
+        aria-label="Filtres"
       >
         <SlidersHorizontal size={16} />
-        {hasActiveFilters && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[var(--theme-bg)]" />}
+        {hasActiveFilters && !isSearchOpen && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[var(--theme-bg)]" />
+        )}
       </button>
-      <button
-        onClick={() => setIsSearchOpen(true)}
-        className="w-11 h-11 rounded-full flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text)]"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </button>
+
+      {/* Inline expanding search */}
+      <InlineSearchBar
+        isOpen={isSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onOpen={() => setIsSearchOpen(true)}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </div>
   );
 
@@ -238,7 +338,9 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
         {groupedByMonth.length === 0 ? (
           <div className="py-32 text-center opacity-20">
             <Ticket size={48} className="mx-auto mb-4" />
-            <p className="font-galinoy text-4xl capitalize italic">Vide</p>
+            <p className="font-galinoy text-4xl capitalize italic">
+              {searchQuery ? 'Aucun résultat' : 'Vide'}
+            </p>
           </div>
         ) : (
           groupedByMonth.map(([month, films]) => (
@@ -269,27 +371,6 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
           ))
         )}
       </main>
-
-      {/* SEARCH OVERLAY */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 z-[400] bg-[var(--theme-bg)] p-8 pt-[env(safe-area-inset-top)] flex flex-col">
-          <div className="flex justify-end mb-12 mt-4">
-            <button
-              onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-border)]"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          <input
-            autoFocus
-            className="w-full bg-transparent py-6 font-galinoy text-4xl italic outline-none border-b-2 border-[var(--theme-accent)] text-[var(--theme-text)] placeholder:opacity-10"
-            placeholder="Rechercher…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      )}
 
       <FilterSheet
         isOpen={isFilterOpen}
