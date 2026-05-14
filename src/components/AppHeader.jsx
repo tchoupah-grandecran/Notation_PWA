@@ -21,7 +21,7 @@ export function AppHeader({
             {/* L'opacité du titre dépend entièrement du scroll */}
             <h1 
               key={displayTitle} 
-              className={`app-header__title font-galinoy ${scrolled ? 'animate-title opacity-100' : 'opacity-0'}`}
+              className={`app-header__title font-galinoy capitalize ${scrolled ? 'animate-title opacity-100' : 'opacity-0'}`}
             >
               {displayTitle}
             </h1>

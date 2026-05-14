@@ -238,7 +238,7 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
         {groupedByMonth.length === 0 ? (
           <div className="py-32 text-center opacity-20">
             <Ticket size={48} className="mx-auto mb-4" />
-            <p className="font-galinoy text-4xl italic">Vide</p>
+            <p className="font-galinoy text-4xl capitalize italic">Vide</p>
           </div>
         ) : (
           groupedByMonth.map(([month, films]) => (
@@ -283,7 +283,7 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
           </div>
           <input
             autoFocus
-            className="w-full bg-transparent py-6 font-galinoy text-6xl italic outline-none border-b-2 border-[var(--theme-accent)] text-[var(--theme-text)] placeholder:opacity-10"
+            className="w-full bg-transparent py-6 font-galinoy text-4xl italic outline-none border-b-2 border-[var(--theme-accent)] text-[var(--theme-text)] placeholder:opacity-10"
             placeholder="Rechercher…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
