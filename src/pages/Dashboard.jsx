@@ -2,6 +2,34 @@ import { useState, useEffect, useRef } from 'react';
 import { SmartPoster } from '../components/SmartPoster';
 
 // ─────────────────────────────────────────────
+// TMDB POSTER FETCH (fallback by title)
+// ─────────────────────────────────────────────
+const TMDB_API_KEY = ''; // set via env or config if needed
+const tmdbPosterCache = {};
+
+export async function fetchTMDBPosterByTitle(titre) {
+  if (!titre) return null;
+  if (tmdbPosterCache[titre] !== undefined) return tmdbPosterCache[titre];
+  try {
+    const query = encodeURIComponent(titre);
+    const res = await fetch(
+      `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=fr-FR&page=1`
+    );
+    if (!res.ok) throw new Error('TMDB error');
+    const data = await res.json();
+    const first = data?.results?.[0];
+    const path = first?.poster_path
+      ? `https://image.tmdb.org/t/p/w500${first.poster_path}`
+      : null;
+    tmdbPosterCache[titre] = path;
+    return path;
+  } catch {
+    tmdbPosterCache[titre] = null;
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 const parseDuration = (duree) => {
@@ -19,6 +47,30 @@ const formatAvgDuration = (totalMins) => {
   const h = Math.floor(totalMins / 60);
   const m = totalMins % 60;
   return `${h}h${String(m).padStart(2, '0')}`;
+};
+
+// Format total time: hours if < 73h, days if < 8 days, weeks if < 6 weeks, else months
+const formatTotalTime = (totalMinutes) => {
+  const totalHours = Math.floor(totalMinutes / 60);
+  const totalDays = totalMinutes / (60 * 24);
+  const totalWeeks = totalDays / 7;
+  const totalMonths = totalDays / 30.44;
+
+  if (totalHours < 73) {
+    return { value: totalHours, unit: totalHours === 1 ? 'heure' : 'heures' };
+  } else if (totalDays < 8) {
+    const d = Math.round(totalDays * 10) / 10;
+    const dDisplay = Number.isInteger(d) ? d : d.toFixed(1).replace('.', ',');
+    return { value: dDisplay, unit: d <= 1 ? 'jour' : 'jours' };
+  } else if (totalWeeks < 6) {
+    const w = Math.round(totalWeeks * 10) / 10;
+    const wDisplay = Number.isInteger(w) ? w : w.toFixed(1).replace('.', ',');
+    return { value: wDisplay, unit: w <= 1 ? 'semaine' : 'semaines' };
+  } else {
+    const mo = Math.round(totalMonths * 10) / 10;
+    const moDisplay = Number.isInteger(mo) ? mo : mo.toFixed(1).replace('.', ',');
+    return { value: moDisplay, unit: mo <= 1 ? 'mois' : 'mois' };
+  }
 };
 
 const monthNames = [
@@ -117,6 +169,15 @@ const ChubbyHeart = ({ className, style }) => (
   </svg>
 );
 
+// Moon + star icon for the day/time badge (matching screenshot)
+const MoonStarIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="14" fill="#1a1a2e" />
+    <path d="M18 9.5C15.5 9.5 13.5 11.5 13.5 14C13.5 16.5 15.5 18.5 18 18.5C18.8 18.5 19.5 18.3 20.1 17.9C19.1 19.7 17.2 20.9 15 20.9C11.7 20.9 9 18.2 9 14.9C9 11.6 11.7 9 15 9C16.1 9 17.1 9.3 18 9.8V9.5Z" fill="white" />
+    <path d="M20 8L20.5 9.5L22 10L20.5 10.5L20 12L19.5 10.5L18 10L19.5 9.5L20 8Z" fill="white" />
+  </svg>
+);
+
 function DecorativePoster({ film, rotate = 0, scale = 1, style = {} }) {
   if (!film) return null;
   return (
@@ -156,6 +217,126 @@ function AnimatedBar({ pct, isAccent, height = 10 }) {
           borderRadius: 'inherit',
         }}
       />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// STACKED POSTERS (Section 2 & 7)
+//
+// Mechanic: horizontal scroll strip. Each card is
+// `position: sticky` anchored to the left edge.
+// As you scroll right, cards peel off and pile up
+// on the left — the rightmost visible card is always
+// on top. z-index increases left→right so later
+// cards sit above earlier ones.
+// ─────────────────────────────────────────────
+function StackedPosters({ films, onSelectFilm }) {
+  const CARD_W = 86;
+  const CARD_H = 120;
+  const STICKY_STEP = 75;
+
+  return (
+    // Outer: just a padded shell, no overflow
+    <div style={{ paddingLeft: 24, paddingRight: 24, paddingBottom: 8, paddingTop: 8 }}>
+      {/* Scroll container: overflow here, so sticky is relative to THIS box */}
+      <div
+        style={{
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          height: CARD_H + 4,
+          // ← This is the scroll viewport; sticky children anchor to its left edge
+        }}
+      >
+        {/* Inner: sets total scroll width */}
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            height: CARD_H,
+            flexShrink: 0,
+            width: films.length > 0
+              ? (films.length - 1) * STICKY_STEP + CARD_W
+              : CARD_W,
+          }}
+        >
+          {films.map((film, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'sticky',
+                left: i * STICKY_STEP,        // anchor shifts right for each card
+                zIndex: i + 1,                // later cards sit on top
+                width: CARD_W,
+                height: CARD_H,
+                flexShrink: 0,
+                marginRight: i < films.length - 1 ? -(CARD_W - STICKY_STEP) : 0,
+              }}
+            >
+              <button
+                onClick={() => onSelectFilm(film)}
+                style={{
+                  width: CARD_W,
+                  height: CARD_H,
+                  display: 'block',
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  boxShadow: '3px 3px 10px rgba(0,0,0,0.30)',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+              >
+                <SmartPoster
+                  afficheInitiale={film.affiche}
+                  titre={film.titre}
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{ display: 'block', width: '100%', height: '100%' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 36,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
+                    borderBottomLeftRadius: 14,
+                    borderBottomRightRadius: 14,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {film.note && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: 6,
+                        left: 8,
+                        fontSize: 11,
+                        color: 'white',
+                        fontFamily: 'Galinoy, serif',
+                        fontStyle: 'italic',
+                        lineHeight: 1,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        maxWidth: CARD_W - 16,
+                        display: 'block',
+                      }}
+                    >
+                      {String(film.note).replace('.', ',')}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -457,7 +638,6 @@ export function Dashboard({
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelections, setCompareSelections] = useState([]);
   
-  // NOUVEAU STATUT : Index de l'affiche aléatoire en haut
   const [topPosterIdx, setTopPosterIdx] = useState(0);
 
   const now = new Date();
@@ -596,7 +776,9 @@ export function Dashboard({
   // ── Capucines ─────────────────────────────────────
   const capucinesFilms = dashData.filter(f => f.capucine === true || f.capucine === 1 || String(f.capucine) === '1');
   const capucinesCount = capucinesFilms.length;
-  const capucinesPct = totalFilms > 0 ? Math.round((capucinesCount / totalFilms) * 100) : 0;
+  // Each Capucines year = 36 films (6 per month, June–November)
+  const CAPUCINES_TOTAL_PER_YEAR = 36;
+  const capucinesPct = Math.round((capucinesCount / CAPUCINES_TOTAL_PER_YEAR) * 100);
   
   // ── Monthly avg ──────────────────────────────────
   const monthlyAvg = Math.round(totalFilms / Math.max(1, dashView === 'year' ? getMonthsToCharge(activeYear) : dashView === 'month' ? 1 : Math.max(1, availableYears.length * 12))) || 9;
@@ -609,7 +791,7 @@ export function Dashboard({
       const p = (d) => { if (!d) return 0; const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd).getTime(); };
       return p(b.date) - p(a.date);
     });
-  const latestFour = sortedByDate.slice(0, 6); // On prend 6 films au lieu de 4 pour apprécier le scroll horizontal
+  const latestFour = sortedByDate.slice(0, 24);
 
   // ── Fav day last film ────────────────────────────
   const lastFilmOnFavDay = dashData
@@ -627,12 +809,21 @@ export function Dashboard({
 
   const seatSharePct = favoriteSeat && totalFilms > 0 ? Math.round((favoriteSeat[1] / totalFilms) * 100) : 38;
   const roomSharePct = topRoom && totalFilms > 0 ? Math.round((topRoom[1] / totalFilms) * 100) : 14;
-  const weeksInDark = Math.round(totalMinutes / (60 * 24 * 7));
 
   // ── Decorative posters pool ──────────────────────
   const decoPool = sortedByDate.filter(f => !!f.affiche).slice(0, 12);
   const getPoster = (i) => decoPool[i % Math.max(decoPool.length, 1)] || null;
   const scrolled = scrollY > 20;
+
+  // ── Total time formatted ─────────────────────────
+  const timeFormatted = formatTotalTime(totalMinutes);
+
+  // ── Average note label ───────────────────────────
+  const avgNoteLabel = avgNote < 3
+    ? 'un critique chevronné'
+    : avgNote <= 4
+    ? 'un fin connaisseur'
+    : 'très bon public';
 
   const formatLabel = (val, view) => {
     if (!val) return '';
@@ -745,13 +936,13 @@ export function Dashboard({
         {/* ─────────────────────────────────────── */}
         {/* SECTION 1 — HERO: tu as vu N films      */}
         {/* ─────────────────────────────────────── */}
-        <section className="relative px-6 pt-4 pb-2 overflow-hidden">
+        <section className="relative px-6 pt-6 pb-10 overflow-hidden">
           
-          {/* Decorative poster — top right, interactif au clic */}
+          {/* Decorative poster — top right, interactive */}
           {decoPool.length > 0 && (
             <div 
               onClick={() => setTopPosterIdx(prev => prev + 1)}
-              className="absolute right-4 top-0 w-[155px] h-[214px] rounded-[17px] overflow-hidden shadow-[0_0_12px_4px_rgba(0,0,0,0.25)] cursor-pointer z-20 transition-all duration-300 active:scale-95 hover:scale-105"
+              className="absolute right-4 top-0 w-[140px] h-[194px] rounded-[17px] overflow-hidden shadow-[0_0_12px_4px_rgba(0,0,0,0.25)] cursor-pointer z-20 transition-all duration-300 active:scale-95 hover:scale-105"
               style={{ transform: 'rotate(3deg)' }}>
               <SmartPoster 
                 afficheInitiale={decoPool[topPosterIdx % decoPool.length]?.affiche} 
@@ -761,39 +952,43 @@ export function Dashboard({
             </div>
           )}
 
-          <div className="relative z-10 pr-[170px]">
-            {/* Respect du texte de la maquette "Le compte est bon !" -> "En 2026..." */}
-            <p className="font-outfit text-[var(--theme-text)] text-[18px] font-bold mb-6 leading-none">Le compte est bon !</p>
-            <p className="font-outfit text-[var(--theme-text)] text-[18px]" style={{ opacity: 1 }}>
-              En <span className="font-semibold">{dashView === 'all' ? currentYear : periodLabel}</span>, tu as vu
+          <div className="relative z-10 pr-[158px]">
+            <p className="font-outfit text-[var(--theme-text)] text-[17px] font-bold mb-3 leading-none">Le compte est bon !</p>
+            <p className="font-outfit text-[var(--theme-text)] text-[15px]" style={{ opacity: 0.8 }}>
+              En <span className="font-semibold">{dashView === 'all' ? 'tout' : periodLabel}</span>, tu as vu
             </p>
           </div>
 
           {/* Giant number */}
-          <div className="flex items-baseline gap-3 mt-2">
+          <div className="flex items-baseline gap-3 mt-2 mb-6">
             <span className="font-galinoy italic leading-none" style={{ fontSize: 'clamp(5rem,22vw,7rem)', color: 'var(--theme-accent)', lineHeight: 0.85 }}>
               {totalFilms}
             </span>
-            <span className="font-outfit text-[var(--theme-text)] text-xl font-medium">films.</span>
+            <span className="font-outfit text-[var(--theme-text)] text-xl font-medium">films</span>
           </div>
 
-          <p className="font-outfit text-[var(--theme-text)] text-xs mt-4 leading-relaxed" style={{ opacity: 1, maxWidth: '55%' }}>
-            Cela représente <span className="font-bold" style={{ opacity: 1, color: 'var(--theme-text)' }}>{weeksInDark} semaines</span> dans l'obscurité, quel dévouement !
+          {/* Time in cinema */}
+          <p className="font-outfit text-[var(--theme-text)] text-[14px] mt-14 leading-relaxed">
+            Cela représente{' '}
+            <span className="font-galinoy italic" style={{ color: 'var(--theme-accent)', fontSize: '1.4rem', lineHeight: 1 }}>
+              {timeFormatted.value}
+            </span>{' '}
+            <span className="font-semibold">{timeFormatted.unit}</span> dans l'obscurité, quel dévouement !
           </p>
 
           {dashView !== 'month' && (
-            <p className="font-outfit text-xs mt-2 leading-relaxed" style={{ opacity: 1 }}>
-              Et c'est aussi{' '}
+            <p className="font-outfit text-[14px] mt-5 leading-relaxed">
+              C'est aussi{' '}
               <span className="font-galinoy italic" style={{ fontSize: '1.5rem', color: 'var(--theme-accent)', lineHeight: 1 }}>{monthlyAvg} </span>
-              <span className="font-outfit text-xs" style={{ opacity: 1 }}>films par mois en moyenne.</span>
+              <span className="font-outfit text-[14px]" style={{ opacity: 0.8 }}>films par mois en moyenne.</span>
             </p>
           )}
 
           {avgNote > 0 && (
-            <p className="font-outfit text-xs mt-4 leading-relaxed" style={{ opacity: 1, maxWidth: '75%' }}>
+            <p className="font-outfit text-[14px] mt-5 leading-relaxed" style={{ maxWidth: '80%' }}>
               Avec une note moyenne de{' '}
-              <span className="font-galinoy italic" style={{ color: 'var(--theme-accent)', fontSize: '0.9rem' }}>{avgNote.toFixed(1).replace('.', ',')}/5</span>
-              , tu es ce qu'on appelle <span className="font-semibold text-[var(--theme-text)]">un fin connaisseur</span> !
+              <span className="font-galinoy italic" style={{ color: 'var(--theme-accent)', fontSize: '1.1rem' }}>{avgNote.toFixed(1).replace('.', ',')}/5</span>
+              , tu es <span className="font-semibold text-[var(--theme-text)]">{avgNoteLabel}</span> !
             </p>
           )}
         </section>
@@ -804,30 +999,9 @@ export function Dashboard({
         {/* SECTION 2 — DERNIÈRES SÉANCES           */}
         {/* ─────────────────────────────────────── */}
         {latestFour.length > 0 && (
-          <section className="py-12 overflow-visible">
-            <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-6">Tes dernières séances</p>
-            
-            {/* Superposition avec space-x négatif, hover dynamic (parallaxe/depth) */}
-            <div className="flex px-6 overflow-x-visible scrollbar-hide scroll-smooth pb-6 pt-2 space-x-[-1.25rem]">
-              {latestFour.map((film, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedFilm(film)}
-                  className="flex-shrink-0 w-[86px] h-[119px] bg-[var(--theme-surface)] rounded-[14px] overflow-hidden relative transition-all duration-300 hover:-translate-y-3 focus:-translate-y-3 hover:z-20 snap-center"
-                  style={{ boxShadow: '-4px 0px 8px 2px rgba(0,0,0,0.25)', zIndex: 10 - i }}
-                >
-                  <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover pointer-events-none" />
-                  
-                  {/* Gradient + note overlay */}
-                  <div className="absolute inset-x-0 bottom-0 h-10 flex items-end pb-1 px-1 pointer-events-none"
-                       style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }}>
-                    {film.note && (
-                      <span className="font-galinoy italic text-white text-[11px] leading-none">{String(film.note).replace('.', ',')}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+          <section className="pt-6 pb-10">
+            <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-5">Tes dernières séances</p>
+            <StackedPosters films={latestFour} onSelectFilm={setSelectedFilm} />
           </section>
         )}
 
@@ -837,59 +1011,57 @@ export function Dashboard({
         {/* SECTION 3 — COUPS DE CŒUR (red bg)      */}
         {/* ─────────────────────────────────────── */}
         {coupsDeCoeur.length > 0 && (
-          <section className="relative py-12 overflow-hidden" style={{ backgroundColor: '#A31E20' }}>
-            
-            {/* Scattered tilt poster decorations */}
-            {getPoster(2) && (
-              <div className="absolute left-[-30px] top-4 w-[110px] h-[150px] rounded-[14px] overflow-hidden shadow-xl pointer-events-none"
-                   style={{ transform: 'rotate(-12deg)', opacity: 0.35 }}>
-                <SmartPoster afficheInitiale={getPoster(2)?.affiche} titre={getPoster(2)?.titre} className="w-full h-full object-cover" />
-              </div>
-            )}
-            {getPoster(3) && (
-              <div className="absolute right-[-20px] bottom-2 w-[110px] h-[150px] rounded-[14px] overflow-hidden shadow-xl pointer-events-none"
-                   style={{ transform: 'rotate(10deg)', opacity: 0.3 }}>
-                <SmartPoster afficheInitiale={getPoster(3)?.affiche} titre={getPoster(3)?.titre} className="w-full h-full object-cover" />
-              </div>
-            )}
-
+          <section className="relative py-12 overflow-visible" style={{ backgroundColor: '#A31E20' }}>
             <div className="relative z-10">
-              <p className="font-outfit font-bold text-[18px] text-right mb-6 px-6" style={{ color: '#FFFDF2' }}>Tes derniers coups de coeur</p>
+              <p className="font-outfit font-bold text-[18px] mb-6 px-6" style={{ color: '#FFFDF2' }}>Tes derniers coups de coeur</p>
               
-              {/* Posters & Floating Hearts respectant la maquette */}
-              <div className="flex gap-4 flex-1 justify-center px-4 w-full">
+              <div className="flex gap-4 flex-1 justify-start px-6 w-full">
                 {coupsDeCoeur.map((film, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedFilm(film)}
                     className="flex-1 flex flex-col active:scale-95 transition-transform max-w-[160px]"
                   >
-                    <div className="w-full aspect-[2/3] rounded-[14px] overflow-hidden relative"
-                         style={{ boxShadow: '-4px 0px 12px 4px rgba(0,0,0,0.25)', background: '#D9D9D9' }}>
-                      <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover pointer-events-none" />
-                      
-                      {/* Titre et Note/Genre Overlay direct sur le poster */}
-                      <div className="absolute inset-x-0 bottom-0 h-1/2 flex flex-col justify-end p-2 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
-                        <p className="font-galinoy text-white text-left text-[14px] leading-tight mb-2 pr-2 line-clamp-2">{film.titre}</p>
-                        {film.note && (
-                          <div className="border border-white rounded-[11px] px-2 py-0.5 self-start flex items-center gap-1 bg-white/10 backdrop-blur-sm">
-                            <span className="font-outfit text-[8px] text-white uppercase">{film.genre || 'Film'}</span>
-                            <span className="font-galinoy text-[10px] text-white">{String(film.note).replace('.', ',')}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Cœurs Flottants (positionnés comme sur Figma) */}
+                    {/* Extra overflow container so hearts can spill outside */}
+                    <div className="relative" style={{ paddingTop: 20, paddingLeft: 16, paddingRight: 16 }}>
+                      {/* Floating Hearts — bigger, overflowing outside the poster */}
                       {i === 0 && (
                         <>
-                          <ChubbyHeart className="absolute -top-3 -left-3 w-10 h-10 text-white drop-shadow-md z-10 pointer-events-none" style={{ transform: 'rotate(-15deg)' }} />
-                          <ChubbyHeart className="absolute top-4 -left-4 w-6 h-6 text-white drop-shadow-md z-10 pointer-events-none opacity-90" style={{ transform: 'rotate(-25deg)' }} />
-                          <ChubbyHeart className="absolute bottom-6 -left-3 w-8 h-8 text-white drop-shadow-md z-10 pointer-events-none opacity-90" style={{ transform: 'rotate(10deg)' }} />
+                          <ChubbyHeart
+                            className="absolute text-white drop-shadow-lg z-20 pointer-events-none"
+                            style={{ top: -2, left: -2, width: 52, height: 52, transform: 'rotate(-18deg)' }}
+                          />
+                          <ChubbyHeart
+                            className="absolute text-white drop-shadow-md z-20 pointer-events-none"
+                            style={{ top: 18, left: -14, width: 34, height: 34, transform: 'rotate(-28deg)', opacity: 0.9 }}
+                          />
+                          <ChubbyHeart
+                            className="absolute text-white drop-shadow-md z-20 pointer-events-none"
+                            style={{ bottom: 30, left: -12, width: 40, height: 40, transform: 'rotate(12deg)', opacity: 0.85 }}
+                          />
                         </>
                       )}
                       {i === 1 && (
-                        <ChubbyHeart className="absolute -top-3 -right-3 w-10 h-10 text-white drop-shadow-md z-10 pointer-events-none" style={{ transform: 'rotate(15deg)' }} />
+                        <ChubbyHeart
+                          className="absolute text-white drop-shadow-lg z-20 pointer-events-none"
+                          style={{ top: -2, right: -2, width: 52, height: 52, transform: 'rotate(18deg)' }}
+                        />
                       )}
+
+                      <div className="w-full aspect-[2/3] rounded-[14px] overflow-hidden relative"
+                           style={{ boxShadow: '-4px 0px 12px 4px rgba(0,0,0,0.25)', background: '#D9D9D9' }}>
+                        <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover pointer-events-none" />
+                        
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 flex flex-col justify-end p-2 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
+                          <p className="font-galinoy text-white text-left text-[14px] leading-tight mb-2 pr-2 line-clamp-2">{film.titre}</p>
+                          {film.note && (
+                            <div className="border border-white rounded-[11px] px-2 py-0.5 self-start flex items-center gap-1 bg-white/10 backdrop-blur-sm">
+                              <span className="font-outfit text-[8px] text-white uppercase">{film.genre || 'Film'}</span>
+                              <span className="font-galinoy text-[10px] text-white">{String(film.note).replace('.', ',')}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -902,10 +1074,10 @@ export function Dashboard({
 
         {/* ─────────────────────────────────────── */}
         {/* SECTION 4 — TON PROFIL DE CINÉPHILE     */}
+        {/* UNTOUCHED — perfect as-is               */}
         {/* ─────────────────────────────────────── */}
         <section className="relative py-12 overflow-hidden">
           
-          {/* Decorative poster top-right */}
           {getPoster(4) && (
             <div className="absolute left-4 top-6 w-[150px] h-[207px] rounded-[17px] overflow-hidden pointer-events-none"
                  style={{ transform: 'rotate(5deg)', opacity: 0.95, boxShadow: '0 0 12px 4px rgba(0,0,0,0.25)' }}>
@@ -915,7 +1087,6 @@ export function Dashboard({
 
           <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-8 text-right" style={{ opacity: 1 }}>Ton profil de cinéphile</p>
           
-          {/* Avg duration sub-section */}
           <div className="px-6 mb-10 text-right">
             <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug inline-block text-right" style={{ maxWidth: '65%', opacity: 0.9 }}>
               En moyenne, les films que tu vas voir durent
@@ -932,7 +1103,6 @@ export function Dashboard({
             </p>
           </div>
 
-          {/* Language */}
           <div className="px-6 flex items-start gap-4">
             <span className="font-galinoy flex-shrink-0" style={{ fontSize: '3rem', color: 'var(--theme-accent)', lineHeight: 1 }}>
               {voPct}%
@@ -954,10 +1124,10 @@ export function Dashboard({
 
         {/* ─────────────────────────────────────── */}
         {/* SECTION 5 — SALLE & SIÈGE FAVORIS       */}
+        {/* UNTOUCHED — perfect as-is               */}
         {/* ─────────────────────────────────────── */}
         {(topRoom || favoriteSeat) && (
           <section className="relative py-12 overflow-hidden">
-            {/* Decorative poster left bleed */}
             {getPoster(5) && (
               <div className="absolute left-[-55px] top-8 w-[150px] h-[231px] rounded-[17px] overflow-hidden pointer-events-none"
                    style={{ opacity: 0.95, boxShadow: '0 0 12px 4px rgba(0,0,0,0.25)', transform: 'rotate(-6deg)' }}>
@@ -996,45 +1166,61 @@ export function Dashboard({
 
         {/* ─────────────────────────────────────── */}
         {/* SECTION 6 — JOUR & HEURE FAVORIS        */}
+        {/* Reworked layout matching screenshot     */}
         {/* ─────────────────────────────────────── */}
         {favDay !== '--' && (
           <>
-            <section className="relative py-12 overflow-hidden bg-white/5 rounded-t-[32px] mt-4">
-              
-              {/* Two decorative posters */}
-              {getPoster(6) && (
-                <div className="absolute right-4 top-6 w-[150px] h-[207px] rounded-[17px] overflow-hidden pointer-events-none"
-                     style={{ transform: 'rotate(4deg)', opacity: 0.18, boxShadow: '0 0 12px 4px rgba(0,0,0,0.25)' }}>
-                  <SmartPoster afficheInitiale={getPoster(6)?.affiche} titre={getPoster(6)?.titre} className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div className="relative z-10 px-6 pt-2 pb-6">
-                <p className="font-outfit text-[var(--theme-text)] text-[12px] opacity-60 uppercase mb-4 tracking-wider">
-                  Ton dernier film à cette période :
-                </p>
-
-                <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug mb-6" style={{ opacity: 0.9 }}>
-                  Il semblerait que tu trouves le plus souvent le chemin du cinéma
-                </p>
+            <SectionDivider />
+            <section className="relative py-12 overflow-hidden">
+              {/* Two-column layout: left text + right poster */}
+              <div className="flex items-start gap-0 px-6">
                 
-                <div className="inline-flex flex-col gap-1 bg-[var(--theme-accent)] px-4 py-2 rounded-full shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="font-outfit font-bold text-[var(--theme-bg)] text-[18px] leading-none">Le {favDay}</span>
-                    <span className="font-outfit font-bold text-[var(--theme-bg)] text-[12px] opacity-80 leading-none">en {favTime.toLowerCase()}</span>
+                {/* LEFT: text column */}
+                <div className="flex-1 flex flex-col pr-6" style={{ minWidth: 0 }}>
+                  <p className="font-outfit text-[var(--theme-text)] text-[12px] opacity-60 uppercase mb-5 tracking-wider">
+                    Ton dernier film à cette période :
+                  </p>
+
+                  <p className="font-outfit text-[var(--theme-text)] font-bold text-[22px] leading-snug mb-8">
+                    Il semblerait que tu trouves le plus souvent le chemin du cinéma
+                  </p>
+                  
+                  {/* Day + time pill — matching screenshot exactly */}
+                  <div
+                    className="inline-flex items-center gap-3 rounded-full px-4 py-2 self-start"
+                    style={{ backgroundColor: 'var(--theme-accent)' }}
+                  >
+                    {/* Moon + star icon */}
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                         style={{ backgroundColor: '#1a1a2e' }}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M13 6.5C10.5 6.5 8.5 8.5 8.5 11C8.5 13.5 10.5 15.5 13 15.5C13.8 15.5 14.5 15.3 15.1 14.9C14.1 16.7 12.2 17.9 10 17.9C6.7 17.9 4 15.2 4 11.9C4 8.6 6.7 6 10 6C11.1 6 12.1 6.3 13 6.8V6.5Z" fill="white"/>
+                        <path d="M15 3.5L15.5 5L17 5.5L15.5 6L15 7.5L14.5 6L13 5.5L14.5 5L15 3.5Z" fill="white"/>
+                      </svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-outfit font-bold text-[var(--theme-bg)] text-[18px] leading-none capitalize">Le {favDay}</span>
+                      <span className="font-outfit text-[var(--theme-bg)] text-[12px] opacity-80 leading-none mt-0.5">en {favTime.toLowerCase()}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Last film on that day */}
+                {/* RIGHT: movie poster */}
                 {lastFilmOnFavDay && (
-                  <div className="mt-8 flex items-center gap-3">
-                    <div className="w-[52px] h-[72px] rounded-xl overflow-hidden shadow-md flex-shrink-0">
-                      <SmartPoster afficheInitiale={lastFilmOnFavDay.affiche} titre={lastFilmOnFavDay.titre} className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                      <p className="font-galinoy italic text-[var(--theme-text)] text-[14px]">{lastFilmOnFavDay.titre}</p>
-                      <p className="font-outfit text-[11px] text-[var(--theme-text)] opacity-40 mt-0.5">{lastFilmOnFavDay.date}</p>
-                    </div>
+                  <div
+                    className="flex-shrink-0 rounded-[18px] overflow-hidden"
+                    style={{
+                      width: 120,
+                      height: 172,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                      background: '#D9D9D9',
+                    }}
+                  >
+                    <SmartPoster
+                      afficheInitiale={lastFilmOnFavDay.affiche}
+                      titre={lastFilmOnFavDay.titre}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
               </div>
@@ -1050,10 +1236,8 @@ export function Dashboard({
         <section className="relative overflow-hidden mt-6">
           <div className="relative z-10 px-6 pt-10 pb-12" style={{ backgroundColor: '#7E0000' }}>
             
-            {/* Logo Capucines Imgur positionné absolu haut/droite (ou centré) */}
             <div className="absolute right-6 top-8 z-20 flex items-center justify-center">
               <div className="w-[85px] h-[85px] rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_12px_2px_rgba(0,0,0,0.25)]">
-                {/* /!\ REMPLACE L'URL IMGUR CI-DESSOUS /!\ */}
                 <img src="https://i.imgur.com/lg1bkrO.png" alt="Logo Capucines" className="w-full h-full object-contain p-2" />
               </div>
             </div>
@@ -1061,33 +1245,27 @@ export function Dashboard({
             <p className="font-outfit font-bold text-white text-[18px] mb-6">L'expérience Capucines</p>
             
             <div className="flex flex-col gap-1 mb-6 w-2/3">
-              <span className="font-outfit text-white text-[18px]">En <span className="font-bold">{periodLabel}</span> tu as vu</span>
+              <span className="font-outfit text-white text-[18px]">En <span className="font-semibold">{dashView === 'all' ? 'tout' : periodLabel}</span> tu as vu</span>
               <div className="flex items-baseline gap-3">
                 <span className="font-galinoy" style={{ color: 'var(--theme-accent)', fontSize: '2.5rem', lineHeight: 1 }}>{capucinesCount}</span>
-                <span className="font-outfit text-white text-[18px]">films</span>
+                <span className="font-outfit text-white text-[18px]">films de la sélection</span>
               </div>
             </div>
 
             {capucinesCount > 0 && (
               <p className="font-outfit text-[12px] leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                C'est <span className="font-bold text-white">{capucinesPct}%</span> de la sélection.{' '}
-                {capucinesPct < 10 ? 'Encore un effort !' : capucinesPct < 25 ? 'Un bel appétit !' : 'Un vrai habitué !'}
+                C'est <span className="font-bold text-white">{capucinesPct}%</span> de la sélection annuelle ({CAPUCINES_TOTAL_PER_YEAR} films).{' '}
+                {capucinesPct < 10 ? 'Encore un effort !' : capucinesPct < 25 ? 'Un bel appétit !' : capucinesPct < 50 ? 'Tu t\'investis !' : 'Un vrai habitué !'}
               </p>
             )}
 
-            {/* Last 5 Capucines films avec superposition style parallax */}
+            {/* Stacked posters — sticky pile-up on scroll */}
             {capucinesFilms.length > 0 && (
-              <div className="flex overflow-hidden overflow-x-visible scrollbar-hide scroll-smooth pb-4 pt-6 space-x-[-1.25rem]">
-                {capucinesFilms.slice(0, 36).map((film, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedFilm(film)}
-                    className="flex-shrink-0 w-[86px] h-[119px] rounded-[14px] overflow-hidden transition-all duration-300 hover:-translate-y-3 focus:-translate-y-3 hover:z-20 snap-center relative"
-                    style={{ boxShadow: '-4px 0px 8px 2px rgba(0,0,0,0.25)', zIndex: 10 - i }}
-                  >
-                    <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover pointer-events-none" />
-                  </button>
-                ))}
+              <div className="mt-6" style={{ marginLeft: -24, marginRight: -24 }}>
+                <StackedPosters
+                  films={capucinesFilms.slice(0, 200)}
+                  onSelectFilm={setSelectedFilm}
+                />
               </div>
             )}
           </div>
@@ -1095,25 +1273,26 @@ export function Dashboard({
 
         {/* ─────────────────────────────────────── */}
         {/* SECTION 8 — ANALYSE FINANCIÈRE          */}
+        {/* Left-aligned, no background             */}
         {/* ─────────────────────────────────────── */}
-        <section className="relative py-12 overflow-hidden bg-[#1E1E1E]">
-          <p className="font-outfit font-bold text-[18px] px-6 mb-6 text-white text-right">L'analyse financière</p>
+        <section className="relative py-12 px-6">
+          <p className="font-outfit font-bold text-[18px] mb-6 text-[var(--theme-text)]">L'analyse financière</p>
           
-          <div className="px-6 flex flex-col gap-4">
-            <p className="font-outfit text-white text-[18px] leading-snug" style={{ opacity: 0.9 }}>
+          <div className="flex flex-col gap-4 mb-6">
+            <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug" style={{ opacity: 0.9 }}>
               Tu as fait le bon choix en prenant un Cinépass. Avec ton abonnement, une séance te revient à :
             </p>
-            <span className="font-galinoy block text-right" style={{ fontSize: '3rem', color: 'var(--theme-accent)', lineHeight: 0.85 }}>
+            <span className="font-galinoy" style={{ fontSize: '3rem', color: 'var(--theme-accent)', lineHeight: 0.85 }}>
               {costPerFilm.toFixed(2).replace('.', ',')}€
             </span>
           </div>
 
           {savings > 0 && (
-            <p className="font-outfit text-[12px] px-6 mt-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            <p className="font-outfit text-[13px] mt-4 leading-relaxed" style={{ opacity: 0.7 }}>
               Sans abonnement, tu aurais dépensé{' '}
-              <span className="font-semibold text-white">{totalStandardValue.toFixed(0)}€</span> sur la période (au lieu de{' '}
-              <span className="font-semibold text-white">{totalSubCost.toFixed(0)}€</span>). Cela représente une économie de{' '}
-              <span className="font-semibold text-white">{Math.round((savings / Math.max(totalStandardValue, 1)) * 100)}%</span> ! Une affaire !
+              <span className="font-semibold text-[var(--theme-text)]" style={{ opacity: 1 }}>{totalStandardValue.toFixed(0)}€</span> sur la période (au lieu de{' '}
+              <span className="font-semibold text-[var(--theme-text)]" style={{ opacity: 1 }}>{totalSubCost.toFixed(0)}€</span>). Cela représente une économie de{' '}
+              <span className="font-semibold text-[var(--theme-text)]" style={{ opacity: 1 }}>{Math.round((savings / Math.max(totalStandardValue, 1)) * 100)}%</span> ! Une affaire !
             </p>
           )}
         </section>
@@ -1121,8 +1300,8 @@ export function Dashboard({
         {/* ─────────────────────────────────────── */}
         {/* SECTION 9 — COMPARER                   */}
         {/* ─────────────────────────────────────── */}
-        <section className="py-16 px-6 text-center flex flex-col items-center bg-[#1E1E1E]">
-          <p className="font-outfit text-white text-[18px] leading-snug mb-8">
+        <section className="py-16 px-6 flex flex-col items-start">
+          <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug mb-8">
             Quelle aventure que cette période{' '}
             <span className="font-semibold">{dashView === 'all' ? 'Global' : periodLabel}</span> !<br />
             Tu veux la comparer avec une autre ?
@@ -1133,8 +1312,8 @@ export function Dashboard({
             disabled={dashView === 'all'}
             className="border rounded-[14px] px-10 py-3 font-outfit text-[18px] active:scale-95 transition-all bg-transparent"
             style={{
-              borderColor: dashView === 'all' ? 'rgba(255,253,242,0.2)' : '#FFFDF2',
-              color: '#FFFDF2',
+              borderColor: dashView === 'all' ? 'color-mix(in srgb, var(--theme-text) 20%, transparent)' : 'var(--theme-text)',
+              color: 'var(--theme-text)',
               opacity: dashView === 'all' ? 0.35 : 1,
               cursor: dashView === 'all' ? 'not-allowed' : 'pointer',
             }}
@@ -1143,7 +1322,7 @@ export function Dashboard({
           </button>
           
           {dashView === 'all' && (
-            <p className="font-outfit text-[11px] text-white opacity-30 mt-3 max-w-[24ch] leading-relaxed">
+            <p className="font-outfit text-[11px] opacity-30 mt-3 max-w-[24ch] leading-relaxed">
               Sélectionne une année ou un mois pour activer la comparaison.
             </p>
           )}
