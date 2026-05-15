@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SmartPoster } from '../components/SmartPoster';
 
 // ─────────────────────────────────────────────
 // TMDB POSTER FETCH (fallback by title)
 // ─────────────────────────────────────────────
-const TMDB_API_KEY = ''; // set via env or config if needed
+const TMDB_API_KEY = '';
 const tmdbPosterCache = {};
 
 export async function fetchTMDBPosterByTitle(titre) {
@@ -49,7 +49,6 @@ const formatAvgDuration = (totalMins) => {
   return `${h}h${String(m).padStart(2, '0')}`;
 };
 
-// Format total time: hours if < 73h, days if < 8 days, weeks if < 6 weeks, else months
 const formatTotalTime = (totalMinutes) => {
   const totalHours = Math.floor(totalMinutes / 60);
   const totalDays = totalMinutes / (60 * 24);
@@ -115,7 +114,7 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
   const totalFilms = dashData.length;
   const notes = dashData.map((f) => parseFloat(String(f.note).replace(',', '.'))).filter((n) => !isNaN(n) && n > 0);
   const avgNote = notes.length > 0 ? notes.reduce((a, b) => a + b, 0) / notes.length : 0;
-  
+
   const durations = dashData.map((f) => parseDuration(f.duree));
   const totalMinutes = durations.reduce((a, b) => a + b, 0);
   const avgDuration = durations.length > 0 ? Math.round(totalMinutes / durations.length) : 0;
@@ -126,7 +125,7 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
     if (l === 'VF' || l === 'FRA' || l === 'VFQ') vfCount++;
     else voCount++;
   });
-  
+
   const totalLang = vfCount + voCount;
   const voPct = totalLang > 0 ? Math.round((voCount / totalLang) * 100) : 0;
   const vfPct = 100 - voPct;
@@ -139,7 +138,7 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
 
   const totalStandardValue = dashData.reduce((acc, film) => acc + getPrice(film.date?.split('/')[2] || currentYear, 'ticket'), 0);
   let totalSubCost = 0;
-  
+
   if (periodView === 'month') {
     const year = periodValue.split('-')[0];
     totalSubCost = getPrice(year, 'sub');
@@ -148,7 +147,7 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
   } else {
     availableYears.forEach((y) => { totalSubCost += getMonthsToCharge(y) * getPrice(y, 'sub'); });
   }
-  
+
   const savings = totalStandardValue - totalSubCost;
   const costPerFilm = totalFilms > 0 ? totalSubCost / totalFilms : 0;
 
@@ -161,7 +160,32 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
 };
 
 // ─────────────────────────────────────────────
-// ICONS / MICRO COMPONENTS
+// CAPUCINES HELPERS
+// Capucines selection runs June (month 6) through November (month 11)
+// 6 films per month → 36 per year
+// ─────────────────────────────────────────────
+const CAPUCINES_MONTHS = [6, 7, 8, 9, 10, 11]; // June–November (1-indexed)
+const CAPUCINES_PER_MONTH = 6;
+const CAPUCINES_PER_YEAR = 36;
+
+/**
+ * Returns the total Capucines selection size for a given period.
+ * - 'all'   → availableYears.length * 36
+ * - 'year'  → 36
+ * - 'month' → 6 if in Jun–Nov, else 0 (not a Capucines month)
+ */
+const getCapucinesTotalForPeriod = (periodView, periodValue, availableYears) => {
+  if (periodView === 'all') return availableYears.length * CAPUCINES_PER_YEAR;
+  if (periodView === 'year') return CAPUCINES_PER_YEAR;
+  if (periodView === 'month') {
+    const monthNum = parseInt(periodValue.split('-')[1], 10);
+    return CAPUCINES_MONTHS.includes(monthNum) ? CAPUCINES_PER_MONTH : 0;
+  }
+  return CAPUCINES_PER_YEAR;
+};
+
+// ─────────────────────────────────────────────
+// ICONS
 // ─────────────────────────────────────────────
 const ChubbyHeart = ({ className, style }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
@@ -169,34 +193,9 @@ const ChubbyHeart = ({ className, style }) => (
   </svg>
 );
 
-// Moon + star icon for the day/time badge (matching screenshot)
-const MoonStarIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <circle cx="14" cy="14" r="14" fill="#1a1a2e" />
-    <path d="M18 9.5C15.5 9.5 13.5 11.5 13.5 14C13.5 16.5 15.5 18.5 18 18.5C18.8 18.5 19.5 18.3 20.1 17.9C19.1 19.7 17.2 20.9 15 20.9C11.7 20.9 9 18.2 9 14.9C9 11.6 11.7 9 15 9C16.1 9 17.1 9.3 18 9.8V9.5Z" fill="white" />
-    <path d="M20 8L20.5 9.5L22 10L20.5 10.5L20 12L19.5 10.5L18 10L19.5 9.5L20 8Z" fill="white" />
-  </svg>
-);
-
-function DecorativePoster({ film, rotate = 0, scale = 1, style = {} }) {
-  if (!film) return null;
-  return (
-    <div
-      className="absolute pointer-events-none select-none rounded-2xl overflow-hidden shadow-xl"
-      style={{
-        transform: `rotate(${rotate}deg) scale(${scale})`,
-        ...style,
-      }}
-    >
-      <SmartPoster
-        afficheInitiale={film.affiche}
-        titre={film.titre}
-        className="w-full h-full object-cover"
-      />
-    </div>
-  );
-}
-
+// ─────────────────────────────────────────────
+// ANIMATED BAR
+// ─────────────────────────────────────────────
 function AnimatedBar({ pct, isAccent, height = 10 }) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -222,25 +221,46 @@ function AnimatedBar({ pct, isAccent, height = 10 }) {
 }
 
 // ─────────────────────────────────────────────
-// STACKED POSTERS (Section 2 & 7)
+// FOLDING DECK POSTERS — Effet jeu de cartes
 //
-// Mechanic: horizontal scroll strip. Each card is
-// `position: sticky` anchored to the left edge.
-// As you scroll right, cards peel off and pile up
-// on the left — the rightmost visible card is always
-// on top. z-index increases left→right so later
-// cards sit above earlier ones.
+// La vue par défaut présente les cartes déployées (faible superposition).
+// Au scroll, chaque carte se déplace normalement vers la gauche jusqu'à 
+// atteindre sa position "empilée". Une fois ce seuil atteint, un transform 
+// compense le scroll pour la "verrouiller" dans la pile à gauche.
 // ─────────────────────────────────────────────
 function StackedPosters({ films, onSelectFilm }) {
   const CARD_W = 86;
   const CARD_H = 120;
-  const STICKY_STEP = 75;
+  
+  // Configuration de l'effet "Jeu de cartes"
+  const DEPLOYED_GAP = 72; // Espacement initial (86 - 72 = 14px de superposition)
+  const STACKED_GAP = 6;  // Espacement une fois dans la pile (les cartes sont presque totalement superposées)
+
+  const scrollRef = useRef(null);
+  const [scrollX, setScrollX] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setScrollX(el.scrollLeft);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  if (!films.length) return null;
+
+  // Largeur de base si les cartes restaient toutes déployées
+  const totalContentWidth = CARD_W + (films.length - 1) * DEPLOYED_GAP;
+  
+  // On ajoute de l'espace de scroll supplémentaire (runway) pour permettre 
+  // à l'utilisateur de scroller suffisamment pour replier jusqu'à la toute dernière carte.
+  const maxThreshold = (films.length - 1) * (DEPLOYED_GAP - STACKED_GAP);
+  const trackWidth = totalContentWidth + maxThreshold;
 
   return (
-    // Outer: just a padded shell, no overflow
     <div style={{ paddingLeft: 24, paddingRight: 24, paddingBottom: 8, paddingTop: 8 }}>
-      {/* Scroll container: overflow here, so sticky is relative to THIS box */}
       <div
+        ref={scrollRef}
         style={{
           overflowX: 'auto',
           overflowY: 'hidden',
@@ -248,93 +268,100 @@ function StackedPosters({ films, onSelectFilm }) {
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           height: CARD_H + 4,
-          // ← This is the scroll viewport; sticky children anchor to its left edge
+          position: 'relative',
         }}
       >
-        {/* Inner: sets total scroll width */}
-        <div
-          style={{
-            position: 'relative',
-            display: 'flex',
-            height: CARD_H,
-            flexShrink: 0,
-            width: films.length > 0
-              ? (films.length - 1) * STICKY_STEP + CARD_W
-              : CARD_W,
-          }}
-        >
-          {films.map((film, i) => (
-            <div
-              key={i}
-              style={{
-                position: 'sticky',
-                left: i * STICKY_STEP,        // anchor shifts right for each card
-                zIndex: i + 1,                // later cards sit on top
-                width: CARD_W,
-                height: CARD_H,
-                flexShrink: 0,
-                marginRight: i < films.length - 1 ? -(CARD_W - STICKY_STEP) : 0,
-              }}
-            >
-              <button
-                onClick={() => onSelectFilm(film)}
+        {/* Inner track — définit la zone de scroll totale */}
+        <div style={{ position: 'relative', width: trackWidth, height: CARD_H, flexShrink: 0 }}>
+          {films.map((film, i) => {
+            // Position initiale (déployée)
+            const baseLeft = i * DEPLOYED_GAP;
+            
+            // Position cible (empilée) relative au bord gauche
+            const stackedLeft = i * STACKED_GAP;
+            
+            // Le scroll exact à partir duquel cette carte doit arrêter de bouger
+            // vers la gauche et rejoindre la "pile"
+            const threshold = baseLeft - stackedLeft;
+
+            // Si le scroll dépasse le seuil, la carte commence à glisser avec le scroll 
+            // pour rester figée visuellement dans la pile
+            const offset = Math.max(0, scrollX - threshold);
+
+            return (
+              <div
+                key={i}
                 style={{
+                  position: 'absolute',
+                  left: baseLeft,
+                  // L'utilisation de translate3d force l'accélération GPU pour une fluidité parfaite
+                  transform: `translate3d(${offset}px, 0, 0)`,
+                  top: 0,
+                  zIndex: i + 1, // Les cartes de droite s'empilent au-dessus
                   width: CARD_W,
                   height: CARD_H,
-                  display: 'block',
-                  borderRadius: 14,
-                  overflow: 'hidden',
-                  boxShadow: '3px 3px 10px rgba(0,0,0,0.30)',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  position: 'relative',
-                  flexShrink: 0,
+                  willChange: 'transform',
                 }}
               >
-                <SmartPoster
-                  afficheInitiale={film.affiche}
-                  titre={film.titre}
-                  className="w-full h-full object-cover pointer-events-none"
-                  style={{ display: 'block', width: '100%', height: '100%' }}
-                />
-                <div
+                <button
+                  onClick={() => onSelectFilm(film)}
                   style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 36,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
-                    borderBottomLeftRadius: 14,
-                    borderBottomRightRadius: 14,
-                    pointerEvents: 'none',
+                    width: CARD_W,
+                    height: CARD_H,
+                    display: 'block',
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    boxShadow: '3px 3px 10px rgba(0,0,0,0.30)',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    position: 'relative',
                   }}
                 >
-                  {film.note && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        bottom: 6,
-                        left: 8,
-                        fontSize: 11,
-                        color: 'white',
-                        fontFamily: 'Galinoy, serif',
-                        fontStyle: 'italic',
-                        lineHeight: 1,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        maxWidth: CARD_W - 16,
-                        display: 'block',
-                      }}
-                    >
-                      {String(film.note).replace('.', ',')}
-                    </span>
-                  )}
-                </div>
-              </button>
-            </div>
-          ))}
+                  <SmartPoster
+                    afficheInitiale={film.affiche}
+                    titre={film.titre}
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{ display: 'block', width: '100%', height: '100%' }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 36,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
+                      borderBottomLeftRadius: 14,
+                      borderBottomRightRadius: 14,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {film.note && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          bottom: 6,
+                          left: 8,
+                          fontSize: 11,
+                          color: 'white',
+                          fontFamily: 'Galinoy, serif',
+                          fontStyle: 'italic',
+                          lineHeight: 1,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          maxWidth: CARD_W - 16,
+                          display: 'block',
+                        }}
+                      >
+                        {String(film.note).replace('.', ',')}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -362,9 +389,9 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--theme-surface)] w-full rounded-t-[24px] flex flex-col animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-[var(--theme-border)] max-h-[75vh]"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        
+
         <div className="w-10 h-1 bg-[var(--theme-text)] opacity-10 rounded-full self-center mt-4 mb-3" />
-        
+
         <div className="px-6 mb-4">
           <h3 className="font-galinoy italic text-[var(--theme-text)] text-2xl leading-none">Comparer</h3>
           <p className="font-outfit text-[var(--theme-text)] opacity-60 text-[13px] mt-1">Sélectionne les périodes à mettre face à face.</p>
@@ -409,7 +436,7 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
                 );
               })}
             </div>
-            
+
             <div className="px-6 pb-6 pt-2">
               <button onClick={() => selections.length > 0 && onConfirm(selections)}
                       disabled={selections.length === 0}
@@ -430,7 +457,7 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
 }
 
 // ─────────────────────────────────────────────
-// COMPARE VIEW (full-screen overlay)
+// COMPARE VIEW
 // ─────────────────────────────────────────────
 function CompareView({ allMetrics, onClose }) {
   const [mounted, setMounted] = useState(false);
@@ -448,7 +475,7 @@ function CompareView({ allMetrics, onClose }) {
     if (m.coupsDeCoeurCount === Math.max(...allMetrics.map(x => x.coupsDeCoeurCount))) s++;
     return s;
   });
-  
+
   const winnerIdx = scores.indexOf(Math.max(...scores));
   const winner = allMetrics[winnerIdx];
 
@@ -471,7 +498,7 @@ function CompareView({ allMetrics, onClose }) {
 
       <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2rem)' }}>
         <div className="flex flex-col gap-12 pt-8">
-          
+
           {/* Legend */}
           <div className="px-6 flex flex-wrap gap-x-5 gap-y-2">
             {allMetrics.map((m, i) => (
@@ -612,7 +639,7 @@ function CompareView({ allMetrics, onClose }) {
 }
 
 // ─────────────────────────────────────────────
-// SECTION WRAPPER
+// SECTION DIVIDER
 // ─────────────────────────────────────────────
 function SectionDivider() {
   return (
@@ -637,7 +664,7 @@ export function Dashboard({
   const [showFilter, setShowFilter] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelections, setCompareSelections] = useState([]);
-  
+
   const [topPosterIdx, setTopPosterIdx] = useState(0);
 
   const now = new Date();
@@ -653,6 +680,7 @@ export function Dashboard({
   const activeMonth = dashValue || (dashView === 'month' ? availableMonthsRaw[0] : '');
   const activeYear = dashValue || (dashView === 'year' ? availableYears[0] : '');
 
+  // ── Filtered data for the selected period ─────────
   const dashData = historyData.filter((film) => {
     if (!film.date) return false;
     if (dashView === 'year') return film.date.endsWith(activeYear);
@@ -668,7 +696,7 @@ export function Dashboard({
   const totalFilms = dashData.length;
   const notes = dashData.map((f) => parseFloat(String(f.note).replace(',', '.'))).filter((n) => !isNaN(n) && n > 0);
   const avgNote = notes.length > 0 ? notes.reduce((a, b) => a + b, 0) / notes.length : 0;
-  
+
   const durations = dashData.map((f) => parseDuration(f.duree));
   const totalMinutes = durations.reduce((a, b) => a + b, 0);
   const avgDuration = durations.length > 0 ? Math.round(totalMinutes / durations.length) : 0;
@@ -727,7 +755,7 @@ export function Dashboard({
   };
   const getMonthsToCharge = (y) => (y === currentYear ? currentMonthIndex + 1 : 12);
   const totalStandardValue = dashData.reduce((acc, film) => acc + getPrice(film.date?.split('/')[2] || currentYear, 'ticket'), 0);
-  
+
   let totalSubCost = 0;
   if (dashView === 'month') { const year = activeMonth.split('-')[0]; totalSubCost = getPrice(year, 'sub'); }
   else if (dashView === 'year') { totalSubCost = getMonthsToCharge(activeYear) * getPrice(activeYear, 'sub'); }
@@ -776,43 +804,49 @@ export function Dashboard({
   // ── Capucines ─────────────────────────────────────
   const capucinesFilms = dashData.filter(f => f.capucine === true || f.capucine === 1 || String(f.capucine) === '1');
   const capucinesCount = capucinesFilms.length;
-  // Each Capucines year = 36 films (6 per month, June–November)
-  const CAPUCINES_TOTAL_PER_YEAR = 36;
-  const capucinesPct = Math.round((capucinesCount / CAPUCINES_TOTAL_PER_YEAR) * 100);
-  
+
+  // Total possible Capucines films for the selected period
+  const capucinesTotalForPeriod = getCapucinesTotalForPeriod(dashView, dashView === 'month' ? activeMonth : activeYear, availableYears);
+
+  // Is the selected month outside the Capucines season?
+  const isNonCapucinesMonth = dashView === 'month' && capucinesTotalForPeriod === 0;
+
+  // Clamp to 100% max
+  const capucinesPct = capucinesTotalForPeriod > 0
+    ? Math.min(100, Math.round((capucinesCount / capucinesTotalForPeriod) * 100))
+    : 0;
+
   // ── Monthly avg ──────────────────────────────────
   const monthlyAvg = Math.round(totalFilms / Math.max(1, dashView === 'year' ? getMonthsToCharge(activeYear) : dashView === 'month' ? 1 : Math.max(1, availableYears.length * 12))) || 9;
   const periodLabel = dashView === 'year' ? activeYear : dashView === 'month' ? (() => { const [y, m] = activeMonth.split('-'); return `${monthNames[parseInt(m, 10) - 1]} ${y}`; })() : currentYear;
 
-  // ── Latest films ─────────────────────────────────
+  // ── Sorted by date (latest first) — for ALL of dashData ─────────
   const sortedByDate = dashData
     .filter(f => f.affiche || f.titre)
     .sort((a, b) => {
       const p = (d) => { if (!d) return 0; const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd).getTime(); };
       return p(b.date) - p(a.date);
     });
+
   const latestFour = sortedByDate.slice(0, 24);
 
-  // ── Fav day last film ────────────────────────────
-  const lastFilmOnFavDay = dashData
-    .filter(f => {
-      if (!f.date) return false;
-      const [d, m, y] = f.date.split('/');
-      const obj = new Date(y, m - 1, d);
-      if (isNaN(obj)) return false;
-      return obj.getDay() === favDayIndex;
-    })
-    .sort((a, b) => {
-      const p = (d) => { const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd); };
-      return p(b.date) - p(a.date);
-    })[0] || null;
+  // ── Decorative poster pool — always pull from dashData (period-aware) ──
+  // This fixes the bug where older periods showed no decorative posters:
+  // we use sortedByDate (already filtered to the active period) instead of
+  // a separate pool derived from all history.
+  const decoPool = sortedByDate.filter(f => !!f.affiche);
 
-  const seatSharePct = favoriteSeat && totalFilms > 0 ? Math.round((favoriteSeat[1] / totalFilms) * 100) : 38;
-  const roomSharePct = topRoom && totalFilms > 0 ? Math.round((topRoom[1] / totalFilms) * 100) : 14;
+  // Fallback: if the current period has no posters with affiche,
+  // fall back to any film in dashData that has a titre (SmartPoster will handle fallback fetch)
+  const decoPoolWithFallback = decoPool.length > 0
+    ? decoPool
+    : sortedByDate.slice(0, 12);
 
-  // ── Decorative posters pool ──────────────────────
-  const decoPool = sortedByDate.filter(f => !!f.affiche).slice(0, 12);
-  const getPoster = (i) => decoPool[i % Math.max(decoPool.length, 1)] || null;
+  const getPoster = (i) => {
+    if (!decoPoolWithFallback.length) return null;
+    return decoPoolWithFallback[i % decoPoolWithFallback.length] || null;
+  };
+
   const scrolled = scrollY > 20;
 
   // ── Total time formatted ─────────────────────────
@@ -832,6 +866,24 @@ export function Dashboard({
     return `${monthNames[parseInt(mm, 10) - 1]} ${yy}`;
   };
 
+  // ── Fav day last film ────────────────────────────
+  const lastFilmOnFavDay = dashData
+    .filter(f => {
+      if (!f.date) return false;
+      const [d, m, y] = f.date.split('/');
+      const obj = new Date(y, m - 1, d);
+      if (isNaN(obj)) return false;
+      return obj.getDay() === favDayIndex;
+    })
+    .sort((a, b) => {
+      const p = (d) => { const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd); };
+      return p(b.date) - p(a.date);
+    })[0] || null;
+
+  const seatSharePct = favoriteSeat && totalFilms > 0 ? Math.round((favoriteSeat[1] / totalFilms) * 100) : 38;
+  const roomSharePct = topRoom && totalFilms > 0 ? Math.round((topRoom[1] / totalFilms) * 100) : 14;
+
+  // ── Compare helpers ──────────────────────────────
   const handleCompareClick = () => {
     if (dashView === 'all') return;
     setCompareMode('selector');
@@ -845,23 +897,33 @@ export function Dashboard({
     ];
   };
 
-  return (
+return (
     <>
-      <div className="bg-[var(--theme-bg)] text-[var(--theme-text)] pb-12 relative w-full overflow-hidden">
-        
+      {/* 
+          Correction : Suppression de 'overflow-hidden' sur le parent direct. 
+          Si tu as peur des débordements horizontaux, utilise 'overflow-x-clip' 
+          ou assure-toi que les éléments enfants ne dépassent pas.
+      */}
+      <div className="bg-[var(--theme-bg)] text-[var(--theme-text)] pb-12 relative w-full">
+
         {/* ── STICKY HEADER ── */}
         <header
-          className="sticky top-0 z-50 flex justify-between items-center px-6 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3 transition-all duration-300"
+          className="sticky top-0 z-[100] flex justify-between items-center px-6 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3 transition-all duration-300"
           style={{
             backgroundColor: `color-mix(in srgb, var(--theme-bg) ${scrolled ? 92 : 0}%, transparent)`,
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
+            // On s'assure que le header reste bien au-dessus malgré tout
           }}
         >
           <div className="flex flex-col justify-center overflow-hidden">
             <div
               className="transition-all duration-300"
-              style={{ height: scrolled ? '0px' : '22px', opacity: Math.max(0, 1 - scrollY / 60), overflow: 'hidden' }}
+              style={{ 
+                height: scrolled ? '0px' : '22px', 
+                opacity: Math.max(0, 1 - scrollY / 60), 
+                overflow: 'hidden' 
+              }}
             >
               <span className="font-outfit text-[var(--theme-text)] text-base tracking-wide leading-none" style={{ opacity: 0.7 }}>
                 {userName}, découvre
@@ -871,6 +933,7 @@ export function Dashboard({
               ton cinéma
             </h1>
           </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowFilter(true)}
@@ -879,7 +942,9 @@ export function Dashboard({
                   ? 'border-transparent text-[var(--theme-bg)]'
                   : 'border-[var(--theme-border)] text-[var(--theme-text)]'
               }`}
-              style={{ backgroundColor: dashView !== 'all' ? 'var(--theme-accent)' : 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
+              style={{ 
+                backgroundColor: dashView !== 'all' ? 'var(--theme-accent)' : 'color-mix(in srgb, var(--theme-text) 8%, transparent)' 
+              }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
@@ -933,21 +998,23 @@ export function Dashboard({
           </div>
         )}
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 1 — HERO: tu as vu N films      */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 1 — HERO                             */}
+        {/* ───────────────────────────────────────────── */}
         <section className="relative px-6 pt-6 pb-10 overflow-hidden">
-          
-          {/* Decorative poster — top right, interactive */}
-          {decoPool.length > 0 && (
-            <div 
+
+          {/* Decorative poster — top right, interactive.
+              Uses getPoster(0) which pulls from the period-filtered decoPoolWithFallback,
+              so it always shows a poster from the selected period, including older periods. */}
+          {decoPoolWithFallback.length > 0 && (
+            <div
               onClick={() => setTopPosterIdx(prev => prev + 1)}
               className="absolute right-4 top-0 w-[140px] h-[194px] rounded-[17px] overflow-hidden shadow-[0_0_12px_4px_rgba(0,0,0,0.25)] cursor-pointer z-20 transition-all duration-300 active:scale-95 hover:scale-105"
               style={{ transform: 'rotate(3deg)' }}>
-              <SmartPoster 
-                afficheInitiale={decoPool[topPosterIdx % decoPool.length]?.affiche} 
-                titre={decoPool[topPosterIdx % decoPool.length]?.titre} 
-                className="w-full h-full object-cover pointer-events-none" 
+              <SmartPoster
+                afficheInitiale={decoPoolWithFallback[topPosterIdx % decoPoolWithFallback.length]?.affiche}
+                titre={decoPoolWithFallback[topPosterIdx % decoPoolWithFallback.length]?.titre}
+                className="w-full h-full object-cover pointer-events-none"
               />
             </div>
           )}
@@ -995,9 +1062,9 @@ export function Dashboard({
 
         <SectionDivider />
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 2 — DERNIÈRES SÉANCES           */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 2 — DERNIÈRES SÉANCES                */}
+        {/* ───────────────────────────────────────────── */}
         {latestFour.length > 0 && (
           <section className="pt-6 pb-10">
             <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-5">Tes dernières séances</p>
@@ -1007,14 +1074,14 @@ export function Dashboard({
 
         <SectionDivider />
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 3 — COUPS DE CŒUR (red bg)      */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 3 — COUPS DE CŒUR                    */}
+        {/* ───────────────────────────────────────────── */}
         {coupsDeCoeur.length > 0 && (
           <section className="relative py-12 overflow-visible" style={{ backgroundColor: '#A31E20' }}>
             <div className="relative z-10">
               <p className="font-outfit font-bold text-[18px] mb-6 px-6" style={{ color: '#FFFDF2' }}>Tes derniers coups de coeur</p>
-              
+
               <div className="flex gap-4 flex-1 justify-start px-6 w-full">
                 {coupsDeCoeur.map((film, i) => (
                   <button
@@ -1022,9 +1089,7 @@ export function Dashboard({
                     onClick={() => setSelectedFilm(film)}
                     className="flex-1 flex flex-col active:scale-95 transition-transform max-w-[160px]"
                   >
-                    {/* Extra overflow container so hearts can spill outside */}
                     <div className="relative" style={{ paddingTop: 20, paddingLeft: 16, paddingRight: 16 }}>
-                      {/* Floating Hearts — bigger, overflowing outside the poster */}
                       {i === 0 && (
                         <>
                           <ChubbyHeart
@@ -1051,7 +1116,7 @@ export function Dashboard({
                       <div className="w-full aspect-[2/3] rounded-[14px] overflow-hidden relative"
                            style={{ boxShadow: '-4px 0px 12px 4px rgba(0,0,0,0.25)', background: '#D9D9D9' }}>
                         <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover pointer-events-none" />
-                        
+
                         <div className="absolute inset-x-0 bottom-0 h-1/2 flex flex-col justify-end p-2 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
                           <p className="font-galinoy text-white text-left text-[14px] leading-tight mb-2 pr-2 line-clamp-2">{film.titre}</p>
                           {film.note && (
@@ -1072,12 +1137,13 @@ export function Dashboard({
 
         <SectionDivider />
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 4 — TON PROFIL DE CINÉPHILE     */}
-        {/* UNTOUCHED — perfect as-is               */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 4 — PROFIL DE CINÉPHILE              */}
+        {/* Decorative poster uses getPoster(4) which is */}
+        {/* now period-aware via decoPoolWithFallback.    */}
+        {/* ───────────────────────────────────────────── */}
         <section className="relative py-12 overflow-hidden">
-          
+
           {getPoster(4) && (
             <div className="absolute left-4 top-6 w-[150px] h-[207px] rounded-[17px] overflow-hidden pointer-events-none"
                  style={{ transform: 'rotate(5deg)', opacity: 0.95, boxShadow: '0 0 12px 4px rgba(0,0,0,0.25)' }}>
@@ -1085,8 +1151,8 @@ export function Dashboard({
             </div>
           )}
 
-          <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-8 text-right" style={{ opacity: 1 }}>Ton profil de cinéphile</p>
-          
+          <p className="font-outfit text-[var(--theme-text)] font-bold text-[18px] px-6 mb-8 text-right">Ton profil de cinéphile</p>
+
           <div className="px-6 mb-10 text-right">
             <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug inline-block text-right" style={{ maxWidth: '65%', opacity: 0.9 }}>
               En moyenne, les films que tu vas voir durent
@@ -1122,10 +1188,10 @@ export function Dashboard({
 
         <SectionDivider />
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 5 — SALLE & SIÈGE FAVORIS       */}
-        {/* UNTOUCHED — perfect as-is               */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 5 — SALLE & SIÈGE FAVORIS            */}
+        {/* Same fix: getPoster(5) now period-aware.      */}
+        {/* ───────────────────────────────────────────── */}
         {(topRoom || favoriteSeat) && (
           <section className="relative py-12 overflow-hidden">
             {getPoster(5) && (
@@ -1164,18 +1230,16 @@ export function Dashboard({
           </section>
         )}
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 6 — JOUR & HEURE FAVORIS        */}
-        {/* Reworked layout matching screenshot     */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 6 — JOUR & HEURE FAVORIS             */}
+        {/* ───────────────────────────────────────────── */}
         {favDay !== '--' && (
           <>
             <SectionDivider />
             <section className="relative py-12 overflow-hidden">
-              {/* Two-column layout: left text + right poster */}
               <div className="flex items-start gap-0 px-6">
-                
-                {/* LEFT: text column */}
+
+                {/* LEFT */}
                 <div className="flex-1 flex flex-col pr-6" style={{ minWidth: 0 }}>
                   <p className="font-outfit text-[var(--theme-text)] text-[12px] opacity-60 uppercase mb-5 tracking-wider">
                     Ton dernier film à cette période :
@@ -1184,13 +1248,12 @@ export function Dashboard({
                   <p className="font-outfit text-[var(--theme-text)] font-bold text-[22px] leading-snug mb-8">
                     Il semblerait que tu trouves le plus souvent le chemin du cinéma
                   </p>
-                  
-                  {/* Day + time pill — matching screenshot exactly */}
+
+                  {/* Day + time pill */}
                   <div
                     className="inline-flex items-center gap-3 rounded-full px-4 py-2 self-start"
                     style={{ backgroundColor: 'var(--theme-accent)' }}
                   >
-                    {/* Moon + star icon */}
                     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                          style={{ backgroundColor: '#1a1a2e' }}>
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -1230,12 +1293,19 @@ export function Dashboard({
 
         <SectionDivider />
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 7 — L'EXPÉRIENCE CAPUCINES      */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 7 — L'EXPÉRIENCE CAPUCINES           */}
+        {/*                                               */}
+        {/* Total selection size is now period-aware:     */}
+        {/* • Global → availableYears.length × 36         */}
+        {/* • Year   → 36                                 */}
+        {/* • Month in Jun–Nov → 6                        */}
+        {/* • Month outside Jun–Nov → show 0/6 grayed msg */}
+        {/* Capped at 100% max.                           */}
+        {/* ───────────────────────────────────────────── */}
         <section className="relative overflow-hidden mt-6">
           <div className="relative z-10 px-6 pt-10 pb-12" style={{ backgroundColor: '#7E0000' }}>
-            
+
             <div className="absolute right-6 top-8 z-20 flex items-center justify-center">
               <div className="w-[85px] h-[85px] rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_12px_2px_rgba(0,0,0,0.25)]">
                 <img src="https://i.imgur.com/lg1bkrO.png" alt="Logo Capucines" className="w-full h-full object-contain p-2" />
@@ -1243,41 +1313,62 @@ export function Dashboard({
             </div>
 
             <p className="font-outfit font-bold text-white text-[18px] mb-6">L'expérience Capucines</p>
-            
-            <div className="flex flex-col gap-1 mb-6 w-2/3">
-              <span className="font-outfit text-white text-[18px]">En <span className="font-semibold">{dashView === 'all' ? 'tout' : periodLabel}</span> tu as vu</span>
-              <div className="flex items-baseline gap-3">
-                <span className="font-galinoy" style={{ color: 'var(--theme-accent)', fontSize: '2.5rem', lineHeight: 1 }}>{capucinesCount}</span>
-                <span className="font-outfit text-white text-[18px]">films de la sélection</span>
-              </div>
-            </div>
 
-            {capucinesCount > 0 && (
-              <p className="font-outfit text-[12px] leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                C'est <span className="font-bold text-white">{capucinesPct}%</span> de la sélection annuelle ({CAPUCINES_TOTAL_PER_YEAR} films).{' '}
-                {capucinesPct < 10 ? 'Encore un effort !' : capucinesPct < 25 ? 'Un bel appétit !' : capucinesPct < 50 ? 'Tu t\'investis !' : 'Un vrai habitué !'}
-              </p>
-            )}
-
-            {/* Stacked posters — sticky pile-up on scroll */}
-            {capucinesFilms.length > 0 && (
-              <div className="mt-6" style={{ marginLeft: -24, marginRight: -24 }}>
-                <StackedPosters
-                  films={capucinesFilms.slice(0, 200)}
-                  onSelectFilm={setSelectedFilm}
-                />
+            {isNonCapucinesMonth ? (
+              /* Selected month is outside Jun–Nov — no Capucines films that month */
+              <div className="flex flex-col gap-1 mb-6 w-2/3">
+                <span className="font-outfit text-white text-[18px]">
+                  En <span className="font-semibold">{periodLabel}</span>
+                </span>
+                <div className="flex items-baseline gap-3">
+                  <span className="font-galinoy" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '2.5rem', lineHeight: 1 }}>0</span>
+                  <span className="font-outfit text-white text-[18px] opacity-60">/ 6 films de la sélection</span>
+                </div>
+                <p className="font-outfit text-[12px] mt-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                  Pas de sélection ce mois — la programmation Capucines se tient de juin à novembre.
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-1 mb-6 w-2/3">
+                  <span className="font-outfit text-white text-[18px]">
+                    En <span className="font-semibold">{dashView === 'all' ? 'tout' : periodLabel}</span> tu as vu
+                  </span>
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-galinoy" style={{ color: 'var(--theme-accent)', fontSize: '2.5rem', lineHeight: 1 }}>{capucinesCount}</span>
+                    <span className="font-outfit text-white text-[18px]">
+                      film{capucinesTotalForPeriod > 1 ? 's' : ''} en compétition
+                    </span>
+                  </div>
+                </div>
+
+                {capucinesTotalForPeriod > 0 && (
+                  <p className="font-outfit text-[12px] leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                    C'est <span className="font-bold text-white">{capucinesPct}%</span> de la sélection{' '}
+                    {dashView === 'year' ? 'annuelle' : dashView === 'all' ? 'totale' : 'du mois'}.{' '}
+                    {capucinesPct === 0 ? 'Encore un effort !' : capucinesPct < 25 ? 'Un bel appétit !' : capucinesPct < 50 ? 'Tu t\'investis !' : capucinesPct < 100 ? 'Un vrai habitué !' : 'Collection complète !'}
+                  </p>
+                )}
+
+                {capucinesFilms.length > 0 && (
+                  <div className="mt-6" style={{ marginLeft: -24, marginRight: -24 }}>
+                    <StackedPosters
+                      films={capucinesFilms.slice(0, 200)}
+                      onSelectFilm={setSelectedFilm}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 8 — ANALYSE FINANCIÈRE          */}
-        {/* Left-aligned, no background             */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 8 — ANALYSE FINANCIÈRE               */}
+        {/* ───────────────────────────────────────────── */}
         <section className="relative py-12 px-6">
           <p className="font-outfit font-bold text-[18px] mb-6 text-[var(--theme-text)]">L'analyse financière</p>
-          
+
           <div className="flex flex-col gap-4 mb-6">
             <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug" style={{ opacity: 0.9 }}>
               Tu as fait le bon choix en prenant un Cinépass. Avec ton abonnement, une séance te revient à :
@@ -1297,16 +1388,16 @@ export function Dashboard({
           )}
         </section>
 
-        {/* ─────────────────────────────────────── */}
-        {/* SECTION 9 — COMPARER                   */}
-        {/* ─────────────────────────────────────── */}
+        {/* ───────────────────────────────────────────── */}
+        {/* SECTION 9 — COMPARER                         */}
+        {/* ───────────────────────────────────────────── */}
         <section className="py-16 px-6 flex flex-col items-start">
           <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug mb-8">
             Quelle aventure que cette période{' '}
             <span className="font-semibold">{dashView === 'all' ? 'Global' : periodLabel}</span> !<br />
             Tu veux la comparer avec une autre ?
           </p>
-          
+
           <button
             onClick={handleCompareClick}
             disabled={dashView === 'all'}
@@ -1320,7 +1411,7 @@ export function Dashboard({
           >
             Comparer
           </button>
-          
+
           {dashView === 'all' && (
             <p className="font-outfit text-[11px] opacity-30 mt-3 max-w-[24ch] leading-relaxed">
               Sélectionne une année ou un mois pour activer la comparaison.
@@ -1340,7 +1431,7 @@ export function Dashboard({
           onClose={() => setCompareMode(false)}
         />
       )}
-      
+
       {compareMode === 'view' && compareSelections.length > 0 && (
         <CompareView
           allMetrics={buildAllMetrics()}
