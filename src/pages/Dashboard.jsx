@@ -1019,15 +1019,15 @@ return (
             </div>
           )}
 
-          <div className="relative z-10 pr-[158px]">
+          <div className="relative z-30 pr-[158px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.18)' }}>
             <p className="font-outfit text-[var(--theme-text)] text-[17px] font-bold mb-3 leading-none">Le compte est bon !</p>
             <p className="font-outfit text-[var(--theme-text)] text-[15px]" style={{ opacity: 0.8 }}>
               En <span className="font-semibold">{dashView === 'all' ? 'tout' : periodLabel}</span>, tu as vu
             </p>
           </div>
 
-          {/* Giant number */}
-          <div className="flex items-baseline gap-3 mt-2 mb-6">
+          {/* Giant number — also raised above poster */}
+          <div className="relative z-30 flex items-baseline gap-3 mt-2 mb-6" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
             <span className="font-galinoy italic leading-none" style={{ fontSize: 'clamp(5rem,22vw,7rem)', color: 'var(--theme-accent)', lineHeight: 0.85 }}>
               {totalFilms}
             </span>
@@ -1273,10 +1273,13 @@ return (
                   <div
                     className="flex-shrink-0 rounded-[18px] overflow-hidden"
                     style={{
-                      width: 120,
-                      height: 172,
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                      width: 200,
+                      height: 300,
+                      marginRight: -80,
+                      transform: 'rotate(3deg)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
                       background: '#D9D9D9',
+                      flexShrink: 0,
                     }}
                   >
                     <SmartPoster
@@ -1389,35 +1392,57 @@ return (
         </section>
 
         {/* ───────────────────────────────────────────── */}
-        {/* SECTION 9 — COMPARER                         */}
-        {/* ───────────────────────────────────────────── */}
-        <section className="py-16 px-6 flex flex-col items-start">
-          <p className="font-outfit text-[var(--theme-text)] text-[18px] leading-snug mb-8">
-            Quelle aventure que cette période{' '}
-            <span className="font-semibold">{dashView === 'all' ? 'Global' : periodLabel}</span> !<br />
-            Tu veux la comparer avec une autre ?
-          </p>
+{/* SECTION 9 — COMPARER                         */}
+{/* ───────────────────────────────────────────── */}
+<section className="py-16 px-6 flex flex-col items-center text-center">
 
-          <button
-            onClick={handleCompareClick}
-            disabled={dashView === 'all'}
-            className="border rounded-[14px] px-10 py-3 font-outfit text-[18px] active:scale-95 transition-all bg-transparent"
-            style={{
-              borderColor: dashView === 'all' ? 'color-mix(in srgb, var(--theme-text) 20%, transparent)' : 'var(--theme-text)',
-              color: 'var(--theme-text)',
-              opacity: dashView === 'all' ? 0.35 : 1,
-              cursor: dashView === 'all' ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Comparer
-          </button>
+  <p
+    className="font-outfit uppercase tracking-[0.18em] text-[11px] mb-5"
+    style={{ color: 'color-mix(in srgb, var(--theme-text) 35%, transparent)' }}
+  >
+    Période · {dashView === 'all' ? 'Global' : periodLabel}
+  </p>
 
-          {dashView === 'all' && (
-            <p className="font-outfit text-[11px] opacity-30 mt-3 max-w-[24ch] leading-relaxed">
-              Sélectionne une année ou un mois pour activer la comparaison.
-            </p>
-          )}
-        </section>
+  <p className="font-outfit text-[var(--theme-text)] text-[19px] leading-snug mb-8" style={{ maxWidth: '26ch' }}>
+    Quelle aventure que cette période{' '}
+    <span className="font-semibold">{dashView === 'all' ? 'Global' : periodLabel}</span> !
+  </p>
+
+  <div className="w-full h-px mb-8" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-border) 25%, transparent)' }} />
+
+  {dashView === 'all' ? (
+    <p
+      className="font-outfit italic text-[13px] leading-relaxed mb-8"
+      style={{ color: 'color-mix(in srgb, var(--theme-text) 30%, transparent)', maxWidth: '28ch' }}
+    >
+      Sélectionne une année ou un mois pour activer la comparaison.
+    </p>
+  ) : (
+    <p
+      className="font-outfit text-[14px] leading-relaxed mb-8"
+      style={{ color: 'color-mix(in srgb, var(--theme-text) 55%, transparent)', maxWidth: '28ch' }}
+    >
+      Tu veux la comparer avec une autre période ?
+    </p>
+  )}
+
+  <button
+    onClick={handleCompareClick}
+    disabled={dashView === 'all'}
+    className="border rounded-full px-12 py-[14px] font-outfit text-[17px] active:scale-95 transition-all bg-transparent"
+    style={{
+      borderColor: dashView === 'all'
+        ? 'color-mix(in srgb, var(--theme-text) 18%, transparent)'
+        : 'var(--theme-text)',
+      color: dashView === 'all'
+        ? 'color-mix(in srgb, var(--theme-text) 25%, transparent)'
+        : 'var(--theme-text)',
+      cursor: dashView === 'all' ? 'not-allowed' : 'pointer',
+    }}
+  >
+    Comparer
+  </button>
+</section>
       </div>
 
       {/* ── OVERLAYS ── */}

@@ -93,8 +93,9 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
   const [price, setPrice] = useState('0.00');
 
   // États pour la sélection de la langue
-  const [selectedLang, setSelectedLang] = useState('FRA');
+  const [selectedLang, setSelectedLang] = useState(null);
   const [customLang, setCustomLang] = useState('');
+  const [langError, setLangError] = useState(false);
 
   // État pour la modification du titre
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -197,9 +198,16 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
   // ─── SAVE ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
+    const isVost = film.langue !== 'FRA' && film.langue !== 'VF';
+    const hasLang = selectedLang && (selectedLang !== 'Autre' || customLang.trim().length > 0);
+    if (isVost && !hasLang) {
+      setLangError(true);
+      return;
+    }
+    setLangError(false);
     setLoading(true);
 
-    const finalLang = film.langue === 'VF'
+    const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
       ? 'FRA'
       : (selectedLang === 'Autre' ? (customLang.toUpperCase() || 'ENG') : selectedLang);
 
@@ -410,15 +418,15 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
           {/* ── 3.5 SÉLECTION LANGUE (SI VOST) ── */}
           {film.langue !== 'FRA' && (
-            <div className="mb-5 bg-[var(--theme-bg)] rounded-[16px] border border-[var(--theme-border)] p-3">
-              <span className="text-[var(--theme-text-secondary)] text-[11px] font-medium block mb-2 opacity-70">
-                Langue originale (Trigramme)
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {['ENG', 'GER', 'CHI', 'ITA', 'Autre'].map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLang(lang)}
+            <div className={`mb-5 bg-[var(--theme-bg)] rounded-[16px] border p-3 transition-colors ${langError ? 'border-red-500' : 'border-[var(--theme-border)]'}`}>
+  <span className={`text-[11px] font-medium block mb-2 transition-colors ${langError ? 'text-red-500 opacity-100' : 'text-[var(--theme-text-secondary)] opacity-70'}`}>
+    {langError ? '⚠ Sélectionne une langue pour continuer' : 'Langue originale (Trigramme)'}
+  </span>
+  <div className="flex flex-wrap gap-2">
+    {['ENG', 'GER', 'CHI', 'ITA', 'Autre'].map(lang => (
+      <button
+        key={lang}
+        onClick={() => { setSelectedLang(lang); setLangError(false); }}
                     className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all border ${
                       selectedLang === lang
                         ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)] text-[var(--theme-bg)] shadow-sm'
