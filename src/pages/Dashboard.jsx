@@ -1195,7 +1195,7 @@ return (
         {(topRoom || favoriteSeat) && (
           <section className="relative py-12 overflow-hidden">
             {getPoster(5) && (
-              <div className="absolute left-[-55px] top-8 w-[150px] h-[231px] rounded-[17px] overflow-hidden pointer-events-none"
+              <div className="absolute left-[-55px] top-2 w-[200px] h-[300px] rounded-[17px] overflow-hidden pointer-events-none"
                    style={{ opacity: 0.95, boxShadow: '0 0 12px 4px rgba(0,0,0,0.25)', transform: 'rotate(-6deg)' }}>
                 <SmartPoster afficheInitiale={getPoster(5)?.affiche} titre={getPoster(5)?.titre} className="w-full h-full object-cover" />
               </div>

@@ -464,7 +464,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
           <div className="flex gap-[10px] mb-4">
             <button
               onClick={() => setIsFavorite(!isFavorite)}
-              className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[16px] border transition-all ${
+              className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[23px] border transition-all ${
                 isFavorite
                 ? 'border-red-500/50 bg-red-500/10 text-red-500'
                 : 'border-[var(--theme-border)] text-[var(--theme-text-secondary)]'
@@ -478,7 +478,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
             <button
               onClick={() => setIsCapucine(!isCapucine)}
-              className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[16px] border transition-all ${
+              className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[23px] border transition-all ${
                 isCapucine
                 ? 'border-[var(--theme-accent)] bg-[var(--theme-accent-muted)]'
                 : 'border-[var(--theme-border)] bg-transparent'
@@ -525,7 +525,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
             <motion.button
               disabled={loading}
               onClick={handleSave}
-              className="w-full max-w-[280px] py-[14px] rounded-[22px] flex justify-center items-center font-outfit shadow-lg transition-all"
+              className="w-full max-w-[280px] py-[14px] rounded-[42px] flex justify-center items-center font-outfit shadow-lg transition-all"
               style={{
                 backgroundColor: saved ? '#22c55e' : 'var(--theme-text)',
                 color: saved ? '#fff' : 'var(--theme-surface)'
