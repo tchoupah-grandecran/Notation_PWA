@@ -963,11 +963,11 @@ return (
             <div className="relative bg-[var(--theme-surface)] w-full rounded-t-[24px] p-5 pb-6 flex flex-col animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-[var(--theme-border)] max-h-[55vh]"
                  style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
               <div className="w-10 h-1 bg-[var(--theme-text)] opacity-10 rounded-full self-center mb-4" />
-              <div className="flex justify-between items-center mb-4 px-2">
+              <div className="flex justify-between items-center mb-2 px-2">
                 <h3 className="font-galinoy italic text-[var(--theme-text)] text-2xl">Timeline</h3>
                 <button onClick={() => setShowFilter(false)} className="font-outfit text-sm font-bold" style={{ color: 'var(--theme-accent)' }}>OK</button>
               </div>
-              <div className="overflow-y-auto scrollbar-hide flex flex-col px-4">
+              <div className="overflow-y-auto scrollbar-hide flex flex-col px-4 pb-20">
                 <button onClick={() => { setDashView('all'); setDashValue(''); setShowFilter(false); }}
                         className={`py-3 text-left font-outfit text-[16px] transition-all border-l-2 pl-4 mb-2 ${dashView === 'all' ? 'font-bold' : 'opacity-40'}`}
                         style={{ borderColor: dashView === 'all' ? 'var(--theme-accent)' : 'color-mix(in srgb, var(--theme-border) 20%, transparent)', color: dashView === 'all' ? 'var(--theme-accent)' : 'var(--theme-text)' }}>

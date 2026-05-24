@@ -1660,12 +1660,12 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
   const recentPosters    = (historyData || []).filter(f => f.affiche).map(f => getPosterUrl(f.affiche)).slice(0, 16);
 
   return (
-    <div className="studio-hub animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-outfit bg-[#0C0C0E] min-h-screen text-[#F0EEF5]">
+    <div className="studio-hub animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-outfit bg-[var(--theme-bg)] min-h-screen text-[#F0EEF5]">
 
       {/* ── HEADER — Galinoy italic, tight tracking ── */}
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 bg-[#0C0C0E]/90 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
+      <header className={`z-40 sticky top-0 w-full transition-all duration-500 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
         <div className="px-6 flex justify-between items-center">
-          <h1 className={`font-galinoy italic text-white leading-none transition-all duration-500 ${isScrolled ? 'text-3xl' : 'text-5xl'}`}>Studio</h1>
+          <h1 className={`font-galinoy italic text-[var(--theme-text)] leading-none transition-all duration-500 ${isScrolled ? 'text-3xl' : 'text-5xl'}`}>Studio</h1>
           <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
@@ -1676,7 +1676,7 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
 
         {/* ── RECAP CARD ── */}
         <div className="px-6">
-          <h2 className="font-outfit font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
+          <h2 className="font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
           <div className="relative cursor-pointer group" onClick={() => onSelectTool('recap')}>
             <div className="absolute inset-0 bg-white/5 border border-white/5 rounded-3xl transform rotate-3 scale-95 transition-transform group-hover:rotate-6 group-active:scale-90 origin-bottom-right"/>
             <div className="absolute inset-0 bg-white/10 border border-white/10 rounded-3xl transform -rotate-2 scale-[0.98] transition-transform group-hover:-rotate-4 group-active:scale-95 origin-bottom-left"/>
@@ -1734,7 +1734,7 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
 
         {/* ── QUICK CREATE CARDS ── */}
         <div>
-          <h2 className="px-6 font-outfit font-extrabold text-white/30 text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
+          <h2 className="px-6 font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
           <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide">
 
             {/* Story Séance */}
