@@ -146,6 +146,11 @@ function App() {
     setHeaderRight(null);
   }, [activeTab]);
 
+useEffect(() => {
+  document.body.style.backgroundColor = theme.bg;
+  document.documentElement.style.backgroundColor = theme.bg;
+}, [theme.bg]);
+
   const handleScan = async (token = userToken) => {
     if (!token) return;
     setIsSearching(true);
