@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { THEME_COLORS, THEME_TOKENS, AVATAR_PRESETS } from './constants';
+import { useState, useEffect, useRef } from 'react';
+import { THEME_COLORS, THEME_TOKENS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
@@ -15,6 +15,7 @@ import { Profile } from './pages/Profile';
 import { Studio } from './pages/Studio';
 import Notation from './pages/Notation';
 
+/* ─── Grain ───────────────────────────────────────────────────────── */
 const PaperGrain = () => (
   <div
     className="fixed inset-0 pointer-events-none z-[9999] h-full w-full"
@@ -26,6 +27,7 @@ const PaperGrain = () => (
   />
 );
 
+/* ─── WelcomeScreen ───────────────────────────────────────────────── */
 function WelcomeScreen({ login }) {
   const isReturning = !!localStorage.getItem('grandecran_username');
   const savedName   = localStorage.getItem('grandecran_username') || '';
@@ -40,66 +42,32 @@ function WelcomeScreen({ login }) {
   ];
 
   return (
-    /*
-     * WelcomeScreen : même stratégie que l'App principale —
-     * position:fixed + inset:0 pour éviter tout scroll parasite sur iOS.
-     */
-    <div
-      className="fixed inset-0 flex flex-col overflow-hidden"
-      style={{ background: DARK.bg, color: DARK.text, ...tokens }}
-    >
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: DARK.bg, color: DARK.text, ...tokens }}>
       <PaperGrain />
-
-      {/* Filigrane colonnes */}
-      <div
-        className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none"
-        style={{ zIndex: 0 }}
-        aria-hidden="true"
-      >
+      <div className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none" style={{ zIndex: 0 }} aria-hidden="true">
         <div className="flex flex-col gap-5 pt-24" style={{ opacity: 0.055 }}>
           {titles.slice(0, 8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>
-              {t}
-            </span>
+            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
           ))}
         </div>
         <div className="flex flex-col gap-5 pt-48 ml-auto" style={{ opacity: 0.04 }}>
           {titles.slice(8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>
-              {t}
-            </span>
+            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
           ))}
         </div>
       </div>
-
-      {/* Contenu principal — scrollable si l'écran est très petit */}
-      <div
-        className="relative flex flex-col flex-1 z-10 overflow-y-auto"
-        style={{
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
+      <div className="relative flex flex-col flex-1 z-10 overflow-y-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="px-8 pt-14 pb-0">
-          <p className="text-xs tracking-[0.35em] uppercase" style={{ color: DARK.accent, opacity: 0.6 }}>
-            Journal cinématographique
-          </p>
+          <p className="text-xs tracking-[0.35em] uppercase" style={{ color: DARK.accent, opacity: 0.6 }}>Journal cinématographique</p>
         </div>
-
         <div className="flex-1 flex flex-col justify-center px-8">
-          <h1
-            className="font-galinoy italic leading-none"
-            style={{ fontSize: 'clamp(4rem, 18vw, 6.5rem)', color: DARK.text, letterSpacing: '-0.02em', marginBottom: '1.5rem' }}
-          >
+          <h1 className="font-galinoy italic leading-none" style={{ fontSize: 'clamp(4rem, 18vw, 6.5rem)', color: DARK.text, letterSpacing: '-0.02em', marginBottom: '1.5rem' }}>
             Grand<br />Écran
           </h1>
           <div style={{ width: '2.5rem', height: '2px', background: DARK.accent, marginBottom: '1.75rem' }} />
           {isReturning ? (
             <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', fontStyle: 'italic', maxWidth: '22ch' }}>
-              Heureux de vous retrouver
-              {savedName ? (
-                <>, <span style={{ fontStyle: 'normal', fontWeight: 600, opacity: 1 }}>{savedName}</span></>
-              ) : null}.
+              Heureux de vous retrouver{savedName ? <>, <span style={{ fontStyle: 'normal', fontWeight: 600, opacity: 1 }}>{savedName}</span></> : null}.
             </p>
           ) : (
             <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', maxWidth: '26ch' }}>
@@ -107,27 +75,11 @@ function WelcomeScreen({ login }) {
             </p>
           )}
         </div>
-
         <div className="px-8 pb-12 flex flex-col gap-10">
-          <button
-            onClick={() => login()}
-            className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
-            style={{
-              background: 'transparent',
-              border: `1px solid ${DARK.accent}`,
-              color: DARK.text,
-              padding: '1.1rem 1.75rem',
-              letterSpacing: '0.2em',
-              fontSize: '0.65rem',
-              textTransform: 'uppercase',
-              fontWeight: 700,
-              borderRadius: 0,
-            }}
-          >
+          <button onClick={() => login()} className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
+            style={{ background: 'transparent', border: `1px solid ${DARK.accent}`, color: DARK.text, padding: '1.1rem 1.75rem', letterSpacing: '0.2em', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 700, borderRadius: 0 }}>
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: DARK.accent, flexShrink: 0 }} />
-            <span style={{ flex: 1 }}>
-              {isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}
-            </span>
+            <span style={{ flex: 1 }}>{isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}</span>
           </button>
           <p className="text-xs italic leading-relaxed" style={{ color: DARK.text, opacity: 0.18, maxWidth: '30ch' }}>
             "Le cinéma, c'est vingt-quatre fois la vérité par seconde."
@@ -138,6 +90,7 @@ function WelcomeScreen({ login }) {
   );
 }
 
+/* ─── App ─────────────────────────────────────────────────────────── */
 function App() {
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('grandecran_db_id') || '');
   const [activeTab, setActiveTab]         = useState('home');
@@ -150,6 +103,18 @@ function App() {
   const [pendingCount, setPendingCount]   = useState(0);
   const [isSearching, setIsSearching]     = useState(false);
   const [showNotation, setShowNotation]   = useState(false);
+
+  /* État pour gérer la visibilité de la morphing bar au scroll (Scroll-to-hide) */
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  /* ── Slots remontés par les pages enfants ── */
+  const [headerTitle,  setHeaderTitle]  = useState('Grand Écran');
+  const [headerRight,  setHeaderRight]  = useState(null);
+  const [headerIsHome, setHeaderIsHome] = useState(true);
+
+  /* safe-area-inset-top en px pour le padding du header fixe */
+  const [safeTop, setSafeTop] = useState('env(safe-area-inset-top, 0px)');
 
   const { userToken, login, logout: authLogout } = useAuth((token) => {
     if (spreadsheetId) handleScan(token);
@@ -165,6 +130,24 @@ function App() {
   useEffect(() => { prefs.syncFromCloud(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); }, [userToken, spreadsheetId, activeTab]);
+
+  /* Réinitialise le scroll à chaque changement d'onglet et réaffiche la navbar */
+  useEffect(() => {
+    const el = document.getElementById('main-scroll-container');
+    if (el) el.scrollTop = 0;
+    setScrollY(0);
+    setIsScrolled(false);
+    setIsNavbarVisible(true);
+    lastScrollY.current = 0;
+  }, [activeTab]);
+
+  /* Titre par défaut selon l'onglet (les pages peuvent override) */
+  useEffect(() => {
+    const map = { home: 'Grand Écran', history: 'Journal', studio: 'Studio', profile: 'Réglages' };
+    setHeaderTitle(map[activeTab] || '');
+    setHeaderIsHome(activeTab === 'home');
+    setHeaderRight(null);
+  }, [activeTab]);
 
   const handleScan = async (token = userToken) => {
     if (!token) return;
@@ -198,90 +181,96 @@ function App() {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   if (isSearching) return (
-    /*
-     * Écran de chargement : même stratégie position:fixed inset:0
-     */
-    <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ background: theme.bg, ...tokens }}
-    >
+    <div className="fixed inset-0 flex items-center justify-center" style={{ background: theme.bg, ...tokens }}>
       <PaperGrain />
       <p className="font-galinoy animate-pulse">Scan en cours...</p>
     </div>
   );
 
+  const headerHeight = 'calc(env(safe-area-inset-top, 0px))';
+
   return (
-    /*
-     * CONTENEUR RACINE — position:fixed + inset:0
-     * ─────────────────────────────────────────────
-     * C'est la correction principale pour iOS.
-     *
-     * Pourquoi position:fixed plutôt que h-[100dvh] ?
-     *   • Sur iOS, 100dvh représente la hauteur du viewport CSS.
-     *     Quand la barre d'adresse Safari apparaît ou disparaît,
-     *     ce viewport se recalcule, ce qui provoque un saut visuel.
-     *   • Un élément position:fixed + inset:0 s'ancre aux bords de
-     *     la fenêtre d'affichage native (la "layout viewport") et
-     *     ne bouge pas, même si le viewport CSS change.
-     *   • En mode standalone (PWA / display:standalone), Safari ne
-     *     montre plus de barre d'adresse, donc 100dvh serait stable,
-     *     mais la technique position:fixed est universellement safe.
-     *
-     * overscroll-behavior:none bloque le rebond élastique iOS au
-     * niveau du conteneur racine. Le scroll élastique utile se
-     * produit toujours à l'intérieur de #main-scroll-container.
-     */
     <div
-      className="fixed inset-0 font-outfit flex flex-col overflow-hidden transition-colors duration-700 relative"
+      className="fixed inset-0 font-outfit flex flex-col overflow-hidden transition-colors duration-700"
       style={{
         background: theme.bg,
         color: theme.text,
         overscrollBehavior: 'none',
+        /* Expose la hauteur du header aux pages enfants */
+        '--header-height': headerHeight,
         ...tokens,
       }}
     >
       <PaperGrain />
 
-      {/* ZONE DE CONTENU PRINCIPAL */}
+      {/* ── SCROLL CONTAINER ────────────────────────────────────── */}
       <div
         id="main-scroll-container"
         className="flex-1 overflow-y-auto scrollbar-hide relative z-10"
-        /*
-         * paddingBottom : on recalcule ici en CSS pur pour éviter
-         * toute désynchronisation avec la hauteur réelle de la NavBar.
-         * --navbar-tab-height = 3.5rem, safe-area-inset-bottom géré
-         * nativement par env().
-         */
-        style={{ paddingBottom: 'var(--navbar-total-height)' }}
+        style={{
+          paddingTop: showNotation ? 0 : headerHeight,
+          paddingBottom: 'var(--navbar-total-height)',
+        }}
         onScroll={(e) => {
           const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
           setScrollY(scrollTop);
-          setIsScrolled(scrollTop > 2);
-          if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150)
+          setIsScrolled(scrollTop > 4);
+          
+          // Logique contextuelle de la Morphing Bar (Scroll-to-hide)
+          const currentScrollY = scrollTop;
+          const delta = currentScrollY - lastScrollY.current;
+
+          if (currentScrollY < lastScrollY.current || currentScrollY < 24) {
+            // On remonte ou on est proche du haut : on affiche la barre
+            setIsNavbarVisible(true);
+          } else if (currentScrollY > lastScrollY.current && currentScrollY > 60 && delta > 5) {
+            // On descend activement : on masque la barre
+            setIsNavbarVisible(false);
+          }
+          lastScrollY.current = currentScrollY;
+
+          if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150) {
             setDisplayCount(prev => prev + 15);
+          }
         }}
       >
+        {/* ── DASHBOARD ─────────────────────────────────────────── */}
         {activeTab === 'home' && !showNotation && (
           <Dashboard
-            {...{ historyData, isScrolled, handleScan, setActiveTab, setSelectedFilm }}
+            historyData={historyData}
+            isScrolled={isScrolled}
+            handleScan={handleScan}
+            setActiveTab={setActiveTab}
+            setSelectedFilm={setSelectedFilm}
             scrollY={scrollY}
             ratingScale={prefs.ratingScale}
             pricing={prefs.pricing}
             userAvatar={prefs.userAvatar}
             userName={prefs.userName}
             isDark={prefs.isDark}
+            onHeaderRight={setHeaderRight}
           />
         )}
 
+        {/* ── HISTORY ───────────────────────────────────────────── */}
         {activeTab === 'history' && (
           <History
-            {...{ historyData, isLoadingHistory, isScrolled, handleScan, setSelectedFilm, displayCount, setDisplayCount }}
+            historyData={historyData}
+            isLoadingHistory={isLoadingHistory}
+            isScrolled={isScrolled}
+            handleScan={handleScan}
+            setSelectedFilm={setSelectedFilm}
+            displayCount={displayCount}
+            setDisplayCount={setDisplayCount}
             scrollY={scrollY}
             ratingScale={prefs.ratingScale}
             isDark={prefs.isDark}
+            onHeaderTitle={setHeaderTitle}
+            onHeaderRight={setHeaderRight}
           />
         )}
 
+        {/* ── PROFILE ───────────────────────────────────────────── */}
         {activeTab === 'profile' && (
           <Profile
             isScrolled={isScrolled}
@@ -303,9 +292,11 @@ function App() {
             triggerCloudSave={prefs.triggerCloudSave}
             onEditSpreadsheet={handleEditSpreadsheet}
             onLogout={handleLogout}
+            onHeaderRight={setHeaderRight}
           />
         )}
 
+        {/* ── STUDIO ────────────────────────────────────────────── */}
         {activeTab === 'studio' && (
           <Studio
             historyData={historyData}
@@ -318,18 +309,18 @@ function App() {
         )}
       </div>
 
-      {/* OVERLAYS & NAVIGATION */}
-
+      {/* ── OVERLAYS ────────────────────────────────────────────── */}
       {nextFilm && !showNotation && (
-        <PendingRatingToast
-          film={nextFilm}
-          count={pendingCount}
-          onOpen={() => setShowNotation(true)}
-        />
+        <PendingRatingToast film={nextFilm} count={pendingCount} onOpen={() => setShowNotation(true)} />
       )}
 
       {!showNotation && (
-        <NavBar activeTab={activeTab} setActiveTab={setActiveTab} isDark={prefs.isDark} />
+        <NavBar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isDark={prefs.isDark} 
+          isVisible={isNavbarVisible} 
+        />
       )}
 
       {selectedFilm && (
@@ -348,11 +339,7 @@ function App() {
           spreadsheetId={spreadsheetId}
           ratingScale={prefs.ratingScale}
           isDark={prefs.isDark}
-          onSaved={async () => {
-            invalidate();
-            loadHistory();
-            await handleScan(userToken);
-          }}
+          onSaved={async () => { invalidate(); loadHistory(); await handleScan(userToken); }}
           onSkip={() => setShowNotation(false)}
         />
       )}

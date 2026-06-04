@@ -1,64 +1,69 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
-/*
- * NavBar — barre de navigation fixe, stable sur iOS
- * ───────────────────────────────────────────────────
- * Points clés :
- *
- * 1. position:fixed + bottom:0 + left:0 + right:0
- *    L'élément s'ancre aux bords de la fenêtre native.
- *    Comme le conteneur App est lui-même position:fixed, la NavBar
- *    est toujours rendue sur le dessus sans interférer avec le layout.
- *
- * 2. paddingBottom via CSS env() plutôt que via une variable JS.
- *    env(safe-area-inset-bottom) est évalué nativement par le moteur
- *    CSS, même quand le viewport change ; c'est plus fiable que de
- *    propager la valeur depuis JavaScript.
- *
- * 3. La hauteur totale de la barre (onglets + safe area) est exposée
- *    via --navbar-total-height dans :root (index.css) et consommée
- *    comme paddingBottom dans #main-scroll-container.
- *    On ne la recalcule pas ici pour éviter les désynchronisations.
- */
-export function NavBar({ activeTab, setActiveTab, isDark }) {
-  const tabs = [
-    {
-      id: 'home',
-      label: 'Accueil',
-      icon: (active) => (
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? '2.2' : '1.5'}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-      ),
-    },
-    {
-      id: 'history',
-      label: 'Films',
-      icon: (active) => (
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? '2.2' : '1.5'}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-        </svg>
-      ),
-    },
-    {
-      id: 'studio',
-      label: 'Studio',
-      icon: (active) => (
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? '2.2' : '1.5'}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15l.413 1.447 1.447.413-1.447.413L18.25 18.75l-.413-1.447-1.447-.413 1.447-.413L18.25 15zM15.75 4.5l.275.962.962.275-.962.275L15.75 6.962l-.275-.962-.962-.275.962-.275L15.75 4.5z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'profile',
-      label: 'Profil',
-      icon: (active) => (
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? '2.2' : '1.5'}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-        </svg>
-      ),
-    },
-  ];
+const IconHome = ({ active }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={active ? 2.2 : 1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 11l9-8 9 8v9a1 1 0 01-1 1H4a1 1 0 01-1-1z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+
+const IconJournal = ({ active }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={active ? 2.2 : 1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <line x1="7"  y1="4"  x2="7"  y2="20" />
+    <line x1="17" y1="4"  x2="17" y2="20" />
+    <line x1="2"  y1="9"  x2="7"  y2="9" />
+    <line x1="17" y1="9"  x2="22" y2="9" />
+    <line x1="2"  y1="15" x2="7"  y2="15" />
+    <line x1="17" y1="15" x2="22" y2="15" />
+  </svg>
+);
+
+const IconAtelier = ({ active }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={active ? 2.2 : 1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="12" cy="12" r="7" />
+    <line x1="12" y1="2"  x2="12" y2="5" />
+    <line x1="12" y1="19" x2="12" y2="22" />
+    <line x1="2"  y1="12" x2="5"  y2="12" />
+    <line x1="19" y1="12" x2="22" y2="12" />
+  </svg>
+);
+
+const IconProfil = ({ active }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={active ? 2.2 : 1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const TABS = [
+  { id: 'home',    label: 'Accueil', Icon: IconHome    },
+  { id: 'history', label: 'Journal', Icon: IconJournal },
+  { id: 'studio',  label: 'Atelier', Icon: IconAtelier },
+  { id: 'profile', label: 'Profil',  Icon: IconProfil  },
+];
+
+// Ajout de la prop `isVisible` (par défaut true si non gérée pour le moment)
+export function NavBar({ activeTab, setActiveTab, isDark, isVisible = true }) {
+  const btnRefs = useRef({});
+
+  const handlePointerDown = (id) => {
+    const el = btnRefs.current[id];
+    if (el) el.style.transform = 'scale(0.92)';
+  };
+  const handlePointerUp = (id) => {
+    const el = btnRefs.current[id];
+    if (el) el.style.transform = 'scale(1)';
+  };
 
   return (
     <nav
@@ -68,75 +73,102 @@ export function NavBar({ activeTab, setActiveTab, isDark }) {
         left: 0,
         right: 0,
         zIndex: 100,
-        /*
-         * On utilise les propriétés CSS individuelles plutôt que
-         * className pour garantir que ces valeurs ne sont jamais
-         * surchargées par Tailwind en cas de purge ou de conflit
-         * de spécificité.
-         */
-        backgroundColor: 'var(--theme-nav-bg)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        borderTop: '1px solid var(--theme-border)',
-        /*
-         * paddingBottom : env() est ici la source de vérité.
-         * Sur un iPhone avec encoche, cette valeur est ~34px.
-         * Sur un simulateur ou un navigateur desktop, elle est 0.
-         * On ne la stocke pas en JS pour éviter les désynchronisations.
-         */
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+        paddingTop: '32px',
+        pointerEvents: 'none',
+        // Animation fluide de disparition/apparition de la navbar globale (Scroll-to-hide)
+        transform: isVisible ? 'translateY(0)' : 'translateY(120px)',
+        opacity: isVisible ? 1 : 0,
+        transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
       }}
     >
-      {/*
-       * La zone des onglets a une hauteur fixe de 56px (= --navbar-tab-height).
-       * La hauteur totale perçue est 56px + safe-area-inset-bottom.
-       * Cette valeur est synchronisée avec --navbar-total-height dans :root.
-       */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'space-around',
-          height: '3.5rem', /* 56px — doit correspondre à --navbar-tab-height */
-          paddingLeft: '0.5rem',
-          paddingRight: '0.5rem',
+          alignItems: 'center',
+          marginLeft: '24px', // Un peu plus rétracté des bords pour l'effet "dock" flottant
+          marginRight: '24px',
+          height: '56px',
+          background: isDark
+            ? 'rgba(18, 18, 18, 0.65)'
+            : 'rgba(255, 255, 255, 0.75)',
+          backdropFilter: 'blur(20px) saturate(190%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(190%)',
+          borderRadius: '24px', // Coins arrondis type iOS 16+
+          border: isDark
+            ? '1px solid rgba(255,255,255,0.08)'
+            : '1px solid rgba(0,0,0,0.06)',
+          padding: '6px',
+          pointerEvents: 'auto',
+          boxShadow: isDark
+            ? '0 12px 40px rgba(0,0,0,0.4)'
+            : '0 12px 32px rgba(0,0,0,0.06)',
         }}
       >
-        {tabs.map(({ id, label, icon }) => {
+        {TABS.map(({ id, label, Icon }) => {
           const isActive = activeTab === id;
           return (
             <button
               key={id}
+              ref={(el) => { btnRefs.current[id] = el; }}
               onClick={() => setActiveTab(id)}
+              onPointerDown={() => handlePointerDown(id)}
+              onPointerUp={() => handlePointerUp(id)}
+              onPointerLeave={() => handlePointerUp(id)}
+              onPointerCancel={() => handlePointerUp(id)}
               style={{
-                flex: 1,
+                // Coeur du morphing : l'onglet actif prend plus de place, les autres se serrent
+                flex: isActive ? '1.8 1 0%' : '1 1 0%',
                 display: 'flex',
-                flexDirection: 'column',
+                flexDirection: 'row', // Alignement horizontal des icônes + texte
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'none',
+                gap: isActive ? '8px' : '0px',
+                height: '100%',
+                borderRadius: '18px',
                 border: 'none',
                 cursor: 'pointer',
-                color: isActive ? 'var(--theme-accent)' : 'var(--theme-text)',
-                opacity: isActive ? 1 : 0.35,
-                transition: 'opacity 0.2s, transform 0.15s',
+                // Fond de pilule uniquement pour l'onglet actif
+                background: isActive
+                  ? (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)')
+                  : 'transparent',
+                color: isActive
+                  ? (isDark ? '#FFF' : '#000') // Rendu ultra-natif, ou garde 'var(--theme-accent)'
+                  : (isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.32)'),
+                // Transition iOS-like fluide utilisant un bezier typique d'Apple
+                transition: 'flex 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, color 0.2s ease, transform 0.2s ease',
                 WebkitTapHighlightColor: 'transparent',
-                /*
-                 * active:scale-95 via Tailwind interagit mal avec
-                 * position:fixed sur certains moteurs iOS.
-                 * On gère le feedback tactile ici via CSS pur.
-                 */
+                outline: 'none',
+                overflow: 'hidden', // Crucial pour cacher le texte qui se rétracte
+                padding: '0 8px',
               }}
-              onPointerDown={(e) => { e.currentTarget.style.transform = 'scale(0.93)'; }}
-              onPointerUp={(e)   => { e.currentTarget.style.transform = 'scale(1)'; }}
-              onPointerLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              aria-label={label}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.75rem', height: '1.75rem', marginBottom: '0.125rem' }}>
-                {icon(isActive)}
-              </div>
               <span
-                className="font-outfit"
-                style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              >
+                <Icon active={isActive} />
+              </span>
+
+              {/* Texte expansif dynamique */}
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  letterSpacing: '-0.2px',
+                  whiteSpace: 'nowrap',
+                  opacity: isActive ? 1 : 0,
+                  transform: isActive ? 'translateX(0)' : 'translateX(10px)',
+                  maxWidth: isActive ? '80px' : '0px',
+                  transition: 'opacity 0.25s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
               >
                 {label}
               </span>

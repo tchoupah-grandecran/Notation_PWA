@@ -96,40 +96,9 @@ export function Profile({
     <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-8 relative">
       
       {/* HEADER STICKY */}
-      <header
-        className="sticky top-0 z-50 flex justify-between items-center px-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-2 transition-all duration-300"
-        style={{
-          backgroundColor: `color-mix(in srgb, var(--theme-bg) ${scrolled ? 80 : 0}%, transparent)`,
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          borderBottom: scrolled ? '1px solid var(--theme-border)' : '1px solid transparent',
-        }}
-      >
-        <div className="flex flex-col justify-center">
-          <h1 
-            className="font-galinoy italic text-[var(--theme-text)] text-4xl tracking-tight leading-none transition-all duration-300"
-            style={{
-              opacity: Math.max(0.2, 1 - scrollY / 60),
-              transform: `translateY(${-scrollY * 0.1}px)`,
-            }}
-          >
-            Réglages
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            className={`flex items-center gap-2 h-10 px-5 rounded-full font-outfit text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
-              isDirty 
-                ? 'bg-[var(--theme-text)] text-[var(--theme-bg)] scale-100 opacity-100 shadow-lg' 
-                : 'scale-90 opacity-0 pointer-events-none'
-            }`}
-          >
-            {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
-             saveStatus === 'success' ? <Check size={14} /> : <Save size={12} />}
-            <span>{saveStatus === 'success' ? 'OK' : 'Appliquer'}</span>
-          </button>
+      <header className={`z-40 sticky top-0 w-full transition-all duration-500 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
+        <div className="px-6 flex justify-between items-center">
+          <h1 className={`font-galinoy italic text-[var(--theme-text)] leading-none transition-all duration-500 ${isScrolled ? 'text-3xl' : 'text-5xl'}`}>Réglages</h1>
         </div>
       </header>
 
