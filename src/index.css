@@ -21,22 +21,23 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
   
-  --navbar-inner-height: 60px;
-  --navbar-total-height: calc(var(--navbar-inner-height), 0px);
+  --navbar-total-height: calc(var(env(safe-area-inset-bottom, 0px)));
   
-  /* Hauteur minimale de confort pour le Header iOS (Top Bar) */
-  --header-base-height: 0px;
-  --header-total-height: calc(var(--header-base-height, 0px));
+  --header-total-height: calc(var(env(safe-area-inset-top, 0px)));
 
- --font-galinoy: 'galinoy', serif;
+  --font-galinoy: 'galinoy', serif;
   --font-outfit: 'Outfit', sans-serif;
 }
 
 @layer base {
   html {
+    /* Utilise la variable du thème injectée par THEME_TOKENS */
     background-color: var(--theme-bg, #0A0A0A);
     -webkit-tap-highlight-color: transparent;
     height: 100%;
+    width: 100%;
+    /* Empêche les rebonds bizarres du viewport complet sur iOS */
+    overflow: hidden; 
   }
   body {
     margin: 0;
@@ -49,6 +50,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
+    /* Assure une transition fluide lors du changement de thème */
+    transition: background-color 0.70s duration-700; 
   }
 }
 
@@ -85,6 +88,7 @@
   width: 100%;
   height: 100%;
   position: relative;
+  background-color: var(--theme-bg, #0A0A0A);
 }
 
 [data-theme='light'] body {

@@ -202,34 +202,39 @@ function App() {
       <PaperGrain />
 
       {/* ── SCROLL CONTAINER ────────────────────────────────────── */}
-      <div
-        id="main-scroll-container"
-        className="flex-1 overflow-y-auto scrollbar-hide relative z-10"
-        style={{
-          paddingTop: showNotation ? 0 : headerHeight,
-          paddingBottom: 'var(--navbar-total-height)',
-        }}
-        onScroll={(e) => {
-          const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-          setScrollY(scrollTop);
-          setIsScrolled(scrollTop > 4);
-          
-          // Logique contextuelle de la Morphing Bar (Scroll-to-hide)
-          const currentScrollY = scrollTop;
-          const delta = currentScrollY - lastScrollY.current;
+<div
+  id="main-scroll-container"
+  className="flex-1 overflow-y-auto scrollbar-hide relative z-10"
+  style={{
+    paddingTop: showNotation ? 0 : headerHeight,
+    /* * 🟢 CORRECTION BORDS PERDUS : 
+     * On retire le paddingBottom global pour que le contenu aille jusqu'en bas.
+     * On ajoute un léger padding de confort (ex: 20px) juste pour que le dernier élément 
+     * d'une liste puisse être scrollé légèrement plus haut que la navbar.
+     */
+    paddingBottom: 'calc(40px + var(--navbar-total-height))',
+  }}
+  onScroll={(e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    setScrollY(scrollTop);
+    setIsScrolled(scrollTop > 4);
+    
+    // Logique contextuelle de la Morphing Bar (Scroll-to-hide)
+    const currentScrollY = scrollTop;
+    const delta = currentScrollY - lastScrollY.current;
 
-          if (currentScrollY < lastScrollY.current || currentScrollY < 24) {
-            setIsNavbarVisible(true);
-          } else if (currentScrollY > lastScrollY.current && currentScrollY > 60 && delta > 5) {
-            setIsNavbarVisible(false);
-          }
-          lastScrollY.current = currentScrollY;
+    if (currentScrollY < lastScrollY.current || currentScrollY < 24) {
+      setIsNavbarVisible(true);
+    } else if (currentScrollY > lastScrollY.current && currentScrollY > 60 && delta > 5) {
+      setIsNavbarVisible(false);
+    }
+    lastScrollY.current = currentScrollY;
 
-          if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150) {
-            setDisplayCount(prev => prev + 15);
-          }
-        }}
-      >
+    if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150) {
+      setDisplayCount(prev => prev + 15);
+    }
+  }}
+>
         {/* ── DASHBOARD ─────────────────────────────────────────── */}
         {activeTab === 'home' && !showNotation && (
           <Dashboard

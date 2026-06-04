@@ -337,16 +337,16 @@ export function History({ historyData = [], setSelectedFilm, displayCount, scrol
       <main className="px-5 pb-8">
         {groupedByMonth.length === 0 ? (
           <div className="py-32 text-center opacity-20">
-            <Ticket size={48} className="mx-auto mb-4" />
+            <Ticket size={48} className="mx-auto mb-2" />
             <p className="font-galinoy text-4xl capitalize italic">
               {searchQuery ? 'Aucun résultat' : 'Vide'}
             </p>
           </div>
         ) : (
           groupedByMonth.map(([month, films]) => (
-            <section key={month} className="mb-12" data-month={month}>
+            <section key={month} className="mb-2" data-month={month}>
 
-              <div className="sticky top-0 z-[80] -mx-5 px-8 pt-[calc(env(safe-area-inset-top)+1.2rem)] pb-4 bg-[var(--theme-bg)]/20 backdrop-blur-xl">
+              <div className="sticky top-0 z-[80] -mx-5 px-8 pt-[calc(env(safe-area-inset-top)+1.2rem)] pb-2 bg-[var(--theme-bg)]/20 backdrop-blur-xl">
                 <h2 className="font-galinoy italic text-xl capitalize tracking-tight text-[var(--theme-text)] pr-4 overflow-visible">
                   {month}
                 </h2>
