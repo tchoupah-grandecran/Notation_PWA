@@ -21,7 +21,7 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
   
-  --navbar-inner-height: 72px;
+  --navbar-inner-height: 60px;
   --navbar-total-height: calc(var(--navbar-inner-height), 0px);
   
   /* Hauteur minimale de confort pour le Header iOS (Top Bar) */
