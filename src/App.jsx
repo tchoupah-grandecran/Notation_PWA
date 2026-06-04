@@ -113,9 +113,6 @@ function App() {
   const [headerRight,  setHeaderRight]  = useState(null);
   const [headerIsHome, setHeaderIsHome] = useState(true);
 
-  /* safe-area-inset-top en px pour le padding du header fixe */
-  const [safeTop, setSafeTop] = useState('env(safe-area-inset-top, 0px)');
-
   const { userToken, login, logout: authLogout } = useAuth((token) => {
     if (spreadsheetId) handleScan(token);
   });
@@ -187,7 +184,8 @@ function App() {
     </div>
   );
 
-  const headerHeight = 'calc(env(safe-area-inset-top, 0px))';
+  /* Utilise la nouvelle variable CSS calculée qui inclut la safe-area top réelle + 44px de confort */
+  const headerHeight = 'var(--header-total-height)';
 
   return (
     <div
@@ -221,10 +219,8 @@ function App() {
           const delta = currentScrollY - lastScrollY.current;
 
           if (currentScrollY < lastScrollY.current || currentScrollY < 24) {
-            // On remonte ou on est proche du haut : on affiche la barre
             setIsNavbarVisible(true);
           } else if (currentScrollY > lastScrollY.current && currentScrollY > 60 && delta > 5) {
-            // On descend activement : on masque la barre
             setIsNavbarVisible(false);
           }
           lastScrollY.current = currentScrollY;

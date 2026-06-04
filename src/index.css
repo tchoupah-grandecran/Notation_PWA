@@ -1,9 +1,11 @@
 /* 1. TOUS les imports en premier */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
 /* 2. Les directives Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 /* 3. Polices locales et variables */
 @font-face {
   font-family: 'galinoy';
@@ -12,30 +14,31 @@
   font-style: normal;
   font-display: swap;
 }
+
 :root {
-  --sat: env(safe-area-inset-top);
-  --sab: env(safe-area-inset-bottom);
-  --sal: env(safe-area-inset-left);
-  --sar: env(safe-area-inset-right);
-  /*
-   * pill 52px + padding-top 28px + margin-bottom 10px = 90px
-   * On garde une petite marge de sécurité → 5.5rem ≈ 88px
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  
+  /* * Nouvelle hauteur précise : pilule (56px) + marge sous la pilule (16px) 
+   * On ajoute dynamiquement la safe area de l'iPhone au total.
    */
-  --navbar-tab-height: 5.5rem;
-  --navbar-total-height: calc(var(--navbar-tab-height) + env(safe-area-inset-bottom));
-  --font-galinoy: 'galinoy', serif;
+  --navbar-inner-height: 72px;
+  --navbar-total-height: calc(var(--navbar-inner-height) + env(safe-area-inset-bottom, 0px));
+  
+  /* Hauteur minimale de confort pour le Header iOS (Top Bar) */
+  --header-base-height: 0px;
+  --header-total-height: calc(var(--header-base-height) + env(safe-area-inset-top, 0px));
+
+ --font-galinoy: 'galinoy', serif;
   --font-outfit: 'Outfit', sans-serif;
 }
+
 @layer base {
   html {
     background-color: var(--theme-bg, #0A0A0A);
     -webkit-tap-highlight-color: transparent;
-    /*
-     * ⚠️  NE PAS mettre overflow:hidden ici.
-     * Sur iOS/Safari, overflow:hidden sur <html> empêche le moteur de
-     * recalculer la hauteur du viewport quand la barre d'adresse
-     * apparaît/disparaît.
-     */
     height: 100%;
   }
   body {
@@ -51,6 +54,7 @@
     overscroll-behavior: none;
   }
 }
+
 @layer utilities {
   .font-galinoy { font-family: var(--font-galinoy); }
   .font-outfit  { font-family: var(--font-outfit); }
@@ -69,6 +73,7 @@
     mix-blend-mode: multiply;
   }
 }
+
 /* 4. Animations */
 @keyframes bubble-in {
   0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
@@ -78,11 +83,13 @@
 .animate-bubble {
   animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 #root {
   width: 100%;
   height: 100%;
   position: relative;
 }
+
 [data-theme='light'] body {
   text-rendering: optimizeLegibility;
 }
