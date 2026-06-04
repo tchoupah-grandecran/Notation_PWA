@@ -20,42 +20,55 @@
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
-  --navbar-tab-height: 3rem; 
-  --navbar-total-height: calc(var(--navbar-tab-height) + var(--sab));
-  
+  --navbar-tab-height: 3.5rem;
+  --navbar-total-height: calc(var(--navbar-tab-height) + env(safe-area-inset-bottom));
+
   --font-galinoy: 'galinoy', serif;
   --font-outfit: 'Outfit', sans-serif;
 }
 
 @layer base {
   html {
-    /* Utilise la variable de thème pour éviter le flash noir au chargement */
     background-color: var(--theme-bg, #0A0A0A);
     -webkit-tap-highlight-color: transparent;
-    overflow: hidden; /* Empêche le rebond élastique sur iOS au niveau du html */
+    /*
+     * ⚠️  NE PAS mettre overflow:hidden ici.
+     * Sur iOS/Safari, overflow:hidden sur <html> empêche le moteur de
+     * recalculer la hauteur du viewport quand la barre d'adresse
+     * apparaît/disparaît, ce qui fait "remonter" toute l'application.
+     * Le scroll élastique est géré à l'intérieur du conteneur App.
+     */
+    height: 100%;
   }
 
   body {
     margin: 0;
     padding: 0;
     width: 100%;
-    min-height: 100dvh;
+    /*
+     * height plutôt que min-height : on veut un bloc de taille fixe
+     * que le conteneur App va ancrer. min-height laisse le body
+     * s'étirer au-delà du viewport sur certains navigateurs iOS,
+     * déclenchant le comportement de scroll natif au mauvais niveau.
+     */
+    height: 100%;
     background-color: var(--theme-bg, #0A0A0A);
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Empêche le rebond élastique iOS au niveau du body */
+    overscroll-behavior: none;
   }
 }
 
 @layer utilities {
   .font-galinoy { font-family: var(--font-galinoy); }
-  .font-outfit { font-family: var(--font-outfit); }
-  
+  .font-outfit  { font-family: var(--font-outfit); }
+
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Utilité pour le grain si tu ne veux pas passer par du style inline uniquement */
   .grain-overlay {
     position: fixed;
     top: 0;
@@ -66,9 +79,7 @@
     z-index: 9999;
     background-image: var(--theme-grain-url);
     opacity: var(--theme-grain-opacity);
-    /* "Multiply" est la clé pour que le grain se mélange aux fibres du papier 
-       sans éclaircir les zones sombres */
-    mix-blend-mode: multiply; 
+    mix-blend-mode: multiply;
   }
 }
 
@@ -85,12 +96,10 @@
 
 #root {
   width: 100%;
-  min-height: 100dvh;
-  /* On s'assure que le grain reste visible au dessus du root si besoin */
+  height: 100%;
   position: relative;
 }
 
-/* Optimisation pour le rendu du texte sur les fonds papier (Light mode) */
 [data-theme='light'] body {
   text-rendering: optimizeLegibility;
 }

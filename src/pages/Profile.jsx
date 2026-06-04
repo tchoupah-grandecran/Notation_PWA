@@ -12,20 +12,20 @@ export function Profile({
   ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
   updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
   userToken,
+  /*
+   * scrollY est maintenant passé depuis App via #main-scroll-container,
+   * exactement comme Dashboard et History.
+   * On supprime le listener window.scrollY qui était toujours 0
+   * (le scroll natif du window ne se déclenche jamais quand le conteneur
+   * racine est position:fixed + overflow:hidden).
+   */
+  scrollY = 0,
 }) {
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isDirty, setIsDirty] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-
-  // Synchronisation du scroll local pour l'animation du titre
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const scrolled = scrollY > 20;
 
@@ -95,22 +95,19 @@ export function Profile({
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-8 relative">
       
-      {/* HEADER STICKY CORRIGÉ */}
+      {/* HEADER STICKY */}
       <header
         className="sticky top-0 z-50 flex justify-between items-center px-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-2 transition-all duration-300"
         style={{
-          // On mixe le background du thème avec de la transparence en fonction du scroll
           backgroundColor: `color-mix(in srgb, var(--theme-bg) ${scrolled ? 80 : 0}%, transparent)`,
-          // L'effet "Frosted" (Givré)
-          backdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'blur(20px) saturate(180%)',
-          // Optionnel : une bordure très fine en bas pour marquer la séparation au scroll
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           borderBottom: scrolled ? '1px solid var(--theme-border)' : '1px solid transparent',
         }}
       >
         <div className="flex flex-col justify-center">
           <h1 
-            className="font-galinoy italic text-[var(--theme-text)] text-4xl tracking-tight leading-none transition-transform duration-300"
+            className="font-galinoy italic text-[var(--theme-text)] text-4xl tracking-tight leading-none transition-all duration-300"
             style={{
               opacity: Math.max(0.2, 1 - scrollY / 60),
               transform: `translateY(${-scrollY * 0.1}px)`,
