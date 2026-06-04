@@ -21,15 +21,12 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
   
-  /* * Nouvelle hauteur précise : pilule (56px) + marge sous la pilule (16px) 
-   * On ajoute dynamiquement la safe area de l'iPhone au total.
-   */
   --navbar-inner-height: 72px;
-  --navbar-total-height: calc(var(--navbar-inner-height) + env(safe-area-inset-bottom, 0px));
+  --navbar-total-height: calc(var(--navbar-inner-height), 0px);
   
   /* Hauteur minimale de confort pour le Header iOS (Top Bar) */
   --header-base-height: 0px;
-  --header-total-height: calc(var(--header-base-height) + env(safe-area-inset-top, 0px));
+  --header-total-height: calc(var(--header-base-height, 0px));
 
  --font-galinoy: 'galinoy', serif;
   --font-outfit: 'Outfit', sans-serif;
