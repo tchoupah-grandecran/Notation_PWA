@@ -73,7 +73,7 @@ export function NavBar({ activeTab, setActiveTab, isDark, isVisible = true }) {
         left: 0,
         right: 0,
         zIndex: 100,
-        paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+        paddingBottom: 'var(--sab)',
         paddingTop: '32px',
         pointerEvents: 'none',
         // Animation fluide de disparition/apparition de la navbar globale (Scroll-to-hide)

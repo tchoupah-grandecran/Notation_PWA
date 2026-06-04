@@ -20,10 +20,8 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-  
-  --navbar-total-height: calc(var(env(safe-area-inset-bottom, 0px)));
-  
-  --header-total-height: calc(var(env(safe-area-inset-top, 0px)));
+  --navbar-total-height: var(--sab);
+  --header-total-height: var(--sat);
 
   --font-galinoy: 'galinoy', serif;
   --font-outfit: 'Outfit', sans-serif;
@@ -44,7 +42,7 @@
     padding: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--theme-bg, red);
+    background-color: var(--theme-bg, #0A0A0A);
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
     -webkit-font-smoothing: antialiased;
