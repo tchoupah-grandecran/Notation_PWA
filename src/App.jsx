@@ -168,13 +168,18 @@ function App() {
     if (el) el.scrollTop = 0;
     setScrollY(0);
     setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
-    setHeaderRight(null);
+    // 💡 FIX : Suppression de setHeaderRight(null) d'ici pour éviter d'écraser le montage des pages
   }, [activeTab]);
 
   /* Stable callbacks */
   const handleSetHeaderRight = useCallback((el) => setHeaderRight(el), []);
   const handleSetHeaderTitle = useCallback((t)  => setHeaderTitle(t),  []);
-  const handleTabChange      = useCallback((id) => setActiveTab(id),   []);
+  
+  // 💡 FIX : Nettoyage synchrone immédiat au clic sur l'onglet pour éviter les conflits d'affichage
+  const handleTabChange = useCallback((id) => {
+    setActiveTab(id);
+    setHeaderRight(null); 
+  }, []);
 
   const handleScan = async (token = userToken) => {
     if (!token) return;
@@ -208,91 +213,97 @@ function App() {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   return (
-  <div
-    className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
-    style={{ background: theme.bg, color: theme.text, ...tokens }} 
-    // 💡 IMPORTANT : Aucun padding-bottom ici pour que le fond touche le vrai bas de l'écran
-  >
-    <PaperGrain />
-
-    {!showNotation && (
-      <AppHeader
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        scrollY={scrollY}
-        headerTitle={headerTitle}
-        headerRight={headerRight}
-        isDark={prefs.isDark}
-        accentColor={theme.accent}
-      />
-    )}
-
     <div
-      id="main-scroll-container"
-      className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-      style={{ zIndex: 10 }} 
-      // 💡 IMPORTANT : Aucun padding-bottom ici non plus pour que la zone de scroll soit totale
-      onScroll={(e) => {
-        setScrollY(e.currentTarget.scrollTop);
-        if (
-          activeTab === 'history' &&
-          e.currentTarget.scrollHeight - e.currentTarget.scrollTop
-            <= e.currentTarget.clientHeight + 150
-        ) {
-          setDisplayCount(prev => prev + 15);
-        }
-      }}
+      className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
+      style={{ background: theme.bg, color: theme.text, ...tokens }} 
     >
-      {activeTab === 'home' && !showNotation && (
-        <Dashboard
-          historyData={historyData}
-          setSelectedFilm={setSelectedFilm}
-          scrollY={scrollY}
-          onHeaderRight={handleSetHeaderRight}
-        />
-      )}
-      {activeTab === 'history' && (
-        <History
-          historyData={historyData}
-          setSelectedFilm={setSelectedFilm}
-          displayCount={displayCount}
-          scrollY={scrollY}
-          onHeaderTitle={handleSetHeaderTitle}
-          onHeaderRight={handleSetHeaderRight}
-        />
-      )}
-      {activeTab === 'profile' && (
-  <Profile
-    // Données d'authentification et système
-    userToken={userToken}
-    spreadsheetId={spreadsheetId}
-    handleScan={handleScan}
-    scrollY={scrollY}
-    onHeaderRight={handleSetHeaderRight}
-    onLogout={handleLogout}
-    onEditSpreadsheet={handleEditSpreadsheet}
+      <PaperGrain />
 
-    // États et modificateurs issus de usePreferences (prefs)
-    userName={prefs.userName}
-    updateUserName={prefs.updateUserName}
-    userAvatar={prefs.userAvatar}
-    updateAvatar={prefs.updateAvatar}
-    themeMode={prefs.themeMode}
-    toggleDarkMode={prefs.toggleDarkMode}
-    ratingScale={prefs.ratingScale}
-    updateRatingScale={prefs.updateRatingScale}
-    pricing={prefs.pricing}
-    updatePricing={prefs.updatePricing}
-    triggerCloudSave={prefs.triggerCloudSave}
-  />
-)}
-      {activeTab === 'studio' && (
-        <Studio
-          historyData={historyData}
-          scrollY={scrollY}
-        />
+      {/* 
+        Le contenu principal défile en dessous. 
+        Son z-index est à 10.
+      */}
+      <div
+        id="main-scroll-container"
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
+        style={{ zIndex: 10 }} 
+        onScroll={(e) => {
+          setScrollY(e.currentTarget.scrollTop);
+          if (
+            activeTab === 'history' &&
+            e.currentTarget.scrollHeight - e.currentTarget.scrollTop
+              <= e.currentTarget.clientHeight + 150
+          ) {
+            setDisplayCount(prev => prev + 15);
+          }
+        }}
+      >
+        {activeTab === 'home' && !showNotation && (
+          <Dashboard
+            historyData={historyData}
+            setSelectedFilm={setSelectedFilm}
+            scrollY={scrollY}
+            onHeaderRight={handleSetHeaderRight}
+          />
+        )}
+        {activeTab === 'history' && (
+          <History
+            historyData={historyData}
+            setSelectedFilm={setSelectedFilm}
+            displayCount={displayCount}
+            scrollY={scrollY}
+            onHeaderTitle={handleSetHeaderTitle}
+            onHeaderRight={handleSetHeaderRight}
+          />
+        )}
+        {activeTab === 'profile' && (
+          <Profile
+            userToken={userToken}
+            spreadsheetId={spreadsheetId}
+            handleScan={handleScan}
+            scrollY={scrollY}
+            onHeaderRight={handleSetHeaderRight}
+            onLogout={handleLogout}
+            onEditSpreadsheet={handleEditSpreadsheet}
+            userName={prefs.userName}
+            updateUserName={prefs.updateUserName}
+            userAvatar={prefs.userAvatar}
+            updateAvatar={prefs.updateAvatar}
+            themeMode={prefs.themeMode}
+            toggleDarkMode={prefs.toggleDarkMode}
+            ratingScale={prefs.ratingScale}
+            updateRatingScale={prefs.updateRatingScale}
+            pricing={prefs.pricing}
+            updatePricing={prefs.updatePricing}
+            triggerCloudSave={prefs.triggerCloudSave}
+          />
+        )}
+        {activeTab === 'studio' && (
+          <Studio
+            historyData={historyData}
+            scrollY={scrollY}
+          />
+        )}
+      </div>
+
+      {/* 
+        💡 FIX VISU : AppHeader placé APRES le conteneur principal dans le DOM 
+        et enveloppé d'un z-index supérieur (z-40) pour flotter impérativement 
+        au-dessus des affiches de films de la page History et du Dashboard.
+      */}
+      {!showNotation && (
+        <div className="relative z-40">
+          <AppHeader
+            activeTab={activeTab}
+            setActiveTab={handleTabChange}
+            scrollY={scrollY}
+            headerTitle={headerTitle}
+            headerRight={headerRight}
+            isDark={prefs.isDark}
+            accentColor={theme.accent}
+          />
+        </div>
       )}
-    </div>
 
       {selectedFilm && (
         <FilmDetailModal
@@ -311,6 +322,38 @@ function App() {
           onSaved={async () => { invalidate(); loadHistory(); await handleScan(userToken); }}
           onSkip={() => setShowNotation(false)}
         />
+      )}
+
+      {/* ─── Floating Toast : PendingRatingToast ──────────────────────── */}
+      {!showNotation && pendingCount > 0 && nextFilm && (
+        <div 
+          onClick={() => setShowNotation(true)}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-5 py-3 shadow-2xl border cursor-pointer active:scale-95 transition-all backdrop-blur-md animate-bubble bg-black/80 text-white"
+          style={{ 
+            borderRadius: 0, 
+            minWidth: '290px', 
+            borderColor: theme.accent 
+          }}
+        >
+          <span 
+            className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0" 
+            style={{ backgroundColor: theme.accent }} 
+          />
+          <div className="flex-1 text-left min-w-0">
+            <p className="text-[9px] uppercase tracking-[0.25em] opacity-50 font-semibold">
+              Séance en attente
+            </p>
+            <p className="text-xs font-medium truncate tracking-wide pr-2">
+              {nextFilm.title || nextFilm.titre || 'Film sans titre'}
+            </p>
+          </div>
+          <span 
+            className="text-[10px] font-bold px-2 py-0.5 tracking-wider font-outfit"
+            style={{ background: `${theme.accent}33`, color: theme.accent }}
+          >
+            +{pendingCount}
+          </span>
+        </div>
       )}
     </div>
   );

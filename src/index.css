@@ -154,3 +154,28 @@
 [data-theme='light'] body {
   text-rendering: optimizeLegibility;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CORRECTIF BORDS PERDUS & ANTI-SCROLLBAR GLOBAL
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Suppression radicale et universelle de toutes les barres de défilement */
+*, *::before, *::after {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+*::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Verrouillage absolu des conteneurs racines */
+html, body, #root {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important; /* Utilise la hauteur dynamique réelle de l'écran */
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
