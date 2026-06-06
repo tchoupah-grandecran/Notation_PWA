@@ -1,28 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 
-/**
- * AppHeader — gradient + blur progressif, GRAND/ÉCRAN sur 2 lignes
- *
- * Fond : linear-gradient(theme-bg 90% → transparent 100%)
- * Blur : 20px en haut → 0px en bas (5 tranches superposées)
- * Texte : blanc avec text-shadow léger
- *
- * EXPANDED :
- *   [safe-area]
- *   [GRAND/ÉCRAN  |  tabs centrés  |  spacer]   52px
- *   [titre        |  actions]                    44px
- *   [tail gradient]                              32px
- *
- * COLLAPSED :
- *   [safe-area]
- *   [titre        |  actions]                    44px
- *   [tail gradient]                              32px
- *
- * CSS vars :
- *   --header-opaque-height   = safe-area + logo-row + title-row
- *   --header-total-height    = --header-opaque-height + tail
- */
-
 const COLLAPSE_AT = 48;
 const REVEAL_PX   = 2;
 const TOP_SNAP    = 2;

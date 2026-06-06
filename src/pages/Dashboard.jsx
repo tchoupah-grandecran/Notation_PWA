@@ -875,11 +875,11 @@ export function Dashboard({
         )}
 
         {/* ── SECTION 1 — HERO ── */}
-        <section className="relative px-6 pt-8 pb-10 overflow-hidden">
+        <section className="relative px-6 pt-28 pb-10 overflow-hidden">
           {decoPoolWithFallback.length > 0 && (
             <div
               onClick={() => setTopPosterIdx(prev => prev + 1)}
-              className="absolute right-4 top-0 w-[140px] h-[194px] rounded-[17px] overflow-hidden shadow-[0_0_12px_4px_rgba(0,0,0,0.25)] cursor-pointer z-20 transition-all duration-300 active:scale-95 hover:scale-105"
+              className="absolute right-4 top-20 w-[140px] h-[194px] rounded-[17px] overflow-hidden shadow-[0_0_12px_4px_rgba(0,0,0,0.25)] cursor-pointer z-20 transition-all duration-300 active:scale-95 hover:scale-105"
               style={{ transform: 'rotate(3deg)' }}>
               <SmartPoster
                 afficheInitiale={decoPoolWithFallback[topPosterIdx % decoPoolWithFallback.length]?.affiche}

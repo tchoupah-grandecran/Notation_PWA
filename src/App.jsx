@@ -125,7 +125,7 @@ function WelcomeScreen({ login }) {
 
 /* ─── Default titles per tab ─────────────────────────────────────── */
 const DEFAULT_TITLES = {
-  home:    'Grand Écran',
+  home:    'Ton cinéma',
   history: 'Journal',
   studio:  'Atelier',
   profile: 'Profil',
@@ -210,7 +210,7 @@ function App() {
   return (
     <div
       className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
-      style={{ background: theme.bg, color: theme.text, ...tokens }}
+      style={{ background: theme.bg, color: theme.text, ...tokens, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <PaperGrain />
 
@@ -240,7 +240,7 @@ function App() {
       <div
         id="main-scroll-container"
         className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none"
-        style={{ zIndex: 10 }}
+        style={{ zIndex: 10, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
@@ -271,13 +271,30 @@ function App() {
           />
         )}
         {activeTab === 'profile' && (
-          <Profile
-            onEditSpreadsheet={handleEditSpreadsheet}
-            onLogout={handleLogout}
-            scrollY={scrollY}
-            onHeaderRight={handleSetHeaderRight}
-          />
-        )}
+  <Profile
+    // Données d'authentification et système
+    userToken={userToken}
+    spreadsheetId={spreadsheetId}
+    handleScan={handleScan}
+    scrollY={scrollY}
+    onHeaderRight={handleSetHeaderRight}
+    onLogout={handleLogout}
+    onEditSpreadsheet={handleEditSpreadsheet}
+
+    // États et modificateurs issus de usePreferences (prefs)
+    userName={prefs.userName}
+    updateUserName={prefs.updateUserName}
+    userAvatar={prefs.userAvatar}
+    updateAvatar={prefs.updateAvatar}
+    themeMode={prefs.themeMode}
+    toggleDarkMode={prefs.toggleDarkMode}
+    ratingScale={prefs.ratingScale}
+    updateRatingScale={prefs.updateRatingScale}
+    pricing={prefs.pricing}
+    updatePricing={prefs.updatePricing}
+    triggerCloudSave={prefs.triggerCloudSave}
+  />
+)}
         {activeTab === 'studio' && (
           <Studio
             historyData={historyData}

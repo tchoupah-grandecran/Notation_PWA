@@ -8,26 +8,18 @@ import {
 } from 'lucide-react';
 
 export function Profile({
-  isScrolled, handleScan, userName, userAvatar, isDark, themeMode, toggleDarkMode,
+  handleScan, userName, userAvatar, themeMode, toggleDarkMode,
   ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
   updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
   userToken,
-  /*
-   * scrollY est maintenant passé depuis App via #main-scroll-container,
-   * exactement comme Dashboard et History.
-   * On supprime le listener window.scrollY qui était toujours 0
-   * (le scroll natif du window ne se déclenche jamais quand le conteneur
-   * racine est position:fixed + overflow:hidden).
-   */
   scrollY = 0,
+  onHeaderRight, // Récupéré depuis App.jsx
 }) {
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isDirty, setIsDirty] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
   const [isSyncing, setIsSyncing] = useState(false);
-
-  const scrolled = scrollY > 20;
 
   const handleChange = (updateFn, ...args) => {
     updateFn(...args);
@@ -37,13 +29,6 @@ export function Profile({
   const handleSave = async () => {
     setSaveStatus('saving');
     await triggerCloudSave();
-    if (userToken && spreadsheetId && pricing) {
-      try {
-        await api.saveConfigPricing(userToken, spreadsheetId, pricing);
-      } catch (err) {
-        console.error('[Profile] Failed to save pricing to sheet:', err);
-      }
-    }
     setSaveStatus('success');
     setTimeout(() => { 
       setSaveStatus('idle'); 
@@ -70,6 +55,31 @@ export function Profile({
     }
   };
 
+  /* ─── TÉLÉPORTATION DU BOUTON DANS LE HEADER GÉNÉRAL ──────────────── */
+  useEffect(() => {
+    if (!onHeaderRight) return;
+
+    // Si l'user a modifié quelque chose OU qu'une sauvegarde est en cours/succès
+    if (isDirty || saveStatus !== 'idle') {
+      onHeaderRight(
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 h-9 px-4 rounded-full bg-[var(--theme-text)] text-[var(--theme-bg)] font-outfit text-[10px] font-black uppercase tracking-widest transition-all duration-300 shadow-md active:scale-95"
+        >
+          {saveStatus === 'saving' ? <RefreshCw size={12} className="animate-spin" /> : 
+           saveStatus === 'success' ? <Check size={14} /> : <Save size={12} />}
+          <span>{saveStatus === 'success' ? 'C’est bon' : 'Appliquer'}</span>
+        </button>
+      );
+    } else {
+      // On vide le slot si tout est propre
+      onHeaderRight(null);
+    }
+
+    // Nettoyage lorsque l'utilisateur quitte l'onglet Profil
+    return () => onHeaderRight(null);
+  }, [isDirty, saveStatus, onHeaderRight]);
+
   const SectionLabel = ({ children }) => (
     <h3 className="font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 ml-5 mb-2">
       {children}
@@ -93,15 +103,8 @@ export function Profile({
   );
 
   return (
-    <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-8 relative">
+    <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-12 relative">
       
-      {/* HEADER STICKY */}
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
-        <div className="px-6 flex justify-between items-center">
-          <h1 className={`font-galinoy italic text-[var(--theme-text)] leading-none transition-all duration-500 ${isScrolled ? 'text-3xl' : 'text-5xl'}`}>Réglages</h1>
-        </div>
-      </header>
-
       {/* MODAL GOOGLE SHEET */}
       {showSheetModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
@@ -130,7 +133,11 @@ export function Profile({
         </div>
       )}
 
-      <main className="px-4 mt-8 space-y-7">
+      {/* 
+        Remplacement du header par un Spacer intelligent (pt) 
+        qui pousse le contenu sous le AppHeader général flottant 
+      */}
+      <main className="px-4 pt-[calc(env(safe-area-inset-top)+9.5rem)] space-y-7">
         
         {/* SECTION 1: IDENTITY */}
         <section className="flex flex-col items-center">
