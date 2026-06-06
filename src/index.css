@@ -56,7 +56,7 @@
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
+    height: 120%;
     background-color: red;
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
