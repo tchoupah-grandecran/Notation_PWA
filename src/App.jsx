@@ -42,7 +42,7 @@ function WelcomeScreen({ login }) {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col overflow-hidden"
+      className="absolute inset-0 flex flex-col overflow-hidden"
       style={{ background: DARK.bg, color: DARK.text, ...tokens }}
     >
       <PaperGrain />
@@ -214,7 +214,7 @@ function App() {
 
   return (
     <div
-      className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
+      className="absolute inset-0 font-outfit overflow-hidden transition-colors duration-700"
       style={{ background: theme.bg, color: theme.text, ...tokens }} 
     >
       <PaperGrain />
