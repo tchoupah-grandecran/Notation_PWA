@@ -262,14 +262,30 @@ function App() {
         />
       )}
       {activeTab === 'profile' && (
-        <Profile
-          onEditSpreadsheet={handleEditSpreadsheet}
-          onLogout={handleLogout}
-          scrollY={scrollY}
-          onHeaderRight={handleSetHeaderRight}
-          // Toutes les autres préférences passées ici...
-        />
-      )}
+  <Profile
+    // Données d'authentification et système
+    userToken={userToken}
+    spreadsheetId={spreadsheetId}
+    handleScan={handleScan}
+    scrollY={scrollY}
+    onHeaderRight={handleSetHeaderRight}
+    onLogout={handleLogout}
+    onEditSpreadsheet={handleEditSpreadsheet}
+
+    // États et modificateurs issus de usePreferences (prefs)
+    userName={prefs.userName}
+    updateUserName={prefs.updateUserName}
+    userAvatar={prefs.userAvatar}
+    updateAvatar={prefs.updateAvatar}
+    themeMode={prefs.themeMode}
+    toggleDarkMode={prefs.toggleDarkMode}
+    ratingScale={prefs.ratingScale}
+    updateRatingScale={prefs.updateRatingScale}
+    pricing={prefs.pricing}
+    updatePricing={prefs.updatePricing}
+    triggerCloudSave={prefs.triggerCloudSave}
+  />
+)}
       {activeTab === 'studio' && (
         <Studio
           historyData={historyData}
