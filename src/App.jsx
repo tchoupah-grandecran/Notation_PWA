@@ -208,100 +208,75 @@ function App() {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   return (
-    <div
-      className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
-      style={{ background: theme.bg, color: theme.text, ...tokens, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-    >
-      <PaperGrain />
+  <div
+    className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
+    style={{ background: theme.bg, color: theme.text, ...tokens }} 
+    // 💡 IMPORTANT : Aucun padding-bottom ici pour que le fond touche le vrai bas de l'écran
+  >
+    <PaperGrain />
 
-      {/*
-       * AppHeader transparent — flotte au-dessus du contenu.
-       * Aucun spacer, aucun fond. Le contenu scrolle SOUS lui depuis top:0.
-       * Il injecte --header-opaque-height et --header-total-height en CSS.
-       */}
-      {!showNotation && (
-        <AppHeader
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
+    {!showNotation && (
+      <AppHeader
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        scrollY={scrollY}
+        headerTitle={headerTitle}
+        headerRight={headerRight}
+        isDark={prefs.isDark}
+        accentColor={theme.accent}
+      />
+    )}
+
+    <div
+      id="main-scroll-container"
+      className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
+      style={{ zIndex: 10 }} 
+      // 💡 IMPORTANT : Aucun padding-bottom ici non plus pour que la zone de scroll soit totale
+      onScroll={(e) => {
+        setScrollY(e.currentTarget.scrollTop);
+        if (
+          activeTab === 'history' &&
+          e.currentTarget.scrollHeight - e.currentTarget.scrollTop
+            <= e.currentTarget.clientHeight + 150
+        ) {
+          setDisplayCount(prev => prev + 15);
+        }
+      }}
+    >
+      {activeTab === 'home' && !showNotation && (
+        <Dashboard
+          historyData={historyData}
+          setSelectedFilm={setSelectedFilm}
           scrollY={scrollY}
-          headerTitle={headerTitle}
-          headerRight={headerRight}
-          isDark={prefs.isDark}
-          accentColor={theme.accent}
+          onHeaderRight={handleSetHeaderRight}
         />
       )}
-
-      {/*
-       * Scroll container — couvre tout le viewport (parent fixed inset-0).
-       * padding-top = 0 : le contenu commence à top:0 comme dans Notation.jsx.
-       * Chaque page gère elle-même son offset initial si nécessaire
-       * (ex: History met son premier film plein écran qui remonte sous le header).
-       */}
-      <div
-        id="main-scroll-container"
-        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none"
-        style={{ zIndex: 10, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        onScroll={(e) => {
-          setScrollY(e.currentTarget.scrollTop);
-          if (
-            activeTab === 'history' &&
-            e.currentTarget.scrollHeight - e.currentTarget.scrollTop
-              <= e.currentTarget.clientHeight + 150
-          ) {
-            setDisplayCount(prev => prev + 15);
-          }
-        }}
-      >
-        {activeTab === 'home' && !showNotation && (
-          <Dashboard
-            historyData={historyData}
-            setSelectedFilm={setSelectedFilm}
-            scrollY={scrollY}
-            onHeaderRight={handleSetHeaderRight}
-          />
-        )}
-        {activeTab === 'history' && (
-          <History
-            historyData={historyData}
-            setSelectedFilm={setSelectedFilm}
-            displayCount={displayCount}
-            scrollY={scrollY}
-            onHeaderTitle={handleSetHeaderTitle}
-            onHeaderRight={handleSetHeaderRight}
-          />
-        )}
-        {activeTab === 'profile' && (
-  <Profile
-    // Données d'authentification et système
-    userToken={userToken}
-    spreadsheetId={spreadsheetId}
-    handleScan={handleScan}
-    scrollY={scrollY}
-    onHeaderRight={handleSetHeaderRight}
-    onLogout={handleLogout}
-    onEditSpreadsheet={handleEditSpreadsheet}
-
-    // États et modificateurs issus de usePreferences (prefs)
-    userName={prefs.userName}
-    updateUserName={prefs.updateUserName}
-    userAvatar={prefs.userAvatar}
-    updateAvatar={prefs.updateAvatar}
-    themeMode={prefs.themeMode}
-    toggleDarkMode={prefs.toggleDarkMode}
-    ratingScale={prefs.ratingScale}
-    updateRatingScale={prefs.updateRatingScale}
-    pricing={prefs.pricing}
-    updatePricing={prefs.updatePricing}
-    triggerCloudSave={prefs.triggerCloudSave}
-  />
-)}
-        {activeTab === 'studio' && (
-          <Studio
-            historyData={historyData}
-            scrollY={scrollY}
-          />
-        )}
-      </div>
+      {activeTab === 'history' && (
+        <History
+          historyData={historyData}
+          setSelectedFilm={setSelectedFilm}
+          displayCount={displayCount}
+          scrollY={scrollY}
+          onHeaderTitle={handleSetHeaderTitle}
+          onHeaderRight={handleSetHeaderRight}
+        />
+      )}
+      {activeTab === 'profile' && (
+        <Profile
+          onEditSpreadsheet={handleEditSpreadsheet}
+          onLogout={handleLogout}
+          scrollY={scrollY}
+          onHeaderRight={handleSetHeaderRight}
+          // Toutes les autres préférences passées ici...
+        />
+      )}
+      {activeTab === 'studio' && (
+        <Studio
+          historyData={historyData}
+          scrollY={scrollY}
+        />
+      )}
+    </div>
 
       {selectedFilm && (
         <FilmDetailModal

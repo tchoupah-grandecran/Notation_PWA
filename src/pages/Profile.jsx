@@ -137,7 +137,12 @@ export function Profile({
         Remplacement du header par un Spacer intelligent (pt) 
         qui pousse le contenu sous le AppHeader général flottant 
       */}
-      <main className="px-4 pt-[calc(env(safe-area-inset-top)+9.5rem)] space-y-7">
+      <main 
+      className="px-4 pt-[calc(env(safe-area-inset-top)+5.5rem)] space-y-7"
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)'
+      }}
+    >
         
         {/* SECTION 1: IDENTITY */}
         <section className="flex flex-col items-center">
