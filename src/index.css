@@ -156,10 +156,10 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   CORRECTIF BORDS PERDUS & ANTI-SCROLLBAR GLOBAL
+   CORRECTIF RADICAL BORDS PERDUS (SPÉCIAL PWA STANDALONE iOS/ANDROID)
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Suppression radicale et universelle de toutes les barres de défilement */
+/* Suppression chirurgicale de toutes les barres de défilement */
 *, *::before, *::after {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -168,14 +168,30 @@
   display: none !important;
 }
 
-/* Verrouillage absolu des conteneurs racines */
+/* 
+ * Force l'affichage à utiliser 100% de la matrice physique de l'écran.
+ * On oublie le 100dvh qui bugge en PWA et on verrouille la hauteur absolue.
+ */
 html, body, #root {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
-  width: 100vw !important;
-  height: 100dvh !important; /* Utilise la hauteur dynamique réelle de l'écran */
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important; /* 💡 FIX : Explose la limite de la Safe Area inférieure */
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
+}
+
+/* 
+ * Mesure de sécurité supplémentaire pour les éléments en position fixed/absolute 
+ * afin qu'ils s'étirent au maximum de la fenêtre autonome.
+ */
+.fixed.inset-0, .absolute.inset-0 {
+  top: 0px !important;
+  bottom: 0px !important;
+  left: 0px !important;
+  right: 0px !important;
 }
