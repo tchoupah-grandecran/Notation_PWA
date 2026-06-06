@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { THEME_COLORS, THEME_TOKENS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
@@ -6,8 +6,7 @@ import { useHistory } from './hooks/useHistory';
 
 import * as api from './api';
 
-import PendingRatingToast from './components/PendingRatingToast';
-import { NavBar } from './components/NavBar';
+import { AppHeader } from './components/AppHeader';
 import { FilmDetailModal } from './components/FilmDetailModal';
 import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
@@ -15,7 +14,7 @@ import { Profile } from './pages/Profile';
 import { Studio } from './pages/Studio';
 import Notation from './pages/Notation';
 
-/* ─── Grain ───────────────────────────────────────────────────────── */
+/* ─── Grain overlay ───────────────────────────────────────────────── */
 const PaperGrain = () => (
   <div
     className="fixed inset-0 pointer-events-none z-[9999] h-full w-full"
@@ -42,32 +41,53 @@ function WelcomeScreen({ login }) {
   ];
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: DARK.bg, color: DARK.text, ...tokens }}>
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{ background: DARK.bg, color: DARK.text, ...tokens }}
+    >
       <PaperGrain />
-      <div className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none" style={{ zIndex: 0 }} aria-hidden="true">
+      <div
+        className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none"
+        aria-hidden="true"
+      >
         <div className="flex flex-col gap-5 pt-24" style={{ opacity: 0.055 }}>
           {titles.slice(0, 8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
+            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap"
+              style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
           ))}
         </div>
         <div className="flex flex-col gap-5 pt-48 ml-auto" style={{ opacity: 0.04 }}>
           {titles.slice(8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap" style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
+            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap"
+              style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
           ))}
         </div>
       </div>
-      <div className="relative flex flex-col flex-1 z-10 overflow-y-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <div
+        className="relative flex flex-col flex-1 z-10 overflow-y-auto"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
         <div className="px-8 pt-14 pb-0">
-          <p className="text-xs tracking-[0.35em] uppercase" style={{ color: DARK.accent, opacity: 0.6 }}>Journal cinématographique</p>
+          <p className="text-xs tracking-[0.35em] uppercase" style={{ color: DARK.accent, opacity: 0.6 }}>
+            Journal cinématographique
+          </p>
         </div>
         <div className="flex-1 flex flex-col justify-center px-8">
-          <h1 className="font-galinoy italic leading-none" style={{ fontSize: 'clamp(4rem, 18vw, 6.5rem)', color: DARK.text, letterSpacing: '-0.02em', marginBottom: '1.5rem' }}>
+          <h1
+            className="font-galinoy italic leading-none"
+            style={{ fontSize: 'clamp(4rem, 18vw, 6.5rem)', color: DARK.text, letterSpacing: '-0.02em', marginBottom: '1.5rem' }}
+          >
             Grand<br />Écran
           </h1>
           <div style={{ width: '2.5rem', height: '2px', background: DARK.accent, marginBottom: '1.75rem' }} />
           {isReturning ? (
             <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', fontStyle: 'italic', maxWidth: '22ch' }}>
-              Heureux de vous retrouver{savedName ? <>, <span style={{ fontStyle: 'normal', fontWeight: 600, opacity: 1 }}>{savedName}</span></> : null}.
+              Heureux de vous retrouver{savedName
+                ? <>, <span style={{ fontStyle: 'normal', fontWeight: 600, opacity: 1 }}>{savedName}</span></>
+                : null}.
             </p>
           ) : (
             <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', maxWidth: '26ch' }}>
@@ -76,8 +96,21 @@ function WelcomeScreen({ login }) {
           )}
         </div>
         <div className="px-8 pb-12 flex flex-col gap-10">
-          <button onClick={() => login()} className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
-            style={{ background: 'transparent', border: `1px solid ${DARK.accent}`, color: DARK.text, padding: '1.1rem 1.75rem', letterSpacing: '0.2em', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 700, borderRadius: 0 }}>
+          <button
+            onClick={() => login()}
+            className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${DARK.accent}`,
+              color: DARK.text,
+              padding: '1.1rem 1.75rem',
+              letterSpacing: '0.2em',
+              fontSize: '0.65rem',
+              textTransform: 'uppercase',
+              fontWeight: 700,
+              borderRadius: 0,
+            }}
+          >
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: DARK.accent, flexShrink: 0 }} />
             <span style={{ flex: 1 }}>{isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}</span>
           </button>
@@ -90,28 +123,29 @@ function WelcomeScreen({ login }) {
   );
 }
 
+/* ─── Default titles per tab ─────────────────────────────────────── */
+const DEFAULT_TITLES = {
+  home:    'Grand Écran',
+  history: 'Journal',
+  studio:  'Atelier',
+  profile: 'Profil',
+};
+
 /* ─── App ─────────────────────────────────────────────────────────── */
 function App() {
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('grandecran_db_id') || '');
-  const [activeTab, setActiveTab]         = useState('home');
-  const [isScrolled, setIsScrolled]       = useState(false);
-  const [scrollY, setScrollY]             = useState(0);
-  const [selectedFilm, setSelectedFilm]   = useState(null);
-  const [displayCount, setDisplayCount]   = useState(15);
-  const [films, setFilms]                 = useState([]);
-  const [nextFilm, setNextFilm]           = useState(null);
-  const [pendingCount, setPendingCount]   = useState(0);
-  const [isSearching, setIsSearching]     = useState(false);
-  const [showNotation, setShowNotation]   = useState(false);
+  const [activeTab,     setActiveTab]     = useState('home');
+  const [scrollY,       setScrollY]       = useState(0);
+  const [selectedFilm,  setSelectedFilm]  = useState(null);
+  const [displayCount,  setDisplayCount]  = useState(15);
+  const [films,         setFilms]         = useState([]);
+  const [nextFilm,      setNextFilm]      = useState(null);
+  const [pendingCount,  setPendingCount]  = useState(0);
+  const [isSearching,   setIsSearching]   = useState(false);
+  const [showNotation,  setShowNotation]  = useState(false);
 
-  /* État pour gérer la visibilité de la morphing bar au scroll (Scroll-to-hide) */
-  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
-  const lastScrollY = useRef(0);
-
-  /* ── Slots remontés par les pages enfants ── */
-  const [headerTitle,  setHeaderTitle]  = useState('Grand Écran');
-  const [headerRight,  setHeaderRight]  = useState(null);
-  const [headerIsHome, setHeaderIsHome] = useState(true);
+  const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
+  const [headerRight, setHeaderRight] = useState(null);
 
   const { userToken, login, logout: authLogout } = useAuth((token) => {
     if (spreadsheetId) handleScan(token);
@@ -122,34 +156,25 @@ function App() {
   const theme    = THEME_COLORS[themeKey];
   const tokens   = THEME_TOKENS(themeKey);
 
-  const { historyData, isLoadingHistory, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
+  const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
 
-  useEffect(() => { prefs.syncFromCloud(); }, [userToken, spreadsheetId]);
+  useEffect(() => { prefs.syncFromCloud(); },                                                     [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
-  useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); }, [userToken, spreadsheetId, activeTab]);
+  useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); },        [userToken, spreadsheetId, activeTab]);
 
-  /* Réinitialise le scroll à chaque changement d'onglet et réaffiche la navbar */
+  /* Reset on tab change */
   useEffect(() => {
     const el = document.getElementById('main-scroll-container');
     if (el) el.scrollTop = 0;
     setScrollY(0);
-    setIsScrolled(false);
-    setIsNavbarVisible(true);
-    lastScrollY.current = 0;
-  }, [activeTab]);
-
-  /* Titre par défaut selon l'onglet (les pages peuvent override) */
-  useEffect(() => {
-    const map = { home: 'Grand Écran', history: 'Journal', studio: 'Studio', profile: 'Réglages' };
-    setHeaderTitle(map[activeTab] || '');
-    setHeaderIsHome(activeTab === 'home');
+    setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
     setHeaderRight(null);
   }, [activeTab]);
 
-useEffect(() => {
-  document.body.style.backgroundColor = theme.bg;
-  document.documentElement.style.backgroundColor = theme.bg;
-}, [theme.bg]);
+  /* Stable callbacks */
+  const handleSetHeaderRight = useCallback((el) => setHeaderRight(el), []);
+  const handleSetHeaderTitle = useCallback((t)  => setHeaderTitle(t),  []);
+  const handleTabChange      = useCallback((id) => setActiveTab(id),   []);
 
   const handleScan = async (token = userToken) => {
     if (!token) return;
@@ -182,152 +207,84 @@ useEffect(() => {
 
   if (!userToken) return <WelcomeScreen login={login} />;
 
-  if (isSearching) return (
-    <div className="fixed inset-0 flex items-center justify-center" style={{ background: theme.bg, ...tokens }}>
-      <PaperGrain />
-      <p className="font-galinoy animate-pulse">Scan en cours...</p>
-    </div>
-  );
-
-  /* Utilise la nouvelle variable CSS calculée qui inclut la safe-area top réelle + 44px de confort */
-  const headerHeight = 'var(--header-total-height)';
-
   return (
     <div
-      className="fixed inset-0 font-outfit flex flex-col overflow-hidden transition-colors duration-700"
-      style={{
-        background: theme.bg,
-        color: theme.text,
-        overscrollBehavior: 'none',
-        /* Expose la hauteur du header aux pages enfants */
-        '--header-height': headerHeight,
-        ...tokens,
-      }}
+      className="fixed inset-0 font-outfit overflow-hidden transition-colors duration-700"
+      style={{ background: theme.bg, color: theme.text, ...tokens }}
     >
       <PaperGrain />
 
-      {/* ── SCROLL CONTAINER ────────────────────────────────────── */}
-<div
-  id="main-scroll-container"
-  className="flex-1 overflow-y-auto scrollbar-hide relative z-10"
-  style={{
-    paddingTop: showNotation ? 0 : headerHeight,
-    /* * 🟢 CORRECTION BORDS PERDUS : 
-     * On retire le paddingBottom global pour que le contenu aille jusqu'en bas.
-     * On ajoute un léger padding de confort (ex: 20px) juste pour que le dernier élément 
-     * d'une liste puisse être scrollé légèrement plus haut que la navbar.
-     */
-    paddingBottom: 'calc(40px + var(--navbar-total-height))',
-  }}
-  onScroll={(e) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    setScrollY(scrollTop);
-    setIsScrolled(scrollTop > 4);
-    
-    // Logique contextuelle de la Morphing Bar (Scroll-to-hide)
-    const currentScrollY = scrollTop;
-    const delta = currentScrollY - lastScrollY.current;
+      {/*
+       * AppHeader transparent — flotte au-dessus du contenu.
+       * Aucun spacer, aucun fond. Le contenu scrolle SOUS lui depuis top:0.
+       * Il injecte --header-opaque-height et --header-total-height en CSS.
+       */}
+      {!showNotation && (
+        <AppHeader
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          scrollY={scrollY}
+          headerTitle={headerTitle}
+          headerRight={headerRight}
+          isDark={prefs.isDark}
+          accentColor={theme.accent}
+        />
+      )}
 
-    if (currentScrollY < lastScrollY.current || currentScrollY < 24) {
-      setIsNavbarVisible(true);
-    } else if (currentScrollY > lastScrollY.current && currentScrollY > 60 && delta > 5) {
-      setIsNavbarVisible(false);
-    }
-    lastScrollY.current = currentScrollY;
-
-    if (activeTab === 'history' && scrollHeight - scrollTop <= clientHeight + 150) {
-      setDisplayCount(prev => prev + 15);
-    }
-  }}
->
-        {/* ── DASHBOARD ─────────────────────────────────────────── */}
+      {/*
+       * Scroll container — couvre tout le viewport (parent fixed inset-0).
+       * padding-top = 0 : le contenu commence à top:0 comme dans Notation.jsx.
+       * Chaque page gère elle-même son offset initial si nécessaire
+       * (ex: History met son premier film plein écran qui remonte sous le header).
+       */}
+      <div
+        id="main-scroll-container"
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none"
+        style={{ zIndex: 10 }}
+        onScroll={(e) => {
+          setScrollY(e.currentTarget.scrollTop);
+          if (
+            activeTab === 'history' &&
+            e.currentTarget.scrollHeight - e.currentTarget.scrollTop
+              <= e.currentTarget.clientHeight + 150
+          ) {
+            setDisplayCount(prev => prev + 15);
+          }
+        }}
+      >
         {activeTab === 'home' && !showNotation && (
           <Dashboard
             historyData={historyData}
-            isScrolled={isScrolled}
-            handleScan={handleScan}
-            setActiveTab={setActiveTab}
             setSelectedFilm={setSelectedFilm}
             scrollY={scrollY}
-            ratingScale={prefs.ratingScale}
-            pricing={prefs.pricing}
-            userAvatar={prefs.userAvatar}
-            userName={prefs.userName}
-            isDark={prefs.isDark}
-            onHeaderRight={setHeaderRight}
+            onHeaderRight={handleSetHeaderRight}
           />
         )}
-
-        {/* ── HISTORY ───────────────────────────────────────────── */}
         {activeTab === 'history' && (
           <History
             historyData={historyData}
-            isLoadingHistory={isLoadingHistory}
-            isScrolled={isScrolled}
-            handleScan={handleScan}
             setSelectedFilm={setSelectedFilm}
             displayCount={displayCount}
-            setDisplayCount={setDisplayCount}
             scrollY={scrollY}
-            ratingScale={prefs.ratingScale}
-            isDark={prefs.isDark}
-            onHeaderTitle={setHeaderTitle}
-            onHeaderRight={setHeaderRight}
+            onHeaderTitle={handleSetHeaderTitle}
+            onHeaderRight={handleSetHeaderRight}
           />
         )}
-
-        {/* ── PROFILE ───────────────────────────────────────────── */}
         {activeTab === 'profile' && (
           <Profile
-            isScrolled={isScrolled}
-            scrollY={scrollY}
-            handleScan={handleScan}
-            userName={prefs.userName}
-            userAvatar={prefs.userAvatar}
-            isDark={prefs.isDark}
-            themeMode={prefs.themeMode}
-            toggleDarkMode={prefs.toggleDarkMode}
-            ratingScale={prefs.ratingScale}
-            pricing={prefs.pricing}
-            spreadsheetId={spreadsheetId}
-            historyData={historyData}
-            updateUserName={prefs.updateUserName}
-            updateAvatar={prefs.updateAvatar}
-            updateRatingScale={prefs.updateRatingScale}
-            updatePricing={prefs.updatePricing}
-            triggerCloudSave={prefs.triggerCloudSave}
             onEditSpreadsheet={handleEditSpreadsheet}
             onLogout={handleLogout}
-            onHeaderRight={setHeaderRight}
+            scrollY={scrollY}
+            onHeaderRight={handleSetHeaderRight}
           />
         )}
-
-        {/* ── STUDIO ────────────────────────────────────────────── */}
         {activeTab === 'studio' && (
           <Studio
             historyData={historyData}
-            ratingScale={prefs.ratingScale}
-            userName={prefs.userName}
-            userAvatar={prefs.userAvatar}
-            isScrolled={isScrolled}
-            pendingFilm={nextFilm}
+            scrollY={scrollY}
           />
         )}
       </div>
-
-      {/* ── OVERLAYS ────────────────────────────────────────────── */}
-      {nextFilm && !showNotation && (
-        <PendingRatingToast film={nextFilm} count={pendingCount} onOpen={() => setShowNotation(true)} />
-      )}
-
-      {!showNotation && (
-        <NavBar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          isDark={prefs.isDark} 
-          isVisible={isNavbarVisible} 
-        />
-      )}
 
       {selectedFilm && (
         <FilmDetailModal
@@ -343,8 +300,6 @@ useEffect(() => {
           films={films}
           token={userToken}
           spreadsheetId={spreadsheetId}
-          ratingScale={prefs.ratingScale}
-          isDark={prefs.isDark}
           onSaved={async () => { invalidate(); loadHistory(); await handleScan(userToken); }}
           onSkip={() => setShowNotation(false)}
         />

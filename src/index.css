@@ -1,12 +1,18 @@
-/* 1. TOUS les imports en premier */
+/* ─────────────────────────────────────────────────────────────────────────
+   1. External fonts — must come before everything else
+   ───────────────────────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 
-/* 2. Les directives Tailwind */
+/* ─────────────────────────────────────────────────────────────────────────
+   2. Tailwind directives
+   ───────────────────────────────────────────────────────────────────────── */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 3. Polices locales et variables */
+/* ─────────────────────────────────────────────────────────────────────────
+   3. Local fonts
+   ───────────────────────────────────────────────────────────────────────── */
 @font-face {
   font-family: 'galinoy';
   src: url('/fonts/galinoy.otf') format('opentype');
@@ -15,50 +21,85 @@
   font-display: swap;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   4. Global CSS variables
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-
-  /* Ces deux valeurs représentent UNIQUEMENT la safe area,
-     les hauteurs réelles (44px header, 64px navbar) sont ajoutées côté JS/composant */
-  --navbar-total-height: calc(0px + var(--sab));
-  --header-total-height: calc(0px + var(--sat));
-
   --font-galinoy: 'galinoy', serif;
-  --font-outfit: 'Outfit', sans-serif;
+  --font-outfit:  'Outfit', sans-serif;
+
+  /*
+   * --header-height is updated at runtime by AppHeader via an injected
+   * <style> tag. We declare a sensible fallback here so any component
+   * that reads it before AppHeader mounts doesn't break.
+   *
+   * Fallback = safe-area (~54px Dynamic Island) + title row (44px) +
+   *            tabs row (36px) + logo row (36px) + gradient tail (28px)
+   */
+  --header-height: calc(env(safe-area-inset-top, 54px) + 144px);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   5. Base styles
+   ───────────────────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    background-color: var(--theme-bg, #0A0A0A); /* sera écrasé par le thème */
-    -webkit-tap-highlight-color: transparent;
+    /* Fill the entire viewport including notch / Dynamic Island area */
     height: 100%;
     width: 100%;
     overflow: hidden;
+
+    background-color: var(--theme-bg, #0A0A0A);
+
+    /* Disable iOS tap flash */
+    -webkit-tap-highlight-color: transparent;
+
+    /*
+     * Allow content to render behind the Dynamic Island / status bar.
+     * viewport-fit=cover must also be set in the <meta name="viewport">
+     * tag in index.html:
+     *   <meta name="viewport" content="width=device-width, initial-scale=1,
+     *         viewport-fit=cover" />
+     */
   }
+
   body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    /* ✅ Suit le thème dynamique, plus de noir hardcodé */
+
     background-color: var(--theme-bg, #0A0A0A);
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
+
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+
+    /* Prevent rubber-band scroll on iOS at the body level */
     overscroll-behavior: none;
+
+    /* Smooth theme transitions */
     transition: background-color 0.70s ease;
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   6. Utility classes
+   ───────────────────────────────────────────────────────────────────────── */
 @layer utilities {
+  /* Font helpers */
   .font-galinoy { font-family: var(--font-galinoy); }
-  .font-outfit  { font-family: var(--font-outfit); }
+  .font-outfit  { font-family: var(--font-outfit);  }
+
+  /* Hide scrollbars while keeping scrollability */
   .scrollbar-hide::-webkit-scrollbar { display: none; }
-  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Paper grain overlay — applied via PaperGrain component */
   .grain-overlay {
     position: fixed;
     top: 0;
@@ -71,18 +112,41 @@
     opacity: var(--theme-grain-opacity);
     mix-blend-mode: multiply;
   }
+
+  /*
+   * Safe-area-aware padding helpers.
+   * Use these on full-bleed bottom bars, sheets, etc.
+   */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
 }
 
-/* 4. Animations */
+/* ─────────────────────────────────────────────────────────────────────────
+   7. Animations
+   ───────────────────────────────────────────────────────────────────────── */
 @keyframes bubble-in {
   0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
   70%  { transform: scale(1.05) translateY(-2px); opacity: 1; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0);       opacity: 1; }
 }
+
 .animate-bubble {
   animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   8. Root element
+   ───────────────────────────────────────────────────────────────────────── */
 #root {
   width: 100%;
   height: 100%;
@@ -90,6 +154,9 @@
   background-color: var(--theme-bg, #0A0A0A);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   9. Theme-specific overrides
+   ───────────────────────────────────────────────────────────────────────── */
 [data-theme='light'] body {
   text-rendering: optimizeLegibility;
 }

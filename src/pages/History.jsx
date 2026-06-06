@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from '../components/SmartPoster';
-import { AppHeader } from '../components/AppHeader';
 import { SlidersHorizontal, X, Ticket } from 'lucide-react';
 
-// ── CUSTOM ASSETS ────────────────────────────────────────────────────────────
+/* ── Custom assets ─────────────────────────────────────────────────── */
 
 const ChubbyHeart = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -22,30 +21,118 @@ const CapucinePill = () => (
 const FavoriPill = () => (
   <div className="flex items-center gap-1.5 bg-[#E14A4A] px-3 py-1 rounded-full shadow-sm w-fit">
     <ChubbyHeart className="w-3 h-3 text-white" />
-    <span className="text-[9px] font-black uppercase text-white">Coup de coeur</span>
+    <span className="text-[9px] font-black uppercase text-white">Coup de cœur</span>
   </div>
 );
 
-// ── UI SUB-COMPONENTS ─────────────────────────────────────────────────────────
+/* ── Cards ─────────────────────────────────────────────────────────── */
 
-function FeatureCard({ film, onClick }) {
+/**
+ * FeatureCard
+ * isHero = true  → plein écran, bord à bord, hauteur 62dvh, remonte sous le header
+ * isHero = false → card normale dans le flux (aspect-[4/3], rounded, shadow)
+ */
+function FeatureCard({ film, onClick, isHero = false }) {
   const noteDisplay = film.note ? String(film.note).replace(',', '.') : null;
+
+  if (isHero) {
+    return (
+      <div
+        onClick={onClick}
+        className="relative overflow-hidden cursor-pointer active:scale-[0.995] transition-transform duration-300 group"
+        style={{
+          height: '62dvh',
+          // Bord à bord : compense le px-5 du parent main
+          marginLeft: '-20px',
+          marginRight: '-20px',
+          marginBottom: '0',
+          borderRadius: '0 0 2.5rem 2.5rem',
+        }}
+      >
+        <SmartPoster
+          afficheInitiale={film.affiche}
+          titre={film.titre}
+          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-1000 group-hover:scale-105"
+        />
+        {/* Gradient haut — lisibilité du header transparent */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent" style={{ height: '40%' }} />
+        {/* Gradient bas */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+        {/* Badges haut — positionnés sous la safe area + header */}
+        <div
+          className="absolute left-6 right-6 flex justify-between items-start z-10"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 88px)' }}
+        >
+          <div className="flex flex-col gap-2">
+            {film.coupDeCoeur && <FavoriPill />}
+            {film.capucine && <CapucinePill />}
+          </div>
+          {film.numero && (
+            <span className="bg-black/20 backdrop-blur-md border border-white/10 text-white/90 text-[10px] font-black px-3 py-1.5 rounded-full tracking-[0.2em]">
+              #{film.numero}
+            </span>
+          )}
+        </div>
+
+        {/* Infos bas */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 pt-20">
+          <div className="flex items-end justify-between gap-6">
+            <div className="flex-1 min-w-0">
+              {film.genre && (
+                <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-3 ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+                  {film.genre}
+                </span>
+              )}
+              <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
+            </div>
+            {noteDisplay && (
+              <span className="font-galinoy text-2xl italic leading-none text-white flex-shrink-0">{noteDisplay}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Card normale (highlight dans le flux)
   return (
-    <div onClick={onClick} className="relative w-full rounded-[2.5rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-500 mb-10 aspect-[4/3] shadow-2xl group">
-      <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+    <div
+      onClick={onClick}
+      className="relative w-full rounded-[2.5rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-500 mb-10 aspect-[4/3] shadow-2xl group"
+    >
+      <SmartPoster
+        afficheInitiale={film.affiche}
+        titre={film.titre}
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent to-60%" />
       <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-10">
-        <div className="flex flex-col gap-2">{film.coupDeCoeur && <FavoriPill />}{film.capucine && <CapucinePill />}</div>
-        {film.numero && <span className="bg-black/20 backdrop-blur-md border border-white/10 text-white/90 text-[10px] font-black px-3 py-1.5 rounded-full tracking-[0.2em]">#{film.numero}</span>}
+        <div className="flex flex-col gap-2">
+          {film.coupDeCoeur && <FavoriPill />}
+          {film.capucine && <CapucinePill />}
+        </div>
+        {film.numero && (
+          <span className="bg-black/20 backdrop-blur-md border border-white/10 text-white/90 text-[10px] font-black px-3 py-1.5 rounded-full tracking-[0.2em]">
+            #{film.numero}
+          </span>
+        )}
       </div>
       <div className="absolute bottom-0 left-0 right-0 p-8 pt-20">
         <div className="flex items-end justify-between gap-6">
-          <div className="flex-1">
-            {film.genre && <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-3 ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>{film.genre}</span>}
+          <div className="flex-1 min-w-0">
+            {film.genre && (
+              <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-3 ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+                {film.genre}
+              </span>
+            )}
             <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
           </div>
-          {noteDisplay && <span className="font-galinoy text-2xl italic leading-none text-white">{noteDisplay}</span>}
+          {noteDisplay && (
+            <span className="font-galinoy text-2xl italic leading-none text-white">{noteDisplay}</span>
+          )}
         </div>
       </div>
     </div>
@@ -56,46 +143,51 @@ function StandardRow({ film, onClick, showSeparator }) {
   const noteDisplay = film.note ? String(film.note).replace(',', '.') : null;
   return (
     <div className="group">
-      <div onClick={onClick} className="grid grid-cols-[auto_1fr_auto] items-center gap-5 py-5 px-2 pr-4 cursor-pointer active:bg-white/5 rounded-2xl transition-colors overflow-visible">
-        <div className="relative w-16 h-22 rounded-xl overflow-hidden bg-[var(--theme-surface)] border border-[var(--theme-border)]">
+      <div
+        onClick={onClick}
+        className="grid grid-cols-[auto_1fr_auto] items-center gap-5 py-5 px-2 pr-4 cursor-pointer active:bg-white/5 rounded-2xl transition-colors"
+      >
+        <div className="relative w-16 rounded-xl overflow-hidden bg-[var(--theme-surface)] border border-[var(--theme-border)]" style={{ height: '88px' }}>
           <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover" />
         </div>
         <div className="min-w-0">
-          <span className="text-[9px] font-black text-[var(--theme-text)] opacity-30 tracking-widest block mb-1">#{film.numero}</span>
+          <span className="text-[9px] font-black text-[var(--theme-text)] opacity-30 tracking-widest block mb-1">
+            #{film.numero}
+          </span>
           <p className="font-galinoy text-lg leading-tight text-[var(--theme-text)]">{film.titre}</p>
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-[11px] font-medium text-[var(--theme-text-secondary)] opacity-60">{film.date}</span>
             <div className="flex items-center gap-2">
-              {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="Capucines" />}
+              {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />}
               {film.coupDeCoeur && <ChubbyHeart className="w-3.5 h-3.5 text-[var(--theme-accent)]" />}
               <span className="text-[11px] text-[var(--theme-text-secondary)] font-medium">{film.genre}</span>
             </div>
           </div>
         </div>
-        {noteDisplay && <div className="font-galinoy text-3xl italic text-[var(--theme-text-secondary)] opacity-40 pr-2">{noteDisplay}</div>}
+        {noteDisplay && (
+          <div className="font-galinoy text-3xl italic text-[var(--theme-text-secondary)] opacity-40 pr-2">
+            {noteDisplay}
+          </div>
+        )}
       </div>
       {showSeparator && <div className="h-px bg-[var(--theme-border)] mx-2 opacity-30" />}
     </div>
   );
 }
 
+/* ── Filter sheet ──────────────────────────────────────────────────── */
+
 function FilterSheet({ isOpen, onClose, activeYear, setActiveYear, activeType, setActiveType, availableYears, onReset }) {
   if (!isOpen) return null;
-
   const types = [
-    { id: 'all', label: 'Tout' },
-    { id: 'coeur', label: 'Favoris' },
-    { id: 'capucine', label: 'Capucine' }
+    { id: 'all',      label: 'Tout' },
+    { id: 'coeur',    label: 'Favoris' },
+    { id: 'capucine', label: 'Capucine' },
   ];
-
-  const getBtnClass = (isActive) => `
-    px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border transition-all duration-200
-    ${isActive
-      ? 'bg-[var(--theme-accent)] text-[var(--theme-bg)] border-transparent shadow-sm'
-      : 'bg-transparent text-[var(--theme-text)] border-[var(--theme-border)] opacity-60 active:scale-95'
-    }
-  `;
-
+  const btn = (active) => `px-5 py-2.5 rounded-xl text-[11px] font-black uppercase border transition-all duration-200 ${
+    active ? 'bg-[var(--theme-accent)] text-[var(--theme-bg)] border-transparent shadow-sm'
+           : 'bg-transparent text-[var(--theme-text)] border-[var(--theme-border)] opacity-60 active:scale-95'
+  }`;
   return (
     <div className="fixed inset-0 z-[300] flex items-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -105,26 +197,17 @@ function FilterSheet({ isOpen, onClose, activeYear, setActiveYear, activeType, s
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-30">Type</p>
             <div className="flex gap-2">
-              {types.map(t => (
-                <button key={t.id} onClick={() => setActiveType(t.id)} className={getBtnClass(activeType === t.id)}>
-                  {t.label}
-                </button>
-              ))}
+              {types.map(t => <button key={t.id} onClick={() => setActiveType(t.id)} className={btn(activeType === t.id)}>{t.label}</button>)}
             </div>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-30">Année</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setActiveYear('all')} className={getBtnClass(activeYear === 'all')}>Tout</button>
-              {availableYears.map(y => (
-                <button key={y} onClick={() => setActiveYear(y)} className={getBtnClass(activeYear === y)}>{y}</button>
-              ))}
+              <button onClick={() => setActiveYear('all')} className={btn(activeYear === 'all')}>Tout</button>
+              {availableYears.map(y => <button key={y} onClick={() => setActiveYear(y)} className={btn(activeYear === y)}>{y}</button>)}
             </div>
           </div>
-          <button
-            onClick={() => { onReset(); onClose(); }}
-            className="w-full py-4 rounded-2xl border border-[var(--theme-border)] text-[var(--theme-text)] opacity-40 uppercase text-[11px] font-black hover:opacity-100 transition-opacity active:bg-[var(--theme-text)]/5"
-          >
+          <button onClick={() => { onReset(); onClose(); }} className="w-full py-4 rounded-2xl border border-[var(--theme-border)] text-[var(--theme-text)] opacity-40 uppercase text-[11px] font-black hover:opacity-100 transition-opacity active:bg-[var(--theme-text)]/5">
             Réinitialiser les filtres
           </button>
         </div>
@@ -133,83 +216,62 @@ function FilterSheet({ isOpen, onClose, activeYear, setActiveYear, activeType, s
   );
 }
 
-// ── INLINE SEARCH BAR ────────────────────────────────────────────────────────
+/* ── Inline search bar ─────────────────────────────────────────────── */
 
 function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose }) {
   const inputRef = useRef(null);
-
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      // Small delay so the CSS transition kicks in before focusing
       const t = setTimeout(() => inputRef.current?.focus(), 50);
       return () => clearTimeout(t);
     }
   }, [isOpen]);
 
-  const handleClose = () => {
-    setSearchQuery('');
-    onClose();
-  };
-
   return (
     <div
       className="flex items-center overflow-hidden transition-all duration-300 ease-in-out"
-      style={{
-        width: isOpen ? '100%' : '2.75rem',
-        maxWidth: isOpen ? '100%' : '2.75rem',
-      }}
+      style={{ width: isOpen ? '100%' : '2.75rem', maxWidth: isOpen ? '100%' : '2.75rem' }}
     >
-      {/* The pill container */}
       <div
         className="flex items-center gap-2 rounded-full border transition-all duration-300 ease-in-out overflow-hidden"
         style={{
-          width: '100%',
-          height: '2.75rem',
-          backgroundColor: isOpen
-            ? 'var(--theme-surface)'
-            : 'var(--theme-surface)',
-          borderColor: isOpen
-            ? 'var(--theme-accent)'
-            : 'var(--theme-border)',
-          boxShadow: isOpen ? '0 0 0 2px color-mix(in srgb, var(--theme-accent) 20%, transparent)' : 'none',
+          width: '100%', height: '2.5rem',
+          backgroundColor: 'rgba(0,0,0,0.30)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderColor: isOpen ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.20)',
           paddingLeft: '0.625rem',
           paddingRight: isOpen ? '0.5rem' : '0.625rem',
         }}
       >
-        {/* Search icon — always visible, acts as open button when closed */}
         <button
           onClick={isOpen ? undefined : onOpen}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center transition-colors duration-200"
-          style={{ color: isOpen ? 'var(--theme-accent)' : 'var(--theme-text)' }}
-          aria-label="Rechercher"
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center"
+          style={{ color: 'rgba(255,255,255,0.9)' }}
         >
-          <svg className="w-[1.05rem] h-[1.05rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </button>
-
-        {/* Text input — only rendered (and takes space) when open */}
         <input
           ref={inputRef}
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Rechercher…"
-          className="bg-transparent outline-none font-outfit text-[13px] text-[var(--theme-text)] placeholder:text-[var(--theme-text)] placeholder:opacity-25 transition-all duration-300"
+          className="bg-transparent outline-none font-outfit text-xs"
           style={{
+            color: 'rgba(255,255,255,0.9)',
             width: isOpen ? '100%' : '0',
             opacity: isOpen ? 1 : 0,
             pointerEvents: isOpen ? 'auto' : 'none',
           }}
         />
-
-        {/* Close / clear button */}
         {isOpen && (
           <button
-            onClick={handleClose}
-            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90"
-            style={{ color: 'var(--theme-text)', opacity: 0.4 }}
-            aria-label="Fermer la recherche"
+            onClick={() => { setSearchQuery(''); onClose(); }}
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center active:scale-90"
+            style={{ color: 'rgba(255,255,255,0.6)' }}
           >
             <X size={14} strokeWidth={2.5} />
           </button>
@@ -219,158 +281,215 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
   );
 }
 
-// ── MAIN HISTORY ────────────────────────────────────────────────────────────
+/* ── Header right ──────────────────────────────────────────────────── */
 
-export function History({ historyData = [], setSelectedFilm, displayCount, scrollY = 0 }) {
-  const [activeType, setActiveType] = useState('all');
-  const [activeYear, setActiveYear] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+function HistoryHeaderRight({ isSearchOpen, searchQuery, setSearchQuery, hasActiveFilters, onSearchOpen, onSearchClose, onFilterOpen }) {
+  return (
+    <div className="flex items-center gap-2 justify-end">
+      {!isSearchOpen && (
+        <button
+          onClick={onFilterOpen}
+          className="relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+          style={{
+            color: hasActiveFilters ? 'var(--theme-accent)' : 'rgba(255,255,255,0.9)',
+            background: 'rgba(0,0,0,0.30)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.20)',
+            cursor: 'pointer',
+          }}
+        >
+          <SlidersHorizontal size={16} strokeWidth={2.5} />
+          {hasActiveFilters && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />}
+        </button>
+      )}
+      <InlineSearchBar
+        isOpen={isSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onOpen={onSearchOpen}
+        onClose={onSearchClose}
+      />
+    </div>
+  );
+}
+
+/* ── Main History ──────────────────────────────────────────────────── */
+
+export function History({
+  historyData = [],
+  setSelectedFilm,
+  displayCount,
+  scrollY = 0,
+  onHeaderTitle,
+  onHeaderRight,
+}) {
+  const [activeType,   setActiveType]   = useState('all');
+  const [activeYear,   setActiveYear]   = useState('all');
+  const [searchQuery,  setSearchQuery]  = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState('');
 
-  const TITLE_FADE_END = 80;
-  const scrolled = scrollY > 20;
-  const titleOpacity = Math.max(0, 1 - scrollY / TITLE_FADE_END);
   const hasActiveFilters = activeType !== 'all' || activeYear !== 'all';
 
-  const anneesDisponibles = useMemo(() => [
-    ...new Set(historyData.map(f => f.date?.split('/')[2]).filter(Boolean))
-  ].sort((a, b) => b - a), [historyData]);
+  const handleSearchOpen  = useCallback(() => setIsSearchOpen(true),  []);
+  const handleSearchClose = useCallback(() => setIsSearchOpen(false), []);
+  const handleFilterOpen  = useCallback(() => setIsFilterOpen(true),  []);
 
+  /* ── Available years ── */
+  const anneesDisponibles = useMemo(() =>
+    [...new Set(historyData.map(f => f.date?.split('/')[2]).filter(Boolean))].sort((a, b) => b - a),
+  [historyData]);
+
+  /* ── Filtered + sorted ── */
   const filteredData = useMemo(() => {
-    let data = historyData.filter(f =>
-      !searchQuery || f.titre.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    if (activeType === 'coeur') data = data.filter(f => f.coupDeCoeur);
+    let data = historyData.filter(f => !searchQuery || f.titre.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (activeType === 'coeur')    data = data.filter(f => f.coupDeCoeur);
     if (activeType === 'capucine') data = data.filter(f => f.capucine);
-    if (activeYear !== 'all') data = data.filter(f => f.date?.endsWith(activeYear));
+    if (activeYear !== 'all')      data = data.filter(f => f.date?.endsWith(activeYear));
     return data.sort((a, b) => {
-      const p = (d) => { const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd); };
+      const p = d => { const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd); };
       return p(b.date) - p(a.date);
     });
   }, [historyData, activeType, activeYear, searchQuery]);
 
+  /* ── Grouped by month ── */
   const groupedByMonth = useMemo(() => {
     const groups = {};
     filteredData.slice(0, displayCount).forEach(film => {
       const parts = film.date.split('/');
-      const monthName = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(new Date(parts[2], parseInt(parts[1]) - 1));
-      const key = `${monthName} ${parts[2]}`;
+      const name  = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(new Date(parts[2], parseInt(parts[1]) - 1));
+      const key   = `${name} ${parts[2]}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(film);
     });
     return Object.entries(groups);
   }, [filteredData, displayCount]);
 
+  /*
+   * ── Détection du mois courant ──────────────────────────────────────
+   *
+   * Règle : on affiche TOUJOURS un mois — jamais "Journal".
+   * Le mois affiché est celui dont le sentinel est le plus haut dans la page
+   * tout en étant déjà sorti par le haut du viewport (rect.top <= 0),
+   * ou à défaut le premier mois de la liste (scroll = 0).
+   *
+   * Sentinel = div invisible positionné en position:absolute top:0
+   * à l'intérieur de chaque section position:relative.
+   */
   useEffect(() => {
-    if (scrollY < 60) {
-      setCurrentMonth('');
-      return;
-    }
-    const sections = document.querySelectorAll('[data-month]');
-    let found = '';
-    sections.forEach(section => {
-      const rect = section.getBoundingClientRect();
-      if (rect.top <= 100) found = section.getAttribute('data-month');
+    const sentinels = document.querySelectorAll('[data-month-sentinel]');
+    if (!sentinels.length) return;
+
+    // Fallback = premier mois de la liste (scroll à zéro ou données vides)
+    const firstMonth = sentinels[0].getAttribute('data-month-sentinel');
+
+    let active = firstMonth;
+    sentinels.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      // Ce sentinel est "au-dessus ou dans" le viewport → son mois est visible
+      if (rect.top <= 1) active = el.getAttribute('data-month-sentinel');
     });
-    if (found !== currentMonth) setCurrentMonth(found);
-  }, [scrollY, currentMonth]);
 
-  const rightSlot = (
-    <div className="flex items-center gap-2 flex-1 justify-end">
-      {/* Filter button — hidden while search is open to save space */}
-      <button
-        onClick={() => setIsFilterOpen(true)}
-        className={`
-          relative w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center border transition-all duration-300
-          ${isSearchOpen ? 'opacity-0 pointer-events-none w-0 overflow-hidden border-transparent p-0' : ''}
-          ${hasActiveFilters
-            ? 'bg-[var(--theme-accent)] border-transparent text-[var(--theme-bg)]'
-            : 'bg-[var(--theme-surface)] border-[var(--theme-border)] text-[var(--theme-text)]'
-          }
-        `}
-        style={{ minWidth: isSearchOpen ? 0 : undefined }}
-        aria-label="Filtres"
-      >
-        <SlidersHorizontal size={16} />
-        {hasActiveFilters && !isSearchOpen && (
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[var(--theme-bg)]" />
-        )}
-      </button>
+    onHeaderTitle?.(active ? active.charAt(0).toUpperCase() + active.slice(1) : active);
+  }, [scrollY, onHeaderTitle]);
 
-      {/* Inline expanding search */}
-      <InlineSearchBar
-        isOpen={isSearchOpen}
+  /* ── Header right ── */
+  useEffect(() => {
+    onHeaderRight?.(
+      <HistoryHeaderRight
+        isSearchOpen={isSearchOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onOpen={() => setIsSearchOpen(true)}
-        onClose={() => setIsSearchOpen(false)}
+        hasActiveFilters={hasActiveFilters}
+        onSearchOpen={handleSearchOpen}
+        onSearchClose={handleSearchClose}
+        onFilterOpen={handleFilterOpen}
       />
-    </div>
-  );
+    );
+  }, [isSearchOpen, searchQuery, hasActiveFilters, onHeaderRight, handleSearchOpen, handleSearchClose, handleFilterOpen]);
 
+  /* ── Render ── */
   return (
-    <div className="bg-[var(--theme-bg)] text-[var(--theme-text)] font-outfit">
+    /*
+     * Pas de padding-top : le contenu part de top:0.
+     * La hero card du premier film remonte sous le header transparent.
+     */
+    <div className="bg-transparent text-[var(--theme-text)] font-outfit min-h-full overflow-x-hidden">
+      {groupedByMonth.length === 0 ? (
+        <div className="flex flex-col items-center justify-center opacity-20" style={{ paddingTop: 'var(--header-total-height, 96px)', minHeight: '60vh' }}>
+          <Ticket size={48} className="mb-2" />
+          <p className="font-galinoy text-4xl capitalize italic">
+            {searchQuery ? 'Aucun résultat' : 'Vide'}
+          </p>
+        </div>
+      ) : (
+        groupedByMonth.map(([month, films], monthIdx) => {
+          const isFirstMonth = monthIdx === 0;
+          return (
+            <section key={month} style={{ position: 'relative' }}>
+              {/*
+               * Sentinel invisible positionné en haut de chaque section.
+               * Le useEffect de scroll lit son rect.top pour savoir quel
+               * mois est actuellement "sous le header" et met à jour le titre.
+               */}
+              <div
+                data-month-sentinel={month}
+                style={{ position: 'absolute', top: 0, height: 0, visibility: 'hidden', pointerEvents: 'none' }}
+                aria-hidden="true"
+              />
 
-      <AppHeader
-        title=""
-        subtitle={currentMonth}
-        scrolled={scrolled}
-        rightSlot={rightSlot}
-      />
+              {/* Label de mois dans le flux — uniquement pour les mois suivants */}
+              {!isFirstMonth && (
+                <div className="px-5 pt-8 pb-3">
+                  <p className="font-galinoy italic text-lg capitalize text-[var(--theme-text)] opacity-30 tracking-tight">
+                    {month}
+                  </p>
+                </div>
+              )}
 
-      <header
-        className="px-8 pr-16 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-4 overflow-visible"
-        style={{
-          opacity: titleOpacity,
-          transform: `translateY(${-scrollY * 0.1}px)`,
-          pointerEvents: titleOpacity === 0 ? 'none' : 'auto',
-        }}
-        aria-hidden={titleOpacity === 0}
-      >
-        <h1 className="font-galinoy italic text-4xl capitalize tracking-tight opacity-90 text-left overflow-visible">
-          Journal
-        </h1>
-      </header>
-
-      <main className="px-5 pb-8">
-        {groupedByMonth.length === 0 ? (
-          <div className="py-32 text-center opacity-20">
-            <Ticket size={48} className="mx-auto mb-2" />
-            <p className="font-galinoy text-4xl capitalize italic">
-              {searchQuery ? 'Aucun résultat' : 'Vide'}
-            </p>
-          </div>
-        ) : (
-          groupedByMonth.map(([month, films]) => (
-            <section key={month} className="mb-2" data-month={month}>
-
-              <div className="sticky top-0 z-[80] -mx-5 px-8 pt-[calc(env(safe-area-inset-top)+1.2rem)] pb-2 bg-[var(--theme-bg)]/20 backdrop-blur-xl">
-                <h2 className="font-galinoy italic text-xl capitalize tracking-tight text-[var(--theme-text)] pr-4 overflow-visible">
-                  {month}
-                </h2>
-              </div>
-
-              <div className="mt-4">
+              <div>
                 {films.map((film, idx) => {
                   const isHighlighted = parseFloat(String(film.note).replace(',', '.')) >= 4.5 || film.coupDeCoeur;
-                  return isHighlighted ? (
-                    <FeatureCard key={idx} film={film} onClick={() => setSelectedFilm(film)} />
-                  ) : (
-                    <StandardRow
-                      key={idx}
-                      film={film}
-                      onClick={() => setSelectedFilm(film)}
-                      showSeparator={!!films[idx + 1] && !(parseFloat(String(films[idx + 1].note).replace(',', '.')) >= 4.5 || films[idx + 1].coupDeCoeur)}
-                    />
+                  const isHero        = isFirstMonth && idx === 0;
+
+                  if (isHero) {
+                    return (
+                      <FeatureCard
+                        key={idx}
+                        film={film}
+                        onClick={() => setSelectedFilm(film)}
+                        isHero
+                      />
+                    );
+                  }
+
+                  // Après la hero : padding horizontal pour les autres cartes
+                  return (
+                    <div key={idx} className="px-5">
+                      {isHighlighted ? (
+                        <FeatureCard film={film} onClick={() => setSelectedFilm(film)} />
+                      ) : (
+                        <StandardRow
+                          film={film}
+                          onClick={() => setSelectedFilm(film)}
+                          showSeparator={
+                            !!films[idx + 1] &&
+                            !(parseFloat(String(films[idx + 1].note).replace(',', '.')) >= 4.5 || films[idx + 1].coupDeCoeur)
+                          }
+                        />
+                      )}
+                    </div>
                   );
                 })}
               </div>
             </section>
-          ))
-        )}
-      </main>
+          );
+        })
+      )}
+
+      {/* Safe area bottom padding */}
+      <div style={{ height: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }} />
 
       <FilterSheet
         isOpen={isFilterOpen}
