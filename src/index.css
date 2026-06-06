@@ -47,7 +47,7 @@
     height: -webkit-fill-available;
     width: 100vw;
     overflow: hidden;
-    background-color: red;
+    background-color: transparent;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -56,7 +56,7 @@
     padding: 0;
     width: 100%;
     height: -webkit-fill-available;
-    background-color: red;
+    background-color: transparent;
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
     -webkit-font-smoothing: antialiased;
