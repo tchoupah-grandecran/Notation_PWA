@@ -34,7 +34,7 @@
    * that reads it before AppHeader mounts doesn't break.
    *
    * Fallback = safe-area (~54px Dynamic Island) + title row (44px) +
-   *            tabs row (36px) + logo row (36px) + gradient tail (28px)
+   * tabs row (36px) + logo row (36px) + gradient tail (28px)
    */
   --header-height: calc(env(safe-area-inset-top, 54px) + 144px);
 }
@@ -44,7 +44,6 @@
    ───────────────────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    /* Utilise les viewports dynamiques modernes pour éviter les sauts de barre d'adresse */
     height: 100dvh;
     width: 100vw;
     overflow: hidden;
@@ -168,8 +167,7 @@
   display: none !important;
 }
 
-/* 
- * Force l'affichage à utiliser 100% de la matrice physique de l'écran.
+/* * Force l'affichage à utiliser 100% de la matrice physique de l'écran.
  * On oublie le 100dvh qui bugge en PWA et on verrouille la hauteur absolue.
  */
 html, body, #root {
@@ -179,14 +177,13 @@ html, body, #root {
   right: 0 !important;
   bottom: 0 !important;
   width: 100% !important;
-  height: 100% !important; /* 💡 FIX : Explose la limite de la Safe Area inférieure */
+  height: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
 }
 
-/* 
- * Mesure de sécurité supplémentaire pour les éléments en position fixed/absolute 
+/* * Mesure de sécurité supplémentaire pour les éléments en position fixed/absolute 
  * afin qu'ils s'étirent au maximum de la fenêtre autonome.
  */
 .fixed.inset-0, .absolute.inset-0 {
@@ -194,4 +191,10 @@ html, body, #root {
   bottom: 0px !important;
   left: 0px !important;
   right: 0px !important;
+}
+
+#root > .fixed.inset-0 {
+  position: absolute !important;
+  height: 100% !important;
+  width: 100% !important;
 }
