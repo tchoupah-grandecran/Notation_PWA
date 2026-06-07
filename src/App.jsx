@@ -214,19 +214,18 @@ function App() {
 
   return (
     <div
-      className="absolute inset-0 font-outfit overflow-hidden transition-colors duration-700"
-      style={{ background: theme.bg, color: theme.text, ...tokens }} 
-    >
-      <PaperGrain />
+  className="absolute inset-0 font-outfit transition-colors duration-700"
+  // ← overflow-hidden SUPPRIMÉ
+  style={{ background: theme.bg, color: theme.text, ...tokens }} 
+>
+  <PaperGrain />
 
-      {/* 
-        Le contenu principal défile en dessous. 
-        Son z-index est à 10.
-      */}
-      <div
-        id="main-scroll-container"
-        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-        style={{ zIndex: 10, paddingBottom: 'env(safe-area-inset-bottom, 0px)', }} 
+  <div
+    id="main-scroll-container"
+    className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
+    style={{ 
+      zIndex: 10,
+    }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
@@ -238,6 +237,7 @@ function App() {
           }
         }}
       >
+        <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}></div>
         {activeTab === 'home' && !showNotation && (
           <Dashboard
             historyData={historyData}
