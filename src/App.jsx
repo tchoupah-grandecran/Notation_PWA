@@ -168,14 +168,12 @@ function App() {
     if (el) el.scrollTop = 0;
     setScrollY(0);
     setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
-    // 💡 FIX : Suppression de setHeaderRight(null) d'ici pour éviter d'écraser le montage des pages
   }, [activeTab]);
 
   /* Stable callbacks */
   const handleSetHeaderRight = useCallback((el) => setHeaderRight(el), []);
   const handleSetHeaderTitle = useCallback((t)  => setHeaderTitle(t),  []);
   
-  // 💡 FIX : Nettoyage synchrone immédiat au clic sur l'onglet pour éviter les conflits d'affichage
   const handleTabChange = useCallback((id) => {
     setActiveTab(id);
     setHeaderRight(null); 
@@ -213,19 +211,33 @@ function App() {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   return (
+    // ✅ CORRECTION : on remplace `absolute inset-0` par un positionnement
+    // explicite qui étend le fond de l'app jusqu'au bas PHYSIQUE de l'écran,
+    // sous le home indicator iOS. `inset-0` = bottom:0 = viewport logique
+    // seulement, ce qui laisse la safe-area-bottom exposée (rouge).
+    // On garde top/left/right à 0, et on pousse le bottom sous la safe-area.
     <div
-  className="absolute inset-0 font-outfit transition-colors duration-700"
-  // ← overflow-hidden SUPPRIMÉ
-  style={{ background: theme.bg, color: theme.text, ...tokens }} 
->
-  <PaperGrain />
+      className="font-outfit transition-colors duration-700"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))',
+        background: theme.bg,
+        color: theme.text,
+        ...tokens,
+      }}
+    >
+      <PaperGrain />
 
-  <div
-    id="main-scroll-container"
-    className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-    style={{ 
-      zIndex: 10,
-    }}
+      {/* Le scroll container lui reste contraint à inset-0 (viewport logique) :
+          le contenu ne passe pas sous le home indicator, mais le fond de l'app
+          couvre bien toute la zone physique grâce au wrapper ci-dessus. */}
+      <div
+        id="main-scroll-container"
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
+        style={{ zIndex: 10 }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
@@ -279,19 +291,14 @@ function App() {
           />
         )}
         {activeTab === 'studio' && (
-  <Studio
-    historyData={historyData}
-    isScrolled={scrollY > 10}
-    pendingFilm={nextFilm}
-  />
-)}
-</div>
+          <Studio
+            historyData={historyData}
+            isScrolled={scrollY > 10}
+            pendingFilm={nextFilm}
+          />
+        )}
+      </div>
 
-      {/* 
-        💡 FIX VISU : AppHeader placé APRES le conteneur principal dans le DOM 
-        et enveloppé d'un z-index supérieur (z-40) pour flotter impérativement 
-        au-dessus des affiches de films de la page History et du Dashboard.
-      */}
       {!showNotation && (
         <div className="relative z-40">
           <AppHeader
@@ -325,7 +332,6 @@ function App() {
         />
       )}
 
-      {/* ─── Floating Toast : PendingRatingToast ──────────────────────── */}
       {!showNotation && pendingCount > 0 && nextFilm && (
         <div 
           onClick={() => setShowNotation(true)}
