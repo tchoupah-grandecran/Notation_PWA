@@ -33,17 +33,6 @@
   --header-total-height:  calc(env(safe-area-inset-top, 0px) + 128px);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   5. Socle PWA bords perdus
-   ─────────────────────────────────────────────────────────────────────────
-   Stratégie :
-   - html/body en position:fixed → cadre immuable, pas de rebond élastique
-   - #root en position:absolute → s'étend jusqu'au bas PHYSIQUE de l'écran,
-     y compris sous le home indicator iOS, grâce à bottom négatif compensant
-     la safe-area-inset-bottom. Le fond de l'app couvre ainsi toute la zone.
-   - Le contenu scrollable utilise toujours padding-bottom avec
-     env(safe-area-inset-bottom) pour rester lisible au-dessus du home indicator.
-   ───────────────────────────────────────────────────────────────────────── */
 html, body {
   position: fixed !important;
   inset: 0 !important;           /* top/right/bottom/left: 0 */
@@ -51,7 +40,7 @@ html, body {
   padding: 0 !important;
   overflow: hidden !important;
   -webkit-tap-highlight-color: transparent;
-  background-color: var(--theme-bg, red);
+  background-color: red;
 }
 
 #root {
@@ -59,9 +48,6 @@ html, body {
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  /* ✅ CORRECTION : on dépasse vers le bas sous le home indicator iOS.
-     inset: 0 remplacé — bottom négatif = safe-area-inset-bottom pour
-     que le fond de #root couvre toute la zone physique de l'écran. */
   bottom: calc(-1 * env(safe-area-inset-bottom, 0px)) !important;
   background-color: var(--theme-bg, #000000);
 }
