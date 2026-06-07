@@ -240,13 +240,13 @@ function App() {
     >
       <PaperGrain />
 
-      {/* Le scroll container lui reste contraint à inset-0 (viewport logique) :
-          le contenu ne passe pas sous le home indicator, mais le fond de l'app
-          couvre bien toute la zone physique grâce au wrapper ci-dessus. */}
+      {/* ✅ Le scroll container s'étend jusqu'au bas PHYSIQUE de l'écran.
+          bottom négatif = il passe sous le home indicator iOS.
+          Le padding-bottom intérieur empêche le contenu d'être masqué. */}
       <div
         id="main-scroll-container"
-        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-        style={{ zIndex: 10 }}
+        className="absolute overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
+        style={{ zIndex: 10, top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))' }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
