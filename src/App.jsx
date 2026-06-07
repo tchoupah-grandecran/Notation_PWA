@@ -279,12 +279,13 @@ function App() {
           />
         )}
         {activeTab === 'studio' && (
-          <Studio
-            historyData={historyData}
-            scrollY={scrollY}
-          />
-        )}
-      </div>
+  <Studio
+    historyData={historyData}
+    isScrolled={scrollY > 10}
+    pendingFilm={nextFilm}
+  />
+)}
+</div>
 
       {/* 
         💡 FIX VISU : AppHeader placé APRES le conteneur principal dans le DOM 
