@@ -158,6 +158,15 @@ function App() {
 
   const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
 
+  // ✅ CORRECTION safe-area-bottom standalone iOS :
+  // On pousse --theme-bg sur :root pour que html/body (qui sont AU-DESSUS
+  // du div React dans le DOM) aient la bonne couleur de fond.
+  // En PWA standalone, la safe-area-bottom est peinte par html/body,
+  // pas par les divs React qui s'arrêtent au viewport logique.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--theme-bg', theme.bg);
+  }, [theme.bg]);
+
   useEffect(() => { prefs.syncFromCloud(); },                                                     [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); },        [userToken, spreadsheetId, activeTab]);
@@ -237,7 +246,7 @@ function App() {
       <div
         id="main-scroll-container"
         className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-        style={{ zIndex: 10, bottom:'calc(-1 * env(safe-area-inset-bottom, 0px))', }}
+        style={{ zIndex: 10 }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
