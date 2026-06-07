@@ -220,33 +220,18 @@ function App() {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   return (
-    // ✅ CORRECTION : on remplace `absolute inset-0` par un positionnement
-    // explicite qui étend le fond de l'app jusqu'au bas PHYSIQUE de l'écran,
-    // sous le home indicator iOS. `inset-0` = bottom:0 = viewport logique
-    // seulement, ce qui laisse la safe-area-bottom exposée (rouge).
-    // On garde top/left/right à 0, et on pousse le bottom sous la safe-area.
+    // Approche scroll naturel comme Ma Jungle :
+    // min-h-dvh sur le wrapper, scroll natif iOS, safe-area gérée automatiquement.
     <div
-      className="font-outfit transition-colors duration-700"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))',
-        background: theme.bg,
-        color: theme.text,
-        ...tokens,
-      }}
+      className="min-h-dvh font-outfit transition-colors duration-700"
+      style={{ background: theme.bg, color: theme.text, ...tokens }}
     >
       <PaperGrain />
 
-      {/* ✅ Le scroll container s'étend jusqu'au bas PHYSIQUE de l'écran.
-          bottom négatif = il passe sous le home indicator iOS.
-          Le padding-bottom intérieur empêche le contenu d'être masqué. */}
       <div
         id="main-scroll-container"
-        className="absolute overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-        style={{ zIndex: 10, top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))' }}
+        className="min-h-dvh overflow-x-hidden scrollbar-hide"
+        style={{ zIndex: 10 }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
