@@ -83,7 +83,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
           {/* Count badge — déborde librement */}
           {count > 1 && (
             <div
-              className="absolute -top-1 -right-1 bg-[var(--theme-accent)] text-[var(--theme-bg)] text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center leading-none shadow"
+              className="absolute -top-1 -right-1 bg-[#E8B200] text-[var(--theme-bg)] text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center leading-none shadow"
               style={{ zIndex: 100000 }}
             >
               +{count - 1}

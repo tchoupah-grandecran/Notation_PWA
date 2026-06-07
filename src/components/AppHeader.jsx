@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
+
 const COLLAPSE_AT = 48;
 const REVEAL_PX   = 2;
 const TOP_SNAP    = 2;
@@ -59,7 +60,7 @@ export function AppHeader({
   `;
 
   const textPrimary = 'rgba(255,255,255,0.95)';
-  const textMuted   = 'rgba(255,255,255,0.38)';
+  const textMuted   = 'rgba(255,255,255,0.58)';
   const shadow      = '0 1px 8px rgba(0,0,0,0.4)';
 
   return (
@@ -84,24 +85,18 @@ export function AppHeader({
               backdropFilter: `blur(${blur}px)`,
               WebkitBackdropFilter: `blur(${blur}px)`,
               // Masque : opaque en haut, fondu sur les 40% bas de chaque tranche
-              WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 55%, transparent 100%)',
-              maskImage:        'linear-gradient(to bottom, black 0%, black 55%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
+              maskImage:        'linear-gradient(to bottom, black 0%, transparent 100%)',
               pointerEvents: 'none',
             }}
           />
         ))}
 
         {/* ── COUCHE 2 : Gradient de fond ─────────────────────────────── */}
-        {/*
-         * Utilise color-mix pour opacifier theme-bg.
-         * Fallback : si color-mix non supporté, on utilise une pseudo-variable.
-         * On préfère une approche plus compatible : on superpose un div coloré
-         * avec opacité décroissante.
-         */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to bottom, var(--theme-bg) 0%, var(--theme-bg) 30%, transparent 100%)',
+            background: 'linear-gradient(to bottom, var(--theme-bg) 0%, var(--theme-bg) 0%, transparent 100%)',
             opacity: 0.88,
             pointerEvents: 'none',
           }}
