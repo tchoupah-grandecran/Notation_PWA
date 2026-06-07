@@ -43,12 +43,12 @@ function WelcomeScreen({ login }) {
 
   return (
     <div
-      className="min-h-dvh flex flex-col overflow-hidden"
+      className="fixed inset-0 flex flex-col overflow-hidden"
       style={{ background: DARK.bg, color: DARK.text, ...tokens }}
     >
       <PaperGrain />
       <div
-        className="min-h-dvh flex gap-8 px-6 overflow-hidden pointer-events-none select-none"
+        className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none"
         aria-hidden="true"
       >
         <div className="flex flex-col gap-5 pt-24" style={{ opacity: 0.055 }}>

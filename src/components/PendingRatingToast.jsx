@@ -48,7 +48,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
     <div
       className="fixed right-4 flex items-center justify-end pointer-events-none"
       style={{
-        bottom: 'calc(30px + env(safe-area-inset-bottom, 0px))',
+        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
         zIndex: 99999,
       }}
     >
