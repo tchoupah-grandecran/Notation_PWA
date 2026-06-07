@@ -312,6 +312,8 @@ useEffect(() => {
             historyData={historyData}
             isScrolled={scrollY > 10}
             pendingFilm={nextFilm}
+            onHeaderRight={handleSetHeaderRight}
+            onHeaderTitle={handleSetHeaderTitle}
           />
         )}
       </div>

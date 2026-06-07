@@ -1647,35 +1647,46 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STUDIO HUB
 // ─────────────────────────────────────────────────────────────────────────────
-function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData }) {
+function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData, onHeaderRight, onHeaderTitle }) {
+
+  useEffect(() => {
+    onHeaderRight?.(
+      <button
+        onClick={onLock}
+        className="w-9 h-9 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </button>
+    );
+    return () => onHeaderRight?.(null);
+  }, [onLock, onHeaderRight]);
+
   const getPosterUrl = (url) => {
     if (!url) return '';
     const proxyBase = import.meta.env.DEV ? '/tmdb-proxy' : '/api/proxy-image';
     return `${proxyBase}?url=${encodeURIComponent(url)}`;
   };
 
-  const bgImage          = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
-  const latestRatedFilm  = historyData && historyData.length > 0 ? historyData[0] : null;
-  const avisBgImage      = latestRatedFilm?.affiche ? getPosterUrl(latestRatedFilm.affiche) : null;
-  const recentPosters    = (historyData || []).filter(f => f.affiche).map(f => getPosterUrl(f.affiche)).slice(0, 16);
+  const bgImage         = pendingFilm?.affiche ? getPosterUrl(pendingFilm.affiche) : null;
+  const latestRatedFilm = historyData && historyData.length > 0 ? historyData[0] : null;
+  const avisBgImage     = latestRatedFilm?.affiche ? getPosterUrl(latestRatedFilm.affiche) : null;
+  const recentPosters   = (historyData || []).filter(f => f.affiche).map(f => getPosterUrl(f.affiche)).slice(0, 16);
 
   return (
     <div className="studio-hub animate-in fade-in slide-in-from-bottom-4 duration-500 pb-safe-24 font-outfit bg-[var(--theme-bg)] min-h-screen text-[#F0EEF5]">
-
-      {/* ── HEADER — Galinoy italic, tight tracking ── */}
-      <header className={`z-40 sticky top-0 w-full transition-all duration-500 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
-        <div className="px-6 flex justify-between items-center">
-          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-right border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </button>
-        </div>
-      </header>
-
-      <main className="pt-6 space-y-8 pb-12">
+      <main
+        className="space-y-8 pb-12"
+        style={{ paddingTop: 'calc(var(--header-total-height, 96px) + 1.5rem)' }}
+      >
 
         {/* ── RECAP CARD ── */}
         <div className="px-6">
-          <h2 className="font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">L'événement du mois</h2>
+          <h2 className="font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">
+            L'événement du mois
+          </h2>
           <div className="relative cursor-pointer group" onClick={() => onSelectTool('recap')}>
             <div className="absolute inset-0 bg-white/5 border border-white/5 rounded-3xl transform rotate-3 scale-95 transition-transform group-hover:rotate-6 group-active:scale-90 origin-bottom-right"/>
             <div className="absolute inset-0 bg-white/10 border border-white/10 rounded-3xl transform -rotate-2 scale-[0.98] transition-transform group-hover:-rotate-4 group-active:scale-95 origin-bottom-left"/>
@@ -1693,7 +1704,9 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
                           <div key={rowIdx} className="w-full aspect-[2/3] rounded-lg overflow-hidden flex-shrink-0 bg-white/5 shadow-lg">
                             <img src={poster} className="w-full h-full object-cover saturate-[0.8]" crossOrigin="anonymous" alt=""/>
                           </div>
-                        ) : <div key={rowIdx} className="w-full aspect-[2/3] rounded-lg bg-white/5 flex-shrink-0"/>;
+                        ) : (
+                          <div key={rowIdx} className="w-full aspect-[2/3] rounded-lg bg-white/5 flex-shrink-0"/>
+                        );
                       })}
                     </div>
                   ))}
@@ -1715,15 +1728,17 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
                   <div className="h-[1px] w-9 bg-[#E8B200]/60"/>
                   <span className="font-outfit font-bold text-[9px] text-[#E8B200] uppercase tracking-[0.35em]">Rewind exclusif</span>
                 </div>
-                {/* Title uses Galinoy for chrome branding feel */}
                 <h3 className="font-galinoy italic text-4xl text-white leading-[0.95] tracking-tight mb-3 drop-shadow-lg">
                   Récap'<br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8B200] via-[#FFD341] to-[#E8B200] animate-gradient-x animate-title-glow">Mensuel</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8B200] via-[#FFD341] to-[#E8B200] animate-gradient-x animate-title-glow">
+                    Mensuel
+                  </span>
                 </h3>
                 <p className="font-outfit text-sm text-white/70 font-medium max-w-[88%] leading-relaxed drop-shadow-md">
                   Générez votre <span className="text-white">fresque narrative</span> et partagez vos moments forts du mois.
                 </p>
               </div>
+
               <div className="absolute bottom-4 right-6 opacity-30 group-hover:opacity-100 transition-opacity z-30">
                 <ChevronRight className="text-white group-hover:translate-x-1.5 transition-transform" size={20} strokeWidth={2.5}/>
               </div>
@@ -1733,11 +1748,16 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
 
         {/* ── QUICK CREATE CARDS ── */}
         <div>
-          <h2 className="px-6 font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">Créations Rapides</h2>
+          <h2 className="px-6 font-outfit font-extrabold text-[var(--theme-text)] text-[10px] tracking-[0.25em] uppercase mb-4">
+            Créations Rapides
+          </h2>
           <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-hide">
 
             {/* Story Séance */}
-            <div onClick={() => onSelectTool('seance')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
+            <div
+              onClick={() => onSelectTool('seance')}
+              className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]"
+            >
               {bgImage ? (
                 <>
                   <img src={bgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous"/>
@@ -1762,7 +1782,10 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
             </div>
 
             {/* Avis Express */}
-            <div onClick={() => onSelectTool('share')} className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]">
+            <div
+              onClick={() => onSelectTool('share')}
+              className="snap-start shrink-0 relative w-[160px] aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-xl border border-white/10 bg-[#050505]"
+            >
               {avisBgImage ? (
                 <>
                   <img src={avisBgImage} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110 saturate-[0.8]" alt="" crossOrigin="anonymous"/>
@@ -1800,7 +1823,9 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
                 </div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <div className="bg-[#E8B200] text-black font-outfit font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">Bientôt</div>
+                <div className="bg-[#E8B200] text-black font-outfit font-black text-[9px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full transform -rotate-12 shadow-[0_4px_12px_rgba(232,178,0,0.3)]">
+                  Bientôt
+                </div>
               </div>
             </div>
 
@@ -1814,13 +1839,31 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-export function Studio({ historyData, pendingFilm, isScrolled }) {
+export function Studio({ historyData, pendingFilm, isScrolled, onHeaderRight, onHeaderTitle }) {
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('grandecran_studio_unlocked') === 'true');
   const [activeTool, setActiveTool] = useState(null);
 
-  // Lock screen — chrome uses Galinoy + Outfit
+  // Nettoyer le headerRight quand on entre dans un sous-outil (recap, seance, share)
+  // Ces pages ont leur propre header sticky, donc on vide le slot
+  useEffect(() => {
+    if (activeTool !== null) {
+      onHeaderRight?.(null);
+      onHeaderTitle?.('');
+    }
+  }, [activeTool, onHeaderRight, onHeaderTitle]);
+
   function LockScreen({ onUnlock }) {
     const [password, setPassword] = useState('');
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      // Nettoyer headerRight sur l'écran de lock (pas de bouton lock sur la lockscreen elle-même)
+      onHeaderRight?.(null);
+      // Focus différé pour iOS
+      const t = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(t);
+    }, []);
+
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 pb-[env(safe-area-inset-bottom)]">
         <div className="w-20 h-20 bg-white/5 rounded-full border border-white/10 flex items-center justify-center mb-6 shadow-2xl">
@@ -1831,14 +1874,28 @@ export function Studio({ historyData, pendingFilm, isScrolled }) {
         </div>
         <h2 className="font-galinoy italic text-4xl mb-1 text-white tracking-tight">Zone Sécurisée</h2>
         <p className="font-outfit text-white/30 text-sm mb-8">Accès réservé</p>
-        <form onSubmit={(e) => { e.preventDefault(); if (password.toUpperCase() === 'POPCORN') onUnlock(); else { alert('Mot de passe incorrect'); setPassword(''); } }}
-          className="flex flex-col gap-4 w-full max-w-xs">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (password.toUpperCase() === 'POPCORN') onUnlock();
+            else { alert('Mot de passe incorrect'); setPassword(''); }
+          }}
+          className="flex flex-col gap-4 w-full max-w-xs"
+        >
           <input
-            type="password" placeholder="Mot de passe"
-            value={password} onChange={(e) => setPassword(e.target.value)}
-            className="font-outfit bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white placeholder:text-white/20"/>
-          <button type="submit"
-            className="font-outfit bg-[#E8B200] text-black font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm">
+            ref={inputRef}
+            type="password"
+            placeholder="Mot de passe"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            enterKeyHint="done"
+            className="font-outfit bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white placeholder:text-white/20"
+          />
+          <button
+            type="submit"
+            className="font-outfit bg-[#E8B200] text-black font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm"
+          >
             Déverrouiller
           </button>
         </form>
@@ -1858,6 +1915,8 @@ export function Studio({ historyData, pendingFilm, isScrolled }) {
       onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }}
       pendingFilm={pendingFilm}
       historyData={historyData}
+      onHeaderRight={onHeaderRight}    // ← passer en cascade
+      onHeaderTitle={onHeaderTitle}    // ← passer en cascade
     />
   );
 }

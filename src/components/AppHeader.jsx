@@ -16,13 +16,12 @@ const TABS = [
   { id: 'profile', label: 'Profil'  },
 ];
 
-// Tranches de blur progressif : index 0 = haut (fort), dernier = bas (faible)
 const BLUR_LAYERS = [
-  { blur: 20, topPct: 0,   bottomPct: 100 },
-  { blur: 14, topPct: 0,   bottomPct: 80  },
-  { blur: 9,  topPct: 0,   bottomPct: 60  },
-  { blur: 4,  topPct: 0,   bottomPct: 40  },
-  { blur: 1,  topPct: 0,   bottomPct: 22  },
+  { blur: 20, topPct: 0, bottomPct: 100 },
+  { blur: 14, topPct: 0, bottomPct: 80  },
+  { blur: 9,  topPct: 0, bottomPct: 60  },
+  { blur: 4,  topPct: 0, bottomPct: 40  },
+  { blur: 1,  topPct: 0, bottomPct: 22  },
 ];
 
 export function AppHeader({
@@ -75,7 +74,7 @@ export function AppHeader({
         }}
       >
 
-        {/* ── COUCHE 1 : Blur progressif (5 tranches superposées) ─────── */}
+        {/* ── COUCHE 1 : Blur progressif ─────────────────────────────── */}
         {BLUR_LAYERS.map(({ blur, bottomPct }, i) => (
           <div
             key={i}
@@ -84,7 +83,6 @@ export function AppHeader({
               height: `${bottomPct}%`,
               backdropFilter: `blur(${blur}px)`,
               WebkitBackdropFilter: `blur(${blur}px)`,
-              // Masque : opaque en haut, fondu sur les 40% bas de chaque tranche
               WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
               maskImage:        'linear-gradient(to bottom, black 0%, transparent 100%)',
               pointerEvents: 'none',
@@ -102,7 +100,7 @@ export function AppHeader({
           }}
         />
 
-        {/* ── COUCHE 3 : Contenu (pointerEvents actifs) ───────────────── */}
+        {/* ── COUCHE 3 : Contenu ──────────────────────────────────────── */}
         <div
           className="absolute inset-x-0 top-0"
           style={{ pointerEvents: 'auto' }}
@@ -110,7 +108,7 @@ export function AppHeader({
           {/* Safe area spacer */}
           <div style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
-          {/* ── Logo row : GRAND / ÉCRAN + tabs ── */}
+          {/* ── Logo row ── */}
           <div
             style={{
               height: expanded ? `${LOGO_ROW_H}px` : '0px',
@@ -121,7 +119,6 @@ export function AppHeader({
           >
             <div className="relative flex items-center h-full px-5">
 
-              {/* GRAND\nÉCRAN */}
               <div style={{ flexShrink: 0 }}>
                 <p style={{
                   fontFamily: 'var(--font-outfit, "Outfit", sans-serif)',
@@ -140,7 +137,6 @@ export function AppHeader({
                 </p>
               </div>
 
-              {/* Tabs centrés (position absolue pour ne pas pousser le logo) */}
               <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-5">
                 {TABS.map(({ id, label }) => {
                   const isActive = activeTab === id;
@@ -171,30 +167,43 @@ export function AppHeader({
                 })}
               </nav>
 
-              {/* Spacer droit pour équilibrer le logo gauche */}
               <div style={{ marginLeft: 'auto', width: '3.5rem', flexShrink: 0 }} />
             </div>
           </div>
 
           {/* ── Title row ── */}
+          {/*
+            FIX: on retire overflow:hidden du title row lui-même pour que
+            les ascendantes/descendantes du font-galinoy italic ne soient
+            pas rognées. On utilise leading-[1.1] au lieu de leading-none,
+            et on gère le débordement vertical avec overflow:visible.
+          */}
           <div
             className="flex items-center gap-3 px-5"
-            style={{ height: `${TITLE_ROW_H}px` }}
+            style={{
+              height: `${TITLE_ROW_H}px`,
+              overflow: 'visible',   /* ← clé : les italiques ne sont plus coupées */
+            }}
           >
             <h1
-              className="font-galinoy italic leading-none flex-1 min-w-0 truncate "
+              className="font-galinoy italic flex-1 min-w-0 truncate"
               style={{
                 fontSize: 'clamp(1.5rem, 7vw, 2rem)',
+                lineHeight: 1.15,    /* ← était leading-none (1.0), trop serré pour l'italique */
                 color: textPrimary,
                 letterSpacing: '-0.01em',
                 margin: 0,
                 textShadow: shadow,
+                /* overflow:visible hérité du parent, truncate gère le débordement horizontal */
               }}
             >
               {headerTitle}
             </h1>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div
+              className="flex items-center gap-2 flex-shrink-0"
+              style={{ overflow: 'visible' }}
+            >
               {headerRight}
             </div>
           </div>
