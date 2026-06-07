@@ -106,7 +106,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
                 {/* Text block */}
                 <div className="min-w-[100px] max-w-[160px]">
                   <p className="text-[9px] font-black text-[var(--theme-accent)] uppercase tracking-[0.15em] leading-none mb-[3px] whitespace-nowrap">
-                    {count > 1 ? `${count} séance(s) à noter` : 'À noter'}
+                    {count > 1 ? `${count} séances à noter` : 'À noter'}
                   </p>
                   <h4 className="text-sm font-bold text-[var(--theme-text)] truncate leading-tight">
                     {film.titre}
