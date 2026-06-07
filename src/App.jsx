@@ -172,9 +172,8 @@ function App() {
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); },        [userToken, spreadsheetId, activeTab]);
 
-  /* ─── Reset on tab change ─────────────────────────────────────────── */
+/* ─── Reset on tab change ─────────────────────────────────────────── */
 useEffect(() => {
-  // Ne pas scroller si le focus est sur un input (clavier ouvert)
   const activeEl = document.activeElement;
   const isInputFocused = activeEl && (
     activeEl.tagName === 'INPUT' ||
@@ -188,19 +187,16 @@ useEffect(() => {
   setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
 }, [activeTab]);
 
-/* ─── Scroll handler — ignorer les events causés par le clavier ───── */
+/* ─── Scroll handler (un seul, remplace l'ancien) ─────────────────── */
 useEffect(() => {
   let lastDocHeight = document.documentElement.scrollHeight;
 
   const handleScroll = () => {
-    // Le clavier iOS réduit le viewport et peut déclencher un scroll event
-    // sans que l'utilisateur ait vraiment scrollé. On ignore ces cas.
     const currentDocHeight = document.documentElement.scrollHeight;
     if (currentDocHeight !== lastDocHeight) {
       lastDocHeight = currentDocHeight;
-      return; // changement de hauteur = clavier ouvert/fermé, on ignore
+      return;
     }
-
     const y = window.scrollY;
     setScrollY(y);
     if (
@@ -214,22 +210,6 @@ useEffect(() => {
   window.addEventListener('scroll', handleScroll, { passive: true });
   return () => window.removeEventListener('scroll', handleScroll);
 }, [activeTab]);
-
-  /* Écoute le scroll natif sur window (scroll naturel, plus de div scrollable) */
-  useEffect(() => {
-    const handleScroll = () => {
-      const y = window.scrollY;
-      setScrollY(y);
-      if (
-        activeTab === 'history' &&
-        window.innerHeight + y >= document.documentElement.scrollHeight - 150
-      ) {
-        setDisplayCount(prev => prev + 15);
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [activeTab]);
 
   /* Stable callbacks */
   const handleSetHeaderRight = useCallback((el) => setHeaderRight(el), []);
