@@ -237,7 +237,7 @@ function App() {
       <div
         id="main-scroll-container"
         className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
-        style={{ zIndex: 10 }}
+        style={{ zIndex: 10, bottom:'calc(-1 * env(safe-area-inset-bottom, 0px))', }}
         onScroll={(e) => {
           setScrollY(e.currentTarget.scrollTop);
           if (
