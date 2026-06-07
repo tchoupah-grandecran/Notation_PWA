@@ -173,10 +173,25 @@ function App() {
 
   /* Reset on tab change */
   useEffect(() => {
-    const el = document.getElementById('main-scroll-container');
-    if (el) el.scrollTop = 0;
+    window.scrollTo(0, 0);
     setScrollY(0);
     setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
+  }, [activeTab]);
+
+  /* Écoute le scroll natif sur window (scroll naturel, plus de div scrollable) */
+  useEffect(() => {
+    const handleScroll = () => {
+      const y = window.scrollY;
+      setScrollY(y);
+      if (
+        activeTab === 'history' &&
+        window.innerHeight + y >= document.documentElement.scrollHeight - 150
+      ) {
+        setDisplayCount(prev => prev + 15);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [activeTab]);
 
   /* Stable callbacks */
@@ -232,16 +247,7 @@ function App() {
         id="main-scroll-container"
         className="min-h-dvh overflow-x-hidden scrollbar-hide"
         style={{ zIndex: 10 }}
-        onScroll={(e) => {
-          setScrollY(e.currentTarget.scrollTop);
-          if (
-            activeTab === 'history' &&
-            e.currentTarget.scrollHeight - e.currentTarget.scrollTop
-              <= e.currentTarget.clientHeight + 150
-          ) {
-            setDisplayCount(prev => prev + 15);
-          }
-        }}
+
       >
         <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}></div>
         {activeTab === 'home' && !showNotation && (
