@@ -1665,8 +1665,7 @@ function StudioHub({ isScrolled, onSelectTool, onLock, pendingFilm, historyData 
       {/* ── HEADER — Galinoy italic, tight tracking ── */}
       <header className={`z-40 sticky top-0 w-full transition-all duration-500 backdrop-blur-2xl border-b ${isScrolled ? 'pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 border-white/10 shadow-lg' : 'pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-5 border-transparent'}`}>
         <div className="px-6 flex justify-between items-center">
-          <h1 className={`font-galinoy italic text-[var(--theme-text)] leading-none transition-all duration-500 ${isScrolled ? 'text-3xl' : 'text-5xl'}`}>Studio</h1>
-          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
+          <button onClick={onLock} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-right border border-red-500/20 active:scale-90 transition-all hover:bg-red-500/20 hover:border-red-500/40">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
         </div>

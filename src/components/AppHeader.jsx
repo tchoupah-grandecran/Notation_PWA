@@ -182,7 +182,7 @@ export function AppHeader({
             style={{ height: `${TITLE_ROW_H}px` }}
           >
             <h1
-              className="font-galinoy italic leading-none flex-1 min-w-0 truncate"
+              className="font-galinoy italic leading-none flex-1 min-w-0 truncate "
               style={{
                 fontSize: 'clamp(1.5rem, 7vw, 2rem)',
                 color: textPrimary,

@@ -34,24 +34,17 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
    5. Socle PWA — approche scroll naturel (comme Ma Jungle)
-   ─────────────────────────────────────────────────────────────────────────
-   On n'utilise PAS position:fixed sur html/body.
-   Le scroll natif iOS gère la safe-area automatiquement quand on laisse
-   le document s'étendre librement avec min-height: 100dvh.
-   viewport-fit=cover dans le <meta> + padding safe-area sur le contenu
-   suffisent pour un vrai effet bords perdus natif.
    ───────────────────────────────────────────────────────────────────────── */
 html {
   height: 100%;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior: none;
+  overscroll-behavior: none; 
 }
 
 body {
   min-height: 100%;
   margin: 0;
   padding: 0;
-  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--theme-bg, #000000);
