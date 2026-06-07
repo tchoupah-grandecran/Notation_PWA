@@ -28,70 +28,77 @@
   --font-galinoy: 'galinoy', serif;
   --font-outfit:  'Outfit', sans-serif;
 
-  /*
-   * --header-height is updated at runtime by AppHeader via an injected
-   * <style> tag. We declare a sensible fallback here so any component
-   * that reads it before AppHeader mounts doesn't break.
-   */
-  --header-height: calc(env(safe-area-inset-top, 54px) + 144px);
+  /* Fallback avant que AppHeader n'injecte la valeur réelle au runtime */
+  --header-opaque-height: calc(env(safe-area-inset-top, 0px) + 96px);
+  --header-total-height:  calc(env(safe-area-inset-top, 0px) + 128px);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   5. Base styles 
+   5. Socle PWA bords perdus
+   ─────────────────────────────────────────────────────────────────────────
+   Stratégie :
+   - html/body en position:fixed → cadre immuable, pas de rebond élastique
+   - #root en position:absolute avec bottom:0 → s'accroche au bas RÉEL
+     du viewport (sous le home indicator iOS) grâce à viewport-fit=cover
+   - On n'utilise PAS height:100% en cascade car iOS le calcule parfois
+     sans inclure la zone sous la safe-area-bottom. On préfère inset:0.
+   ───────────────────────────────────────────────────────────────────────── */
+html, body {
+  position: fixed !important;
+  inset: 0 !important;           /* top/right/bottom/left: 0 */
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--theme-bg, red);
+}
+
+#root {
+  position: absolute !important;
+  inset: 0 !important;           /* s'accroche au vrai bas de l'écran */
+  background-color: var(--theme-bg, #000000);
+}
+
+/* Conteneurs directs de #root qui utilisent absolute/fixed + inset-0 :
+   on force absolute + inset:0 pour qu'ils épousent #root jusqu'en bas. */
+#root > .fixed.inset-0,
+#root > .absolute.inset-0 {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6. Base styles
    ───────────────────────────────────────────────────────────────────────── */
 @layer base {
-  html {
-    width: 100vw;
-    overflow: hidden;
-    -webkit-tap-highlight-color: transparent;
-  }
-
   body {
-    margin: 0;
-    padding: 0;
     width: 100%;
     color: var(--theme-text, white);
     font-family: var(--font-outfit);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-
-    /* Bloque le rebond élastique global */
     overscroll-behavior: none;
     transition: background-color 0.70s ease;
   }
 }
 
-/* Force la disparition des barres de défilement sur le conteneur de l'app */
-#main-scroll-container {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-#main-scroll-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
-
 /* ─────────────────────────────────────────────────────────────────────────
-   6. Utility classes
+   7. Utility classes
    ───────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* Font helpers */
   .font-galinoy { font-family: var(--font-galinoy); }
   .font-outfit  { font-family: var(--font-outfit);  }
 
-  /* Hide scrollbars while keeping scrollability */
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  /* Safe-area padding helpers */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top:    env(safe-area-inset-top,    0px); }
+  .pl-safe { padding-left:   env(safe-area-inset-left,   0px); }
+  .pr-safe { padding-right:  env(safe-area-inset-right,  0px); }
 
   /* Paper grain overlay */
   .grain-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     pointer-events: none;
     z-index: 9999;
     background-image: var(--theme-grain-url);
@@ -99,94 +106,32 @@
     mix-blend-mode: multiply;
   }
 
-  /* Safe-area-aware padding helpers */
-  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
-  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
-  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+  /* Hide scrollbars while keeping scrollability */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}
+
+/* Scrollbar masquée sur le conteneur principal */
+#main-scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+#main-scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   7. Animations
+   8. Animations
    ───────────────────────────────────────────────────────────────────────── */
 @keyframes bubble-in {
   0%   { transform: scale(0.5) translateY(10px); opacity: 0; }
   70%  { transform: scale(1.05) translateY(-2px); opacity: 1; }
-  100% { transform: scale(1) translateY(0);       opacity: 1; }
+  100% { transform: scale(1)   translateY(0);     opacity: 1; }
 }
 
 .animate-bubble {
   animation: bubble-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   8. Root element
-   ───────────────────────────────────────────────────────────────────────── */
-#root {
-  width: 100%;
-  height: 100%;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   9. Theme-specific overrides
-   ───────────────────────────────────────────────────────────────────────── */
-[data-theme='light'] body {
-  text-rendering: optimizeLegibility;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   CORRECTIF SANS FAILLE : BORDS PERDUS ABSOLUS (PWA STANDALONE)
-   ───────────────────────────────────────────────────────────────────────── */
-
-/* Suppression globale et agressive des scrollbars résiduelles */
-*, *::before, *::after {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-*::-webkit-scrollbar {
-  display: none !important;
-}
-
-/* * 1. Blocage strict de la matrice d'affichage de l'appareil.
- * On utilise 'position: fixed' ICI sur html et body pour créer le cadre immuable.
- */
-html, body {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  background-color: var(--theme-bg, #000000); /* Prend la couleur dynamique de ton thème */
-}
-
-/* * 2. Libération du Root en mode absolu.
- * En passant en 'absolute', on brise la politique de restriction de la Safe Area iOS.
- */
-#root {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  background-color: var(--theme-bg, #000000);
-}
-
-/* * 3. Alignement forcé des conteneurs d'écrans.
- * Si une div layout utilise par mégarde encore 'fixed inset-0' tout en haut,
- * on la convertit de force pour qu'elle épouse les dimensions réelles de #root.
- */
-#root > .fixed.inset-0,
-#root > .absolute.inset-0 {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
 }
