@@ -3,6 +3,7 @@ import { THEME_COLORS, THEME_TOKENS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
+import PendingRatingToast from './components/PendingRatingToast';
 
 import * as api from './api';
 
@@ -333,35 +334,12 @@ function App() {
       )}
 
       {!showNotation && pendingCount > 0 && nextFilm && (
-        <div 
-          onClick={() => setShowNotation(true)}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-5 py-3 shadow-2xl border cursor-pointer active:scale-95 transition-all backdrop-blur-md animate-bubble bg-black/80 text-white"
-          style={{ 
-            borderRadius: 0, 
-            minWidth: '290px', 
-            borderColor: theme.accent 
-          }}
-        >
-          <span 
-            className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0" 
-            style={{ backgroundColor: theme.accent }} 
-          />
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-[9px] uppercase tracking-[0.25em] opacity-50 font-semibold">
-              Séance en attente
-            </p>
-            <p className="text-xs font-medium truncate tracking-wide pr-2">
-              {nextFilm.title || nextFilm.titre || 'Film sans titre'}
-            </p>
-          </div>
-          <span 
-            className="text-[10px] font-bold px-2 py-0.5 tracking-wider font-outfit"
-            style={{ background: `${theme.accent}33`, color: theme.accent }}
-          >
-            +{pendingCount}
-          </span>
-        </div>
-      )}
+  <PendingRatingToast
+    film={nextFilm}
+    count={pendingCount}
+    onOpen={() => setShowNotation(true)}
+  />
+)}
     </div>
   );
 }
