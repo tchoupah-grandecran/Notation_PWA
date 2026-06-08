@@ -1374,116 +1374,347 @@ const GOLD    = '#E8B200';
 const FONT    = 'system-ui,-apple-system,sans-serif';
 
 const EXPECTATIONS = [
-  { label: 'Sceptique',      barHex: 'rgba(255,255,255,0.45)' },
-  { label: 'Curieux',        barHex: '#60A5FA' },
-  { label: 'Intrigué',       barHex: '#C084FC' },
-  { label: 'Très impatient', barHex: '#FB923C' },
-  { label: 'Hype absolue',   barHex: GOLD },
+  { label: 'Traîné',   sub: 'On m\'a forcé',           barHex: 'rgba(255,255,255,0.35)' },
+  { label: 'Intrigué', sub: 'Le trailer m\'a accroché',  barHex: '#93C5FD' },
+  { label: 'Chaud',    sub: 'Belle envie',               barHex: '#C084FC' },
+  { label: 'Impatient', sub: 'Je ne pense qu\'à ça',         barHex: '#FB923C' },
+  { label: 'Hanté',    sub: 'OMG mais enfin', barHex: GOLD },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STORY SÉANCE — CANVAS RENDERER
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderStoryToCanvas(canvas, params) {
-  const { title, date, time, lang, expectation, posterImg, screeningLabel } = params;
+  const { title, date, time, lang, duration, expectation, posterImg, screeningLabel } = params;
   const ctx = canvas.getContext('2d');
   canvas.width = STORY_W; canvas.height = STORY_H;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, STORY_W, STORY_H);
-  if (posterImg) drawImageCover(ctx, posterImg, 0, 0, STORY_W, STORY_H);
 
-  const grad = ctx.createLinearGradient(0, 0, 0, STORY_H);
-  grad.addColorStop(0, 'rgba(0,0,0,0.55)'); grad.addColorStop(0.35, 'rgba(0,0,0,0.05)');
-  grad.addColorStop(0.6, 'rgba(0,0,0,0.40)'); grad.addColorStop(1, 'rgba(0,0,0,0.97)');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, STORY_W, STORY_H);
+  ctx.fillStyle = '#060606';
+  ctx.fillRect(0, 0, STORY_W, STORY_H);
+
+  const POSTER_H = Math.round(STORY_H * 0.68);
+  if (posterImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, STORY_W, POSTER_H);
+    ctx.clip();
+    ctx.globalAlpha = 1;
+    drawImageCover(ctx, posterImg, 0, 0, STORY_W, POSTER_H);
+    ctx.restore();
+    const gTop = ctx.createLinearGradient(0, 0, 0, 340);
+    gTop.addColorStop(0, 'rgba(6,6,6,0.55)');
+    gTop.addColorStop(1, 'rgba(6,6,6,0)');
+    ctx.fillStyle = gTop;
+    ctx.fillRect(0, 0, STORY_W, 340);
+  }
+
+  const gFade = ctx.createLinearGradient(0, POSTER_H - 280, 0, POSTER_H + 20);
+  gFade.addColorStop(0, 'rgba(6,6,6,0)');
+  gFade.addColorStop(1, 'rgba(245,242,236,1)');
+  ctx.fillStyle = gFade;
+  ctx.fillRect(0, POSTER_H - 280, STORY_W, 300);
+
+  const badgeFont = `500 34px ${FONT_SANS}`;
+  ctx.font = badgeFont;
+  const badgeText = screeningLabel.toUpperCase();
+  const bW = ctx.measureText(badgeText).width + 60, bH = 64, bR = bH / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = '#000';
+  roundRect(ctx, 64, 80, bW, bH, bR); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillText(badgeText, 64 + 30, 80 + bH / 2);
+  ctx.restore();
+
+  const TICKET_Y = POSTER_H;
+  const TICKET_H = STORY_H - TICKET_Y;
+  ctx.fillStyle = '#F5F2EC';
+  ctx.fillRect(0, TICKET_Y, STORY_W, TICKET_H);
 
   ctx.save();
-  ctx.translate(0, 100);
-  const LEFT = 64, MAX_W = STORY_W - LEFT * 2;
+  ctx.fillStyle = '#F5F2EC';
+  ctx.beginPath();
+  const tearY = TICKET_Y - 28;
+  const steps = 54;
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * STORY_W;
+    const y = tearY + (i % 2 === 0 ? 0 : 28 + Math.sin(i * 1.7) * 8);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.lineTo(STORY_W, STORY_H);
+  ctx.lineTo(0, STORY_H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 
-  let fsize = 108;
+  const LEFT = 80;
+  let cy = TICKET_Y + 60;
+
+  ctx.font = `800 88px ${FONT_SYNE}`;
+  ctx.fillStyle = '#1a1a1a';
   ctx.textBaseline = 'top';
-  const textToMeasure = title || 'Titre du film';
-  while (fsize > 60) {
-    ctx.font = `900 ${fsize}px ${FONT}`;
-    if (wrapText(ctx, textToMeasure, MAX_W).length <= 3) break;
-    fsize -= 8;
-  }
-  const titleLines   = wrapText(ctx, textToMeasure, MAX_W);
-  const lineH        = fsize;
-  const BOTTOM_ANCHOR = STORY_H - 680;
-  const titleY       = BOTTOM_ANCHOR - titleLines.length * lineH;
+  ctx.textAlign = 'left';
+  const titleLines = wrapText(ctx, title || 'Titre du film', STORY_W - LEFT * 2).slice(0, 2);
+  titleLines.forEach(line => { ctx.fillText(line, LEFT, cy); cy += 96; });
+  cy += 16;
 
-  ctx.font = `bold 30px ${FONT}`;
-  const badgeText = screeningLabel.toUpperCase();
-  const badgeW = ctx.measureText(badgeText).width + 40, badgeH = 60, bY = titleY - badgeH - 30;
-  ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = '#1C1C1E';
-  roundRect(ctx, LEFT, bY, badgeW, badgeH, badgeH / 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.fillText(badgeText, LEFT + 20, bY + badgeH / 2);
+  const pillItems = [
+    { text: date },
+    { text: time.replace(':', 'h') },
+    { text: duration || '' },
+    { text: lang },
+  ].filter(p => p.text);
+
+  const pH = 56, pR = pH / 2;
+  ctx.font = `600 28px ${FONT_SANS}`;
+  let px = LEFT;
+  for (const item of pillItems) {
+    const tw = ctx.measureText(item.text).width;
+    const pw = tw + 44;
+    ctx.save();
+    ctx.fillStyle = 'rgba(30,30,30,0.08)';
+    roundRect(ctx, px, cy, pw, pH, pR); ctx.fill();
+    ctx.fillStyle = 'rgba(30,30,30,0.6)';
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText(item.text, px + 22, cy + pH / 2);
+    ctx.restore();
+    px += pw + 14;
+    if (px > STORY_W - LEFT - 200) { px = LEFT; cy += pH + 14; }
+  }
+  cy += pH + 36;
+
+  ctx.strokeStyle = 'rgba(30,30,30,0.1)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath();
+  ctx.moveTo(LEFT, cy); ctx.lineTo(STORY_W - LEFT, cy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  cy += 44;
+
+  const R_OUT = 148, R_IN = 108;
+  const GAP = 40;
+  const TEXT_W = 280;
+  const GAUGE_DIAM = R_OUT * 2;
+  const GROUP_W = GAUGE_DIAM + GAP + TEXT_W;
+  const GROUP_X = (STORY_W - GROUP_W) / 2;   // décalage gauche pour centrer le groupe
+
+  const GCX = GROUP_X + R_OUT;               // centre de l'arc
+  const GCY = cy + R_OUT;                    // centre de l'arc (base = cy)
+
+  // Arc fond
+  ctx.save();
+  ctx.strokeStyle = 'rgba(30,30,30,0.08)';
+  ctx.lineWidth = R_OUT - R_IN;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(GCX, GCY, (R_OUT + R_IN) / 2, Math.PI, 0, false);
+  ctx.stroke();
+
+  // Arc rempli
+  const progress = expectation / 4;
+  const arcAngle = Math.PI * progress;
+  const fillColor = EXPECTATIONS[expectation].barHex;
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = R_OUT - R_IN;
+  ctx.globalAlpha = 0.9;
+  ctx.beginPath();
+  ctx.arc(GCX, GCY, (R_OUT + R_IN) / 2, Math.PI, Math.PI + arcAngle, false);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Marques des 5 positions
+  for (let i = 0; i <= 4; i++) {
+    const angle = Math.PI + (Math.PI * i / 4);
+    const mx1 = GCX + (R_IN - 10) * Math.cos(angle);
+    const my1 = GCY + (R_IN - 10) * Math.sin(angle);
+    const mx2 = GCX + (R_OUT + 10) * Math.cos(angle);
+    const my2 = GCY + (R_OUT + 10) * Math.sin(angle);
+    ctx.strokeStyle = '#F5F2EC';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mx1, my1); ctx.lineTo(mx2, my2);
+    ctx.stroke();
+  }
+
+// Aiguille — Projecteur cinéma
+  const needleAngle = Math.PI + (Math.PI * expectation / 4);
+  const needleLen = R_IN - 12;
+  const nx = GCX + needleLen * Math.cos(needleAngle);
+  const ny = GCY + needleLen * Math.sin(needleAngle);
+
+  ctx.save();
+
+// ── FAISCEAU — faisceau correct orienté dans la direction de l'aiguille
+
+ctx.save();
+
+const beamLen = (R_IN - 12) + 60;     // un peu plus long que l'aiguille
+const beamHalfAngle = 0.28;           // demi-angle d'ouverture (~16°)
+const haloHalfAngle = 0.48;
+
+// Angles des bords gauche/droit
+const leftAngle  = needleAngle - beamHalfAngle;
+const rightAngle = needleAngle + beamHalfAngle;
+const haloLeft   = needleAngle - haloHalfAngle;
+const haloRight  = needleAngle + haloHalfAngle;
+
+// Points d'extrémité sur les bords du cône
+const beamL = { x: GCX + beamLen * Math.cos(leftAngle),  y: GCY + beamLen * Math.sin(leftAngle)  };
+const beamR = { x: GCX + beamLen * Math.cos(rightAngle), y: GCY + beamLen * Math.sin(rightAngle) };
+const haloL = { x: GCX + beamLen * Math.cos(haloLeft),   y: GCY + beamLen * Math.sin(haloLeft)   };
+const haloR = { x: GCX + beamLen * Math.cos(haloRight),  y: GCY + beamLen * Math.sin(haloRight)  };
+
+// Centre de l'arc terminal = point sur l'axe central à distance beamLen
+const arcCX = GCX + beamLen * Math.cos(needleAngle);
+const arcCY = GCY + beamLen * Math.sin(needleAngle);
+// Rayon de l'arc terminal = distance entre arcC et beamL/beamR
+const beamArcR = Math.sqrt((beamR.x - arcCX) ** 2 + (beamR.y - arcCY) ** 2);
+const haloArcR = Math.sqrt((haloR.x - arcCX) ** 2 + (haloR.y - arcCY) ** 2);
+
+// Angles de l'arc terminal vus depuis arcC
+const arcStartAngle = Math.atan2(beamL.y - arcCY, beamL.x - arcCX);
+const arcEndAngle   = Math.atan2(beamR.y - arcCY, beamR.x - arcCX);
+const haloArcStart  = Math.atan2(haloL.y - arcCY, haloL.x - arcCX);
+const haloArcEnd    = Math.atan2(haloR.y - arcCY, haloR.x - arcCX);
+
+// ── HALO
+ctx.beginPath();
+ctx.moveTo(GCX, GCY);
+ctx.lineTo(haloL.x, haloL.y);
+ctx.arc(arcCX, arcCY, haloArcR, haloArcStart, haloArcEnd, false);
+ctx.lineTo(GCX, GCY);
+ctx.closePath();
+const haloGrad = ctx.createRadialGradient(GCX, GCY, 10, GCX, GCY, beamLen + 60);
+haloGrad.addColorStop(0,   'rgba(255, 220, 80, 0.18)');
+haloGrad.addColorStop(0.6, 'rgba(255, 210, 60, 0.07)');
+haloGrad.addColorStop(1,   'rgba(255, 200, 40, 0)');
+ctx.fillStyle = haloGrad;
+ctx.fill();
+
+// ── CÔNE PRINCIPAL
+ctx.beginPath();
+ctx.moveTo(GCX, GCY);
+ctx.lineTo(beamL.x, beamL.y);
+ctx.arc(arcCX, arcCY, beamArcR, arcStartAngle, arcEndAngle, false);
+ctx.lineTo(GCX, GCY);
+ctx.closePath();
+const beamGrad = ctx.createRadialGradient(GCX, GCY, 12, GCX, GCY, beamLen);
+beamGrad.addColorStop(0,   'rgba(255, 220, 80, 0.58)');
+beamGrad.addColorStop(0.5, 'rgba(255, 210, 60, 0.30)');
+beamGrad.addColorStop(1,   'rgba(255, 200, 40, 0)');
+ctx.fillStyle = beamGrad;
+ctx.fill();
+
+ctx.restore();
+
+  // ── PIED DU PROJECTEUR (fixe, coordonnées canvas absolues)
+  const footX = GCX;
+  const footY = GCY;
+
+  ctx.fillStyle = '#1c1c1c';
+  // Bras vertical
+  ctx.beginPath();
+  ctx.roundRect(footX - 5, footY, 10, 32, 3);
+  ctx.fill();
+  // Base horizontale
+  ctx.beginPath();
+  ctx.roundRect(footX - 18, footY + 28, 36, 8, 4);
+  ctx.fill();
+
+  // ── CORPS DU PROJECTEUR (pivote avec l'aiguille)
+  ctx.translate(GCX, GCY);
+  ctx.rotate(needleAngle);
+
+  // Corps principal
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.roundRect(-10, -13, 36, 26, 5);
+  ctx.fill();
+
+  // Ailette arrière
+  ctx.fillStyle = '#252525';
+  ctx.beginPath();
+  ctx.moveTo(26,  -13);
+  ctx.lineTo(40,  -20);
+  ctx.lineTo(40,   20);
+  ctx.lineTo(26,   13);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lentille frontale
+  ctx.fillStyle = '#0a0a0a';
+  ctx.beginPath();
+  ctx.arc(-10, 0, 13, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#2e2e2e';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(-10, 0, 13, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Lueur lentille (jaune fixe, couleur lumière)
+  ctx.fillStyle = 'rgba(255, 220, 80, 0.85)';
+  ctx.beginPath();
+  ctx.arc(-10, 0, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Reflet spéculaire
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.beginPath();
+  ctx.arc(-14, -4, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // Labels extrêmes sous l'arc
+  ctx.font = `500 22px ${FONT_SANS}`;
+  ctx.fillStyle = 'rgba(30,30,30,0.28)';
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  ctx.fillText('Draîné', GCX - R_OUT, GCY + 18);
+  ctx.textAlign = 'right';
+  ctx.fillText('Hanté', GCX + R_OUT, GCY + 18);
+
+  // ── BLOC TEXTE : centré verticalement sur la hauteur de l'arc (GCY - R_OUT → GCY)
+  const TEXT_X = GCX + R_OUT + GAP;
+  // hauteur totale du bloc texte : label(24) + gap(8) + label_val(52+) + gap(12) + sub(26)
+  // on centre ce bloc sur GCY - R_OUT/2 (milieu vertical de l'arc)
+  const arcMidY = GCY - R_OUT / 2;
+
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+
+  // "HYPE LEVEL" — petit label
+  ctx.font = `600 24px ${FONT_SANS}`;
+  ctx.fillStyle = 'rgba(30,30,30,0.32)';
+  const hypeLineH = 24;
+  const labelLineH = 58;
+  const subLineH   = 30;
+  const blockH = hypeLineH + 10 + labelLineH + 10 + subLineH;
+  const blockStartY = arcMidY - blockH / 2;
 
   ctx.textBaseline = 'top';
-  ctx.font = `900 ${fsize}px ${FONT}`;
-  ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 6;
-  ctx.fillStyle = '#FFF';
-  titleLines.forEach((l, i) => ctx.fillText(l, LEFT, titleY + i * lineH));
-  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillText('HYPE LEVEL', TEXT_X, blockStartY);
 
-  const BFONT = `bold 42px ${FONT}`, BH = 88, BY = titleY + titleLines.length * lineH + 40;
-  ctx.font = BFONT; ctx.textBaseline = 'middle';
-  let bx = LEFT;
-  const badgesInfo = [
-    { text: date, type: 'calendar' },
-    { text: time.replace(':', 'h'), type: 'clock' },
-    { text: lang, type: 'globe' },
-  ];
-  for (const badge of badgesInfo) {
-    const iconSize = 34, gap = 14, px = 32;
-    const bw = px + iconSize + gap + ctx.measureText(badge.text).width + px;
-    ctx.save(); ctx.globalAlpha = 0.92; ctx.fillStyle = '#1C1C1E';
-    roundRect(ctx, bx, BY, bw, BH, BH / 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const ix = bx + px, iy = BY + (BH - iconSize) / 2;
-    ctx.translate(ix, iy); ctx.scale(iconSize / 24, iconSize / 24); ctx.beginPath();
-    if (badge.type === 'calendar') {
-      ctx.moveTo(5, 4); ctx.lineTo(19, 4); ctx.arcTo(21, 4, 21, 6, 2); ctx.lineTo(21, 20);
-      ctx.arcTo(21, 22, 19, 22, 2); ctx.lineTo(5, 22); ctx.arcTo(3, 22, 3, 20, 2);
-      ctx.lineTo(3, 6); ctx.arcTo(3, 4, 5, 4, 2);
-      ctx.moveTo(16, 2); ctx.lineTo(16, 6); ctx.moveTo(8, 2); ctx.lineTo(8, 6);
-      ctx.moveTo(3, 10); ctx.lineTo(21, 10);
-    } else if (badge.type === 'clock') {
-      ctx.arc(12, 12, 10, 0, Math.PI * 2); ctx.moveTo(12, 6); ctx.lineTo(12, 12); ctx.lineTo(16, 14);
-    } else {
-      ctx.arc(12, 12, 10, 0, Math.PI * 2); ctx.moveTo(2, 12); ctx.lineTo(22, 12);
-      ctx.moveTo(12, 2); ctx.ellipse(12, 12, 4, 10, 0, -Math.PI / 2, Math.PI * 1.5);
-    }
-    ctx.stroke(); ctx.restore();
-    ctx.fillStyle = '#FFF'; ctx.font = BFONT; ctx.textAlign = 'left';
-    ctx.fillText(badge.text, ix + iconSize + gap, BY + BH / 2);
-    bx += bw + 18;
-  }
+  // Mot clé principal
+  ctx.font = `800 52px ${FONT_SYNE}`;
+  ctx.fillStyle = '#1a1a1a';
+  const labelLines = wrapText(ctx, EXPECTATIONS[expectation].label, TEXT_W);
+  labelLines.forEach((line, i) => {
+    ctx.fillText(line, TEXT_X, blockStartY + hypeLineH + 10 + i * labelLineH);
+  });
 
-  const CX = LEFT, CY = BY + BH + 50, CW = STORY_W - LEFT * 2, CH = 260, CR = 56;
-  ctx.save(); ctx.globalAlpha = 0.72; ctx.fillStyle = '#000';
-  roundRect(ctx, CX, CY, CW, CH, CR); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; ctx.restore();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = `bold 28px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillText('HYPE  METER', CX + 52, CY + 44);
-  ctx.fillStyle = '#FFF'; ctx.font = `900 italic 68px ${FONT}`;
-  ctx.fillText(EXPECTATIONS[expectation].label, CX + 52, CY + 82);
-  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.font = `900 italic 88px ${FONT}`;
-  ctx.textAlign = 'right'; ctx.fillText(`${expectation + 1}/5`, CX + CW - 52, CY + 54); ctx.textAlign = 'left';
+  // Sous-texte
+  ctx.font = `400 26px ${FONT_SANS}`;
+  ctx.fillStyle = 'rgba(30,30,30,0.42)';
+  const subLines = wrapText(ctx, EXPECTATIONS[expectation].sub, TEXT_W);
+  subLines.forEach((line, i) => {
+    ctx.fillText(line, TEXT_X, blockStartY + hypeLineH + 10 + labelLines.length * labelLineH + 10 + i * subLineH);
+  });
 
-  const barW = (CW - 104 - 14 * 4) / 5, barY = CY + CH - 60;
-  for (let i = 0; i < 5; i++) {
-    roundRect(ctx, CX + 52 + i * (barW + 14), barY, barW, 22, 11);
-    ctx.fillStyle = i <= expectation ? EXPECTATIONS[i].barHex : 'rgba(255,255,255,0.1)';
-    ctx.shadowColor = i <= expectation ? EXPECTATIONS[i].barHex : 'transparent';
-    ctx.shadowBlur = i <= expectation ? 12 : 0; ctx.fill();
-  }
-  ctx.shadowBlur = 0; ctx.restore();
   return canvas;
 }
 
@@ -1495,6 +1726,7 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
   const [date,          setDate]          = useState(pendingFilm?.date   || new Date().toLocaleDateString('fr-FR'));
   const [time,          setTime]          = useState(pendingFilm?.heure  ? pendingFilm.heure.replace('h', ':') : '20:00');
   const [lang,          setLang]          = useState(pendingFilm?.langue || 'VOSTFR');
+  const [duration,      setDuration]      = useState(pendingFilm?.duree  || '');
   const [expectation,   setExpectation]   = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
   const [posterImg,     setPosterImg]     = useState(null);
@@ -1509,30 +1741,27 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
 
   const currentYear  = date ? date.split('/')[2] : String(new Date().getFullYear());
   const yearlyScreeningNumber = (historyData || []).filter(f => f.date?.endsWith(currentYear)).length + 1;
-  const screeningLabel = `${currentYear} — Séance #${yearlyScreeningNumber}`;
+  const screeningLabel = `${currentYear} — Séance #${String(yearlyScreeningNumber).padStart(3, '0')}`;
 
   useEffect(() => {
     if (!pendingFilm?.affiche) { setPosterImg(null); return; }
     setPosterLoading(true);
-    loadImageForCanvas(pendingFilm.affiche).then((img) => {
+    loadImageForCanvas(pendingFilm.affiche).then(img => {
       if (img?.src?.startsWith('blob:')) blobUrlsRef.current.push(img.src);
       setPosterImg(img); setPosterLoading(false);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFilm?.affiche]);
 
   useEffect(() => () => { blobUrlsRef.current.forEach(URL.revokeObjectURL); }, []);
-  paramsRef.current = { title, date, time, lang, expectation, posterImg, screeningLabel };
+  paramsRef.current = { title, date, time, lang, duration, expectation, posterImg, screeningLabel };
 
   useEffect(() => {
     if (previewRef.current) renderStoryToCanvas(previewRef.current, paramsRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, date, time, lang, expectation, posterImg, screeningLabel]);
+  }, [title, date, time, lang, duration, expectation, posterImg, screeningLabel]);
 
-  const assignPreviewRef = useCallback((node) => {
+  const assignPreviewRef = useCallback(node => {
     previewRef.current = node;
     if (node) requestAnimationFrame(() => renderStoryToCanvas(node, paramsRef.current));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1541,13 +1770,13 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = async e => {
     const file = e.target.files?.[0]; if (!file) return;
     setPosterLoading(true);
     const objectUrl = URL.createObjectURL(file);
     blobUrlsRef.current.push(objectUrl);
     try { const img = await loadImgElement(objectUrl); setPosterImg(img); }
-    catch { alert("Impossible de charger cette image."); }
+    catch { alert('Impossible de charger cette image.'); }
     finally { setPosterLoading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
@@ -1557,7 +1786,7 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
     try {
       const exportCanvas = document.createElement('canvas');
       await renderStoryToCanvas(exportCanvas, paramsRef.current);
-      exportCanvas.toBlob(async (blob) => {
+      exportCanvas.toBlob(async blob => {
         if (!blob) { alert('Erreur de génération.'); setIsDownloading(false); return; }
         const file = new File([blob], `seance_${yearlyScreeningNumber}.png`, { type: 'image/png' });
         if (navigator.canShare?.({ files: [file] })) {
@@ -1573,6 +1802,8 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
     } catch (err) { console.error(err); alert('Erreur inattendue. Réessaie.'); setIsDownloading(false); }
   }, [isDownloading, yearlyScreeningNumber]);
 
+  const HYPE_COLORS = ['rgba(255,255,255,0.4)', '#93C5FD', '#C084FC', '#FB923C', '#E8B200'];
+
   return (
     <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden">
       <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
@@ -1583,14 +1814,13 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
         <div className="w-10"/>
       </header>
 
-      <div className="px-6 py-6 flex flex-col gap-6">
+      <div className="px-5 py-6 flex flex-col gap-5">
+
+        {/* PREVIEW */}
         <div ref={wrapperRef} className="w-full relative bg-black rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl" style={{ aspectRatio: '9/16' }}>
           {posterLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/60 rounded-[2rem]">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#E8B200] border-t-transparent rounded-full animate-spin"/>
-                <span className="text-white/60 text-xs font-medium font-outfit">Chargement…</span>
-              </div>
+              <div className="w-8 h-8 border-2 border-[#E8B200] border-t-transparent rounded-full animate-spin"/>
             </div>
           )}
           <canvas ref={assignPreviewRef} width={STORY_W} height={STORY_H}
@@ -1598,47 +1828,113 @@ function SeanceStoryTool({ historyData = [], onBack, pendingFilm }) {
             style={{ width: `${STORY_W}px`, height: `${STORY_H}px`, transform: `scale(${previewScale})` }}/>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-8 text-white">
-          <div>
-            <label className="font-outfit text-white/40 text-xs font-bold uppercase tracking-widest mb-3 block">
-              Hype Meter — <span className="text-white/70">{EXPECTATIONS[expectation].label}</span>
-            </label>
-            <div className="flex gap-2">
-              {EXPECTATIONS.map((exp, i) => (
-                <button key={i} onClick={() => setExpectation(i)}
-                  className="flex-1 h-3 rounded-full transition-all active:scale-95"
-                  style={{ background: i <= expectation ? exp.barHex : 'rgba(255,255,255,0.1)', boxShadow: i === expectation ? `0 0 12px ${exp.barHex}` : 'none' }}/>
-              ))}
-            </div>
+        {/* HYPE SELECTOR */}
+        <div className="bg-[#141418] border border-white/8 rounded-2xl p-5">
+          <div className="font-outfit text-[10px] font-bold tracking-widest uppercase text-white/30 mb-3">
+            Hype level
           </div>
-          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden"/>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="w-full h-14 rounded-2xl bg-white/5 text-white/80 font-outfit font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10 hover:bg-white/10">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            Changer l'affiche manuellement
-          </button>
+          {/* Jauge visuelle interactive */}
+          <div className="flex gap-2 mb-3">
+            {EXPECTATIONS.map((exp, i) => (
+              <button key={i} onClick={() => setExpectation(i)}
+                className="flex-1 flex flex-col items-center gap-1.5 group transition-all active:scale-95">
+                <div className="w-full h-1.5 rounded-full transition-all"
+                  style={{ background: i <= expectation ? exp.barHex : 'rgba(255,255,255,0.08)' }}/>
+                <span className="font-outfit text-[8px] font-semibold transition-all"
+                  style={{ color: i === expectation ? exp.barHex : 'rgba(255,255,255,0.2)' }}>
+                  {exp.label}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* Label sélectionné */}
+          <div className="flex items-center gap-2 mt-1">
+            <span className="font-syne font-black text-base tracking-tight"
+              style={{ color: EXPECTATIONS[expectation].barHex }}>
+              {EXPECTATIONS[expectation].label}
+            </span>
+            <span className="font-outfit text-xs text-white/30">·</span>
+            <span className="font-outfit text-xs text-white/40 italic">
+              {EXPECTATIONS[expectation].sub}
+            </span>
+          </div>
         </div>
 
+        {/* INFOS FILM */}
+        <div className="bg-[#141418] border border-white/8 rounded-2xl p-5 flex flex-col gap-4">
+          <div className="font-outfit text-[10px] font-bold tracking-widest uppercase text-white/30">Infos séance</div>
+
+          {/* Titre */}
+          <div>
+            <label className="font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5">Titre</label>
+            <input
+              type="text" value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="Titre du film…"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"
+            />
+          </div>
+
+          {/* Date + Heure */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5">Date</label>
+              <input type="text" value={date} onChange={e => setDate(e.target.value)}
+                placeholder="JJ/MM/AAAA"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"/>
+            </div>
+            <div>
+              <label className="font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5">Heure</label>
+              <input type="text" value={time} onChange={e => setTime(e.target.value)}
+                placeholder="20:00"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"/>
+            </div>
+          </div>
+
+          {/* Durée + Langue */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5">Durée</label>
+              <input type="text" value={duration} onChange={e => setDuration(e.target.value)}
+                placeholder="2h08"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"/>
+            </div>
+            <div>
+              <label className="font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5">Langue</label>
+              <input type="text" value={lang} onChange={e => setLang(e.target.value)}
+                placeholder="VOSTFR"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"/>
+            </div>
+          </div>
+        </div>
+
+        {/* AFFICHE MANUELLE */}
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden"/>
+        <button onClick={() => fileInputRef.current?.click()}
+          className="w-full h-12 rounded-2xl bg-white/5 text-white/60 font-outfit font-semibold text-xs flex items-center justify-center gap-2.5 active:scale-95 transition-all border border-white/8 hover:bg-white/8">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          Changer l'affiche manuellement
+        </button>
+
+        {/* PARTAGER */}
         <button onClick={downloadStory} disabled={isDownloading || !title.trim()}
           className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-outfit font-extrabold text-sm transition-all
-            ${isDownloading || !title.trim() ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95 hover:shadow-[0_8px_32px_rgba(232,178,0,0.4)]'}`}>
-          {isDownloading ? (
-            <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"/>
-          ) : (
-            <>
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                <polyline points="16 6 12 2 8 6"/>
-                <line x1="12" y1="2" x2="12" y2="15"/>
-              </svg>
-              Partager la Story
-            </>
-          )}
+            ${isDownloading || !title.trim()
+              ? 'bg-[#E8B200]/40 text-black/40 cursor-wait'
+              : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.28)] active:scale-95'}`}>
+          {isDownloading
+            ? <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"/>
+            : <>
+                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                  <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>
+                Partager la Story
+              </>}
         </button>
+
       </div>
     </div>
   );

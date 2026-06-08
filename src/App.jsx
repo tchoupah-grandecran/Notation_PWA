@@ -159,11 +159,6 @@ function App() {
 
   const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
 
-  // ✅ CORRECTION safe-area-bottom standalone iOS :
-  // On pousse --theme-bg sur :root pour que html/body (qui sont AU-DESSUS
-  // du div React dans le DOM) aient la bonne couleur de fond.
-  // En PWA standalone, la safe-area-bottom est peinte par html/body,
-  // pas par les divs React qui s'arrêtent au viewport logique.
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-bg', theme.bg);
   }, [theme.bg]);
@@ -172,44 +167,44 @@ function App() {
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); },        [userToken, spreadsheetId, activeTab]);
 
-/* ─── Reset on tab change ─────────────────────────────────────────── */
-useEffect(() => {
-  const activeEl = document.activeElement;
-  const isInputFocused = activeEl && (
-    activeEl.tagName === 'INPUT' ||
-    activeEl.tagName === 'TEXTAREA' ||
-    activeEl.isContentEditable
-  );
-  if (!isInputFocused) {
-    window.scrollTo(0, 0);
-  }
-  setScrollY(0);
-  setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
-}, [activeTab]);
-
-/* ─── Scroll handler (un seul, remplace l'ancien) ─────────────────── */
-useEffect(() => {
-  let lastDocHeight = document.documentElement.scrollHeight;
-
-  const handleScroll = () => {
-    const currentDocHeight = document.documentElement.scrollHeight;
-    if (currentDocHeight !== lastDocHeight) {
-      lastDocHeight = currentDocHeight;
-      return;
+  /* ─── Reset on tab change ─────────────────────────────────────────── */
+  useEffect(() => {
+    const activeEl = document.activeElement;
+    const isInputFocused = activeEl && (
+      activeEl.tagName === 'INPUT' ||
+      activeEl.tagName === 'TEXTAREA' ||
+      activeEl.isContentEditable
+    );
+    if (!isInputFocused) {
+      window.scrollTo(0, 0);
     }
-    const y = window.scrollY;
-    setScrollY(y);
-    if (
-      activeTab === 'history' &&
-      window.innerHeight + y >= document.documentElement.scrollHeight - 150
-    ) {
-      setDisplayCount(prev => prev + 15);
-    }
-  };
+    setScrollY(0);
+    setHeaderTitle(DEFAULT_TITLES[activeTab] || '');
+  }, [activeTab]);
 
-  window.addEventListener('scroll', handleScroll, { passive: true });
-  return () => window.removeEventListener('scroll', handleScroll);
-}, [activeTab]);
+  /* ─── Scroll handler ─────────────────────────────────────────────── */
+  useEffect(() => {
+    let lastDocHeight = document.documentElement.scrollHeight;
+
+    const handleScroll = () => {
+      const currentDocHeight = document.documentElement.scrollHeight;
+      if (currentDocHeight !== lastDocHeight) {
+        lastDocHeight = currentDocHeight;
+        return;
+      }
+      const y = window.scrollY;
+      setScrollY(y);
+      if (
+        activeTab === 'history' &&
+        window.innerHeight + y >= document.documentElement.scrollHeight - 150
+      ) {
+        setDisplayCount(prev => prev + 15);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab]);
 
   /* Stable callbacks */
   const handleSetHeaderRight = useCallback((el) => setHeaderRight(el), []);
@@ -228,7 +223,11 @@ useEffect(() => {
       setFilms(found || []);
       setNextFilm(found?.[0] || null);
       setPendingCount(found?.length || 0);
-      if (found && found.length > 0) setShowNotation(true);
+      if (found && found.length > 0) {
+        setShowNotation(true);
+      } else {
+        setShowNotation(false); // ← FIX : ferme la notation si plus rien à noter
+      }
     } catch (err) {
       console.error('Erreur scan:', err);
       if (err.status === 401) authLogout();
@@ -252,8 +251,6 @@ useEffect(() => {
   if (!userToken) return <WelcomeScreen login={login} />;
 
   return (
-    // Approche scroll naturel comme Ma Jungle :
-    // min-h-dvh sur le wrapper, scroll natif iOS, safe-area gérée automatiquement.
     <div
       className="min-h-dvh font-outfit transition-colors duration-700"
       style={{ background: theme.bg, color: theme.text, ...tokens }}
@@ -264,7 +261,6 @@ useEffect(() => {
         id="main-scroll-container"
         className="min-h-dvh overflow-x-hidden scrollbar-hide"
         style={{ zIndex: 10 }}
-
       >
         <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}></div>
         {activeTab === 'home' && !showNotation && (
@@ -346,18 +342,19 @@ useEffect(() => {
           films={films}
           token={userToken}
           spreadsheetId={spreadsheetId}
+          ratingScale={prefs.ratingScale}
           onSaved={async () => { invalidate(); loadHistory(); await handleScan(userToken); }}
           onSkip={() => setShowNotation(false)}
         />
       )}
 
       {!showNotation && pendingCount > 0 && nextFilm && (
-  <PendingRatingToast
-    film={nextFilm}
-    count={pendingCount}
-    onOpen={() => setShowNotation(true)}
-  />
-)}
+        <PendingRatingToast
+          film={nextFilm}
+          count={pendingCount}
+          onOpen={() => setShowNotation(true)}
+        />
+      )}
     </div>
   );
 }
