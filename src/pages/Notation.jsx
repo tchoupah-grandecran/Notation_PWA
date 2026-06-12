@@ -83,7 +83,16 @@ function Star({ fill = 0, size = 34 }) {
 
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
-  const film = films[0];
+  // On trie les films pour mettre le plus récent en premier
+const film = useMemo(() => {
+  if (!films || films.length === 0) return null;
+  
+  return [...films].sort((a, b) => {
+    const yearA = parseInt(a.annee, 10) || 0;
+    const yearB = parseInt(b.annee, 10) || 0;
+    return yearB - yearA; // Ordre décroissant (ex: 2026, puis 2024, puis 1999)
+  })[0];
+}, [films]);
 
   const [rating, setRating] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
