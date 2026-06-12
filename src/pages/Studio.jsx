@@ -1421,12 +1421,12 @@ async function renderStoryToCanvas(canvas, params) {
   ctx.save();
   ctx.globalAlpha = 0.65;
   ctx.fillStyle = '#000';
-  roundRect(ctx, 64, 80, bW, bH, bR); ctx.fill();
+  roundRect(ctx, 64, 140, bW, bH, bR); ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.fillText(badgeText, 64 + 30, 80 + bH / 2);
+  ctx.fillText(badgeText, 64 + 30, 140 + bH / 2);
   ctx.restore();
 
   const TICKET_Y = POSTER_H;
