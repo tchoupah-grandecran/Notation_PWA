@@ -83,17 +83,12 @@ function Star({ fill = 0, size = 34 }) {
 
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
-  // On trie les films pour mettre le plus récent en premier
-const film = useMemo(() => {
-  if (!films || films.length === 0) return null;
-  
-  return [...films].sort((a, b) => {
-    const yearA = parseInt(a.annee, 10) || 0;
-    const yearB = parseInt(b.annee, 10) || 0;
-    return yearB - yearA; // Ordre décroissant (ex: 2026, puis 2024, puis 1999)
-  })[0];
-}, [films]);
 
+  console.log("=== DEBUG NOTATION ===");
+  console.log("Nombre de films reçus :", films?.length);
+  console.log("Liste brute des films :", films);
+  
+  // 1. D'abord, on déclare tous les états locaux (Hooks d'état en premier)
   const [rating, setRating] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [comment, setComment] = useState('');
@@ -101,44 +96,64 @@ const film = useMemo(() => {
   const [isCapucine, setIsCapucine] = useState(false);
   const [price, setPrice] = useState('0.00');
 
-  // États pour la sélection de la langue
   const [selectedLang, setSelectedLang] = useState(null);
   const [customLang, setCustomLang] = useState('');
   const [langError, setLangError] = useState(false);
 
-  // État pour la modification du titre
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const titleInputRef = useRef(null);
 
-  // État pour le poster personnalisé
-  const [customPoster, setCustomPoster] = useState(null); // data URL de l'image choisie
+  const [customPoster, setCustomPoster] = useState(null);
   const posterInputRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [numeroSeance, setNumeroSeance] = useState('...');
 
-  const safeRatingScale = Number(ratingScale) || 5;
-  const starSize = safeRatingScale > 5 ? 26 : 34;
-  const gapSize = safeRatingScale > 5 ? "gap-[3px]" : "gap-[5px]";
+  // 2. Ensuite, on extrait le film le plus récent de manière blindée
+  const film = useMemo(() => {
+    if (!films || films.length === 0) return null;
 
-  const starsRef = useRef(null);
+    // Helper pour récupérer l'année peu importe la source (TMDB ou ton scraper)
+    const getYear = (f) => {
+      if (!f) return 0;
+      if (f.annee) return parseInt(f.annee, 10) || 0;
+      if (f.release_date) return parseInt(f.release_date.split('-')[0], 10) || 0;
+      if (f.date && f.date.includes('/')) {
+        const parts = f.date.split('/');
+        return parseInt(parts[parts.length - 1], 10) || 0;
+      }
+      return 0;
+    };
 
-  const tmdbPosterUrl = film?.affiche
-    ? (import.meta.env.DEV
-        ? `/tmdb-proxy?url=${encodeURIComponent(film.affiche)}`
-        : `/api/proxy-image?url=${encodeURIComponent(film.affiche)}`)
-    : null;
+    return [...films].sort((a, b) => getYear(b) - getYear(a))[0];
+  }, [films]);
 
-  // Le poster affiché : priorité au poster personnalisé
-  const posterUrl = customPoster || tmdbPosterUrl;
-  // Le titre affiché : priorité au titre édité
-  const displayTitle = editedTitle || film?.titre || '';
-
+  // 3. Crucial : Reset du formulaire complet quand le film sélectionné change
   useEffect(() => {
+    if (film) {
+      setRating(0);
+      setComment('');
+      setIsFavorite(false);
+      setIsCapucine(false);
+      setPrice('0.00');
+      setSelectedLang(null);
+      setCustomLang('');
+      setLangError(false);
+      setIsEditingTitle(false);
+      setEditedTitle('');
+      setCustomPoster(null);
+      setSaved(false);
+    }
+  }, [film]);
+
+  // 4. Récupération des données de séance
+  useEffect(() => {
+    // On utilise une détection adaptative de l'année pour l'API
+    const filmYear = film?.annee || film?.release_date?.split('-')[0] || '2026';
     if (film && spreadsheetId) {
-      getProchainNumeroSeance(token, spreadsheetId, film.annee).then(setNumeroSeance);
+      getProchainNumeroSeance(token, spreadsheetId, filmYear).then(setNumeroSeance);
     }
   }, [film, spreadsheetId, token]);
 
@@ -151,6 +166,24 @@ const film = useMemo(() => {
 
   if (!film) return null;
 
+  // Fallbacks adaptatifs pour l'affichage (gère les clés FR et EN de TMDB)
+  const movieTitle = film.titre || film.title || '';
+  const moviePoster = film.affiche || film.poster_path || null;
+
+  const tmdbPosterUrl = moviePoster
+    ? (import.meta.env.DEV
+        ? `/tmdb-proxy?url=${encodeURIComponent(moviePoster)}`
+        : `/api/proxy-image?url=${encodeURIComponent(moviePoster)}`)
+    : null;
+
+  const posterUrl = customPoster || tmdbPosterUrl;
+  const displayTitle = editedTitle || movieTitle;
+
+  const safeRatingScale = Number(ratingScale) || 5;
+  const starSize = safeRatingScale > 5 ? 26 : 34;
+  const gapSize = safeRatingScale > 5 ? "gap-[3px]" : "gap-[5px]";
+  const starsRef = useRef(null);
+
   // ─── HANDLERS TITRE ───────────────────────────────────────────────────────
   const handleTitleEditStart = () => {
     setEditedTitle(displayTitle);
@@ -158,7 +191,7 @@ const film = useMemo(() => {
   };
 
   const handleTitleEditConfirm = () => {
-    if (!editedTitle.trim()) setEditedTitle(film.titre);
+    if (!editedTitle.trim()) setEditedTitle(movieTitle);
     setIsEditingTitle(false);
   };
 

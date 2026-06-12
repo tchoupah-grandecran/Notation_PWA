@@ -143,7 +143,7 @@ const parsePatheEmail = (htmlBody, plainBody) => {
 };
 
 // Récupération TMDB
-const getMovieDataFromTMDB = async (titre) => {
+const getMovieDataFromTMDB = async (titre, annee) => {
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
   if (!titre || !TMDB_API_KEY) return { affiche: null, genre: "Cinéma", tmdbDuree: null };
 
@@ -151,8 +151,15 @@ const getMovieDataFromTMDB = async (titre) => {
     const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
     const json = await res.json();
     
-    if (json.results?.[0]) {
-      const movie = json.results[0];
+    if (json.results && json.results.length > 0) {
+      // On cherche en priorité le film dont la date de sortie (release_date) commence par notre année de séance (ex: "2026")
+      let movie = json.results.find(m => m.release_date && m.release_date.startsWith(String(annee)));
+      
+      // Sécurité : Si aucun film ne correspond à l'année exacte, on prend le premier résultat par défaut
+      if (!movie) {
+        movie = json.results[0];
+      }
+
       const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=fr-FR`);
       const details = await detailRes.json();
       
@@ -160,7 +167,6 @@ const getMovieDataFromTMDB = async (titre) => {
         affiche: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
         genre: details.genres?.[0]?.name || "Cinéma",
         tmdbId: movie.id,
-        // On renvoie la durée formatée ou null si absente
         tmdbDuree: details.runtime 
           ? `${Math.floor(details.runtime / 60)}h${String(details.runtime % 60).padStart(2, '0')}` 
           : null
@@ -209,7 +215,7 @@ export const getFilmsANoter = async (token) => {
         if (!parsed) return null;
 
         // 2. Récupération simultanée des infos TMDB
-        const tmdb = await getMovieDataFromTMDB(parsed.titre?.trim());
+        const tmdb = await getMovieDataFromTMDB(parsed.titre?.trim(), parsed.annee);
         
         // 3. Gestion de la Durée (TMDB > Calcul Email > Défaut)
         let finalDuree = "--h--";
