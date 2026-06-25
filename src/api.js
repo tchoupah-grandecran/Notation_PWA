@@ -1,5 +1,32 @@
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
+const FILMS_RANGE = "DB!A:P";
+const FILMS_APPEND_RANGE = "DB!A:P";
+
+const GMAIL_SCAN_QUERIES = [
+  'subject:"Confirmation de commande les cinémas Pathé" is:unread newer_than:180d',
+  '(from:ticketcine.fr OR subject:"Vos places pour") is:unread newer_than:180d',
+  '(from:cineville.fr OR subject:"Confirmation de votre commande Cinéville") is:unread newer_than:180d',
+];
+
+const MONTHS_FR = {
+  janvier: 1,
+  fevrier: 2,
+  février: 2,
+  mars: 3,
+  avril: 4,
+  mai: 5,
+  juin: 6,
+  juillet: 7,
+  aout: 8,
+  août: 8,
+  septembre: 9,
+  octobre: 10,
+  novembre: 11,
+  decembre: 12,
+  décembre: 12,
+};
+
 // Décodage Base64
 const decodeEmailBody = (data) => {
   if (!data) return "";
@@ -16,6 +43,101 @@ const decodeHtmlEntities = (text) => {
   return textArea.value;
 };
 
+const stripHtml = (html = "") => {
+  const normalized = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/li>/gi, "\n");
+  return decodeHtmlEntities(normalized.replace(/<[^>]*>/g, " "))
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const normalizeWhitespace = (text = "") =>
+  decodeHtmlEntities(String(text))
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const cleanTitle = (title = "") =>
+  normalizeWhitespace(title)
+    .replace(/^Film\s*:?\s*/i, "")
+    .replace(/^Titre du film\s*:?\s*/i, "")
+    .replace(/^La Soirée des Passionnés\s*:\s*/i, "")
+    .trim();
+
+const normalizeTime = (time = "") => {
+  const m = String(time).match(/(\d{1,2})\s*[:h]\s*(\d{2})/i);
+  if (!m) return "";
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+};
+
+const normalizeDateParts = (day, month, year) => {
+  const y = String(year).length === 2 ? `20${year}` : String(year);
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${y}`;
+};
+
+const normalizeNumericDate = (date = "") => {
+  const compact = String(date).match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) return normalizeDateParts(compact[3], compact[2], compact[1]);
+
+  const m = String(date).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (!m) return "";
+  return normalizeDateParts(m[1], m[2], m[3]);
+};
+
+const parseFrenchDateTime = (text = "") => {
+  const compact = text.match(/\b(\d{4})(\d{2})(\d{2})\b/);
+  if (compact) return { date: normalizeNumericDate(compact[0]) };
+
+  const numeric = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:\s*(?:à|a|-|,)?\s*(\d{1,2}[:h]\d{2}))?/i);
+  if (numeric) {
+    return {
+      date: normalizeDateParts(numeric[1], numeric[2], numeric[3]),
+      heure: normalizeTime(numeric[4] || ""),
+    };
+  }
+
+  const french = text.match(
+    /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})(?:\s*(?:à|a)\s*(\d{1,2}[:h]\d{2}))?/i
+  );
+  if (!french) return {};
+  return {
+    date: normalizeDateParts(french[1], MONTHS_FR[french[2].toLowerCase()], french[3]),
+    heure: normalizeTime(french[4] || ""),
+  };
+};
+
+const durationFromMinutes = (minutes) => {
+  if (!minutes || minutes < 45) return "";
+  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+};
+
+const computeDurationFromTimes = (start, end, trailerMinutes = 0) => {
+  const s = normalizeTime(start);
+  const e = normalizeTime(end);
+  if (!s || !e) return "";
+  const [sh, sm] = s.split(":").map(Number);
+  const [eh, em] = e.split(":").map(Number);
+  const startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if (endMin < startMin) endMin += 1440;
+  return durationFromMinutes(endMin - startMin - trailerMinutes);
+};
+
+const extractHeader = (payload, name) =>
+  payload?.headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+
+const getMessageFingerprint = (film) =>
+  [film?.titre, film?.date, film?.heure]
+    .map((v) => normalizeWhitespace(v || "").toLowerCase())
+    .join("|");
+
 // Recherche récursive des différentes parties de l'email
 const findEmailPart = (parts, mimeType) => {
   if (!parts) return null;
@@ -27,6 +149,13 @@ const findEmailPart = (parts, mimeType) => {
     }
   }
   return null;
+};
+
+const findAllEmailParts = (payload, mimeType, acc = []) => {
+  if (!payload) return acc;
+  if (payload.mimeType === mimeType && payload.body?.data) acc.push(payload.body.data);
+  if (payload.parts) payload.parts.forEach((part) => findAllEmailParts(part, mimeType, acc));
+  return acc;
 };
 
 // ==========================================
@@ -142,6 +271,106 @@ const parsePatheEmail = (htmlBody, plainBody) => {
   return data;
 };
 
+const parseTicketcineEmail = (htmlBody, plainBody, meta = {}) => {
+  const html = htmlBody || "";
+  const text = stripHtml(`${plainBody || ""}\n${html}`);
+  const sourceText = `${meta.from || ""} ${meta.subject || ""} ${text}`;
+  if (!/ticketcine|400\s*coups|cotecine|Vos places pour/i.test(sourceText)) return null;
+
+  const data = {
+    source: "ticketcine",
+    cinema: "",
+    langue: "?",
+    parseConfidence: 0,
+  };
+
+  const cinemaMatch = text.match(/Cin[ée]ma\s+[^,\n]+(?:Les\s+400\s+Coups|400\s+Coups)/i)
+    || html.match(/Logo du cin[ée]ma:\s*([^"]+)/i);
+  if (cinemaMatch) data.cinema = normalizeWhitespace(cinemaMatch[0] || cinemaMatch[1]);
+
+  const subjectTitle = meta.subject?.match(/Vos places pour\s+(.+?)\s+le\s+/i);
+  const titleMatch = text.match(/Film\s*:\s*([^\n\r]+)/i)
+    || text.match(/\n\s*([^\n\r]{2,80})\s*\n\s*IMPRIMER/i)
+    || subjectTitle;
+  if (titleMatch) data.titre = cleanTitle(titleMatch[1]);
+
+  const sessionLine = text.match(/S[ée]ance du\s+([^\n\r]+?)(?:\n|Film\s*:)/i)
+    || text.match(/((?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+\d{1,2}\s+\w+\s+\d{4}\s+(?:à|a)\s+\d{1,2}[:h]\d{2})/i);
+  const dt = parseFrenchDateTime(sessionLine?.[1] || meta.subject || text);
+  if (dt.date) data.date = dt.date;
+  if (dt.heure) data.heure = dt.heure;
+
+  const endMatch = text.match(/fin pr[ée]vue pour\s+(\d{1,2}[:h]\d{2})/i);
+  const explicitDuration = text.match(/Dur[ée]e\s*:\s*(\d{1,2})h(\d{2})/i);
+  if (explicitDuration) {
+    data.duree = `${Number(explicitDuration[1])}h${explicitDuration[2]}`;
+  } else if (data.heure && endMatch) {
+    data.duree = computeDurationFromTimes(data.heure, endMatch[1], 0);
+  }
+
+  const roomMatch = text.match(/\bSALLE\s+([A-Z0-9]+)/i);
+  if (roomMatch) data.salle = `Salle ${roomMatch[1].trim()}`;
+
+  const priceMatch = text.match(/Montant TTC\s*:\s*([\d,.]+)\s*euros/i)
+    || text.match(/soit\s+([\d,.]+)\s*euros/i);
+  if (priceMatch) data.depense = priceMatch[1].replace(",", ".");
+
+  const reservationMatch = text.match(/N[°o]\s*de r[ée]servation\s*:\s*([A-Z0-9-]+)/i)
+    || html.match(/QR code de la r[ée]servation:\s*([A-Z0-9-]+)/i);
+  if (reservationMatch) data.bookingRef = reservationMatch[1];
+
+  data.parseConfidence = ["titre", "date", "heure"].filter((key) => data[key]).length / 3;
+  return data.titre && data.date && data.heure ? data : null;
+};
+
+const parseCinevilleEmail = (htmlBody, plainBody, meta = {}) => {
+  const text = stripHtml(`${plainBody || ""}\n${htmlBody || ""}`);
+  const sourceText = `${meta.from || ""} ${meta.subject || ""} ${text}`;
+  if (!/cineville|cinéville|ws2\.cineville/i.test(sourceText)) return null;
+
+  const data = {
+    source: "cineville",
+    cinema: "Cinéville",
+    langue: "?",
+    parseConfidence: 0,
+  };
+
+  const titleMatch = text.match(/Titre du film\s*:\s*([^\n\r]+)/i);
+  if (titleMatch) data.titre = cleanTitle(titleMatch[1]);
+
+  const dateMatch = text.match(/Date de la s[ée]ance\s*:\s*(\d{8}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i);
+  if (dateMatch) {
+    const normalized = normalizeNumericDate(dateMatch[1]);
+    if (normalized) data.date = normalized;
+  }
+
+  const timeMatch = text.match(/Heure de la s[ée]ance\s*:\s*(\d{1,2}[:h]\d{2})(?::\d{2})?/i);
+  if (timeMatch) data.heure = normalizeTime(timeMatch[1]);
+
+  const bookingMatch = text.match(/Code Barre Billet\s*:\s*([A-Z0-9-]+)/i);
+  if (bookingMatch) data.bookingRef = bookingMatch[1];
+
+  data.parseConfidence = ["titre", "date", "heure"].filter((key) => data[key]).length / 3;
+  return data.titre && data.date && data.heure ? data : null;
+};
+
+const EMAIL_PARSERS = [
+  { id: "ticketcine", parse: parseTicketcineEmail },
+  { id: "cineville", parse: parseCinevilleEmail },
+  { id: "pathe", parse: (html, plain) => {
+    const parsed = parsePatheEmail(html, plain);
+    return parsed ? { ...parsed, source: "pathe", cinema: "Pathé", parseConfidence: 1 } : null;
+  }},
+];
+
+const parseCinemaEmail = (html, plain, meta) => {
+  for (const parser of EMAIL_PARSERS) {
+    const parsed = parser.parse(html, plain, meta);
+    if (parsed) return { parserId: parser.id, ...parsed };
+  }
+  return null;
+};
+
 // Récupération TMDB
 const getMovieDataFromTMDB = async (titre, annee) => {
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
@@ -179,39 +408,46 @@ const getMovieDataFromTMDB = async (titre, annee) => {
 };
 
 // LA FONCTION PRINCIPALE EXPORTÉE
-export const getFilmsANoter = async (token) => {
+export const getFilmsANoter = async (token, spreadsheetId = "") => {
   try {
-    const query = encodeURIComponent('subject:"Confirmation de commande les cinémas Pathé" is:unread');
-    const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (!data.messages) return [];
+    const existingFingerprints = spreadsheetId
+      ? await getExistingFilmFingerprints(token, spreadsheetId)
+      : new Set();
+    const messageMap = new Map();
+    await Promise.all(GMAIL_SCAN_QUERIES.map(async (rawQuery) => {
+      const query = encodeURIComponent(rawQuery);
+      const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=10`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      (data.messages || []).forEach((msg) => messageMap.set(msg.id, msg));
+    }));
+    const messages = [...messageMap.values()];
+    if (!messages.length) return [];
 
     // On prépare la liste des promesses pour traiter les messages en parallèle
-    const filmsPromises = data.messages.map(async (msg) => {
+    const filmsPromises = messages.map(async (msg) => {
       try {
         const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const mData = await mRes.json();
+        const meta = {
+          from: extractHeader(mData.payload, "From"),
+          subject: extractHeader(mData.payload, "Subject"),
+          date: extractHeader(mData.payload, "Date"),
+        };
         
-        let htmlData = null;
-        let plainData = null;
-        
-        if (mData.payload.parts) {
-          htmlData = findEmailPart(mData.payload.parts, 'text/html');
-          plainData = findEmailPart(mData.payload.parts, 'text/plain');
-        } else if (mData.payload.body?.data) {
-          if (mData.payload.mimeType === 'text/html') htmlData = mData.payload.body.data;
-          if (mData.payload.mimeType === 'text/plain') plainData = mData.payload.body.data;
-        }
+        const htmlParts = findAllEmailParts(mData.payload, 'text/html');
+        const plainParts = findAllEmailParts(mData.payload, 'text/plain');
+        const htmlData = htmlParts[0] || findEmailPart(mData.payload.parts, 'text/html');
+        const plainData = plainParts[0] || findEmailPart(mData.payload.parts, 'text/plain');
 
         const html = decodeEmailBody(htmlData);
         const plain = decodeEmailBody(plainData);
         
         // 1. Parsing de base depuis l'email
-        const parsed = parsePatheEmail(html, plain);
+        const parsed = parseCinemaEmail(html, plain, meta);
         if (!parsed) return null;
 
         // 2. Récupération simultanée des infos TMDB
@@ -244,7 +480,10 @@ export const getFilmsANoter = async (token) => {
           ...parsed, 
           ...tmdb, 
           duree: finalDuree, 
-          messageId: msg.id 
+          messageId: msg.id,
+          emailSubject: meta.subject,
+          emailFrom: meta.from,
+          fingerprint: getMessageFingerprint(parsed),
         };
       } catch (err) {
         console.error(`Erreur sur le message ${msg.id}:`, err);
@@ -254,7 +493,15 @@ export const getFilmsANoter = async (token) => {
 
     // On attend que tous les mails soient traités
     const results = await Promise.all(filmsPromises);
-    const films = results.filter(f => f !== null);
+    const seen = new Set();
+    const films = results.filter((f) => {
+      if (!f) return false;
+      const fingerprint = f.fingerprint || getMessageFingerprint(f);
+      if (existingFingerprints.has(fingerprint)) return false;
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
 
     // === TRI CHRONOLOGIQUE ===
     films.sort((a, b) => {
@@ -285,7 +532,7 @@ export const getFilmsANoter = async (token) => {
 export const getHistory = async (token, spreadsheetId) => {
   if (!token || !spreadsheetId) return [];
   try {
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P`, {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) return [];
@@ -297,6 +544,38 @@ export const getHistory = async (token, spreadsheetId) => {
   } catch (e) {
     console.error("Erreur Historique", e);
     return [];
+  }
+};
+
+const getExistingFilmFingerprints = async (token, spreadsheetId) => {
+  if (!token || !spreadsheetId) return new Set();
+  try {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return new Set();
+    const data = await res.json();
+    return new Set((data.values || []).slice(1).map((row) => getMessageFingerprint({
+      titre: row[1],
+      date: row[2],
+      heure: row[3],
+    })));
+  } catch (e) {
+    console.error("Erreur lecture anti-doublons", e);
+    return new Set();
+  }
+};
+
+const markMessageAsProcessed = async (token, messageId) => {
+  if (!token || !messageId) return;
+  try {
+    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
+    });
+  } catch (e) {
+    console.warn("Sauvegarde OK, mais impossible de marquer l'e-mail comme traité", e);
   }
 };
 
@@ -314,6 +593,13 @@ export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
 
 export const saveFilmToSheet = async (token, spreadsheetId, data) => {
   try {
+    const existing = await getExistingFilmFingerprints(token, spreadsheetId);
+    const incomingFingerprint = getMessageFingerprint(data);
+    if (incomingFingerprint && existing.has(incomingFingerprint)) {
+      await markMessageAsProcessed(token, data.messageId);
+      return true;
+    }
+
     const row = [
       data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
       data.salle, data.siege, data.note, data.coupDeCoeur, data.genre, 
@@ -321,7 +607,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
     ];
 
     // AJOUT : insertDataOption=INSERT_ROWS force l'insertion après la vraie dernière ligne de texte
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/DB!A:P:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_APPEND_RANGE}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [row] })
@@ -330,13 +616,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
     if (!res.ok) throw new Error("Erreur écriture Sheets");
 
     // AJOUT : Sécurité. On ne marque l'e-mail comme lu QUE s'il y a un messageId (scan d'e-mail)
-    if (data.messageId) {
-      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.messageId}/modify`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
-      });
-    }
+    await markMessageAsProcessed(token, data.messageId);
 
     return true;
   } catch (e) { 
@@ -348,7 +628,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
 export async function getStats(token, spreadsheetId) {
   try {
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:Z`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -401,7 +681,7 @@ export const getFullHistory = async (token, spreadsheetId) => {
   try {
     // On récupère les colonnes A à P
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:P`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -567,33 +847,37 @@ export const createAutoSpreadsheet = async (token) => {
     const sheet = await createRes.json();
     const spreadsheetId = sheet.spreadsheetId;
 
-    // 2. Configuration des onglets (Films et Config)
-    // On va renommer la "Feuille 1" en "Films" et créer "Config"
+    // 2. Configuration des onglets (DB et Config)
+    // On renomme la feuille par défaut en DB pour rester aligné avec les lectures/écritures.
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         requests: [
-          { updateSheetProperties: { properties: { sheetId: 0, title: "Films" }, fields: "title" } },
+          { updateSheetProperties: { properties: { sheetId: 0, title: "DB" }, fields: "title" } },
           { addSheet: { properties: { title: "Config" } } },
-          // Initialisation des Headers pour Films
+          // Initialisation des Headers pour DB
           {
             updateCells: {
-              range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+              range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 16 },
               rows: [{
                 values: [
+                  { userEnteredValue: { stringValue: "Séance #" } },
                   { userEnteredValue: { stringValue: "Titre" } },
-                  { userEnteredValue: { stringValue: "Note" } },
                   { userEnteredValue: { stringValue: "Date" } },
-                  { userEnteredValue: { stringValue: "Genre" } },
-                  { userEnteredValue: { stringValue: "Affiche" } },
-                  { userEnteredValue: { stringValue: "Commentaire" } },
-                  { userEnteredValue: { stringValue: "Coup de Coeur" } },
-                  { userEnteredValue: { stringValue: "Capucine" } },
-                  { userEnteredValue: { stringValue: "Depense" } },
+                  { userEnteredValue: { stringValue: "Heure" } },
+                  { userEnteredValue: { stringValue: "Durée" } },
                   { userEnteredValue: { stringValue: "Langue" } },
-                  { userEnteredValue: { stringValue: "Annee" } },
-                  { userEnteredValue: { stringValue: "Séance #" } }
+                  { userEnteredValue: { stringValue: "Salle" } },
+                  { userEnteredValue: { stringValue: "Siège" } },
+                  { userEnteredValue: { stringValue: "Note" } },
+                  { userEnteredValue: { stringValue: "Coup de Coeur" } },
+                  { userEnteredValue: { stringValue: "Genre" } },
+                  { userEnteredValue: { stringValue: "Dépense" } },
+                  { userEnteredValue: { stringValue: "Capucine" } },
+                  { userEnteredValue: { stringValue: "Commentaire" } },
+                  { userEnteredValue: { stringValue: "Affiche" } },
+                  { userEnteredValue: { stringValue: "TMDB ID" } }
                 ]
               }],
               fields: "userEnteredValue"
