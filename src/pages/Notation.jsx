@@ -81,13 +81,25 @@ function Star({ fill = 0, size = 34 }) {
   );
 }
 
+function ValidationField({ label, value, onChange, placeholder, inputMode = 'text' }) {
+  return (
+    <label className="block">
+      <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-[var(--theme-text-secondary)] opacity-60 mb-1.5">
+        {label}
+      </span>
+      <input
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        className="w-full h-11 bg-[var(--theme-bg)] border border-[var(--theme-border)] rounded-[14px] px-3 text-[13px] font-semibold text-[var(--theme-text)] outline-none focus:border-[var(--theme-accent)] transition-colors"
+      />
+    </label>
+  );
+}
+
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
-
-  console.log("=== DEBUG NOTATION ===");
-  console.log("Nombre de films reçus :", films?.length);
-  console.log("Liste brute des films :", films);
-  
   // 1. D'abord, on déclare tous les états locaux (Hooks d'état en premier)
   const [rating, setRating] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -103,6 +115,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const titleInputRef = useRef(null);
+  const starsRef = useRef(null);
 
   const [customPoster, setCustomPoster] = useState(null);
   const posterInputRef = useRef(null);
@@ -110,9 +123,13 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [numeroSeance, setNumeroSeance] = useState('...');
+  const [validatedFilm, setValidatedFilm] = useState(null);
+  const [validationDraft, setValidationDraft] = useState(null);
+  const [showValidation, setShowValidation] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   // 2. Ensuite, on extrait le film le plus récent de manière blindée
-  const film = useMemo(() => {
+  const detectedFilm = useMemo(() => {
     if (!films || films.length === 0) return null;
 
     // Helper pour récupérer l'année peu importe la source (TMDB ou ton scraper)
@@ -130,14 +147,16 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
     return [...films].sort((a, b) => getYear(b) - getYear(a))[0];
   }, [films]);
 
+  const film = validatedFilm || detectedFilm;
+
   // 3. Crucial : Reset du formulaire complet quand le film sélectionné change
   useEffect(() => {
-    if (film) {
+    if (detectedFilm) {
       setRating(0);
       setComment('');
       setIsFavorite(false);
       setIsCapucine(false);
-      setPrice('0.00');
+      setPrice(detectedFilm.depense || '0.00');
       setSelectedLang(null);
       setCustomLang('');
       setLangError(false);
@@ -145,8 +164,21 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
       setEditedTitle('');
       setCustomPoster(null);
       setSaved(false);
+      setValidatedFilm(null);
+      setValidationDraft({
+        titre: detectedFilm.titre || detectedFilm.title || '',
+        date: detectedFilm.date || '',
+        heure: detectedFilm.heure || '',
+        duree: detectedFilm.duree && detectedFilm.duree !== '--h--' ? detectedFilm.duree : '',
+        langue: detectedFilm.langue && detectedFilm.langue !== '?' ? detectedFilm.langue : '',
+        salle: detectedFilm.salle || '',
+        siege: detectedFilm.siege || '',
+        depense: detectedFilm.depense || '0.00',
+      });
+      setShowValidation(Boolean(detectedFilm.needsValidation));
+      setValidationError('');
     }
-  }, [film]);
+  }, [detectedFilm]);
 
   // 4. Récupération des données de séance
   useEffect(() => {
@@ -182,7 +214,39 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
   const safeRatingScale = Number(ratingScale) || 5;
   const starSize = safeRatingScale > 5 ? 26 : 34;
   const gapSize = safeRatingScale > 5 ? "gap-[3px]" : "gap-[5px]";
-  const starsRef = useRef(null);
+
+  const handleValidationChange = (key, value) => {
+    setValidationDraft((prev) => ({ ...(prev || {}), [key]: value }));
+    setValidationError('');
+  };
+
+  const handleValidationConfirm = () => {
+    const draft = validationDraft || {};
+    if (!draft.titre?.trim() || !draft.date?.trim() || !draft.heure?.trim()) {
+      setValidationError('Titre, date et heure sont nécessaires pour enregistrer la séance.');
+      return;
+    }
+    const nextFilm = {
+      ...detectedFilm,
+      titre: draft.titre.trim(),
+      date: draft.date.trim(),
+      heure: draft.heure.trim(),
+      duree: draft.duree?.trim() || detectedFilm.duree || '--h--',
+      langue: draft.langue?.trim().toUpperCase() || '?',
+      salle: draft.salle?.trim(),
+      siege: draft.siege?.trim(),
+      depense: draft.depense?.trim() || '0.00',
+      needsValidation: false,
+      validationReasons: [],
+    };
+    setValidatedFilm(nextFilm);
+    setEditedTitle(nextFilm.titre);
+    setPrice(nextFilm.depense || '0.00');
+    if (nextFilm.langue && nextFilm.langue !== '?' && nextFilm.langue !== 'FRA') {
+      setSelectedLang(nextFilm.langue);
+    }
+    setShowValidation(false);
+  };
 
   // ─── HANDLERS TITRE ───────────────────────────────────────────────────────
   const handleTitleEditStart = () => {
@@ -320,6 +384,129 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
         >
           <div className="absolute top-[8px] left-1/2 -translate-x-1/2 w-[70px] h-[3px] bg-[var(--theme-border)] rounded-full" />
 
+          {showValidation ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="pt-4"
+            >
+              <div className="mb-5">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--theme-accent)] mb-1">
+                      Vérification
+                    </p>
+                    <h2 className="font-galinoy italic text-[30px] leading-[0.95] text-[var(--theme-text)]">
+                      Séance détectée
+                    </h2>
+                  </div>
+                  {detectedFilm?.source && (
+                    <span className="px-3 py-1 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-border)] text-[9px] font-black uppercase tracking-[0.14em] text-[var(--theme-text-secondary)]">
+                      {detectedFilm.source}
+                    </span>
+                  )}
+                </div>
+
+                {detectedFilm?.validationReasons?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {detectedFilm.validationReasons.map((reason) => (
+                      <span
+                        key={reason}
+                        className="px-2.5 py-1 rounded-full bg-[var(--theme-accent-muted)] text-[var(--theme-accent)] text-[9px] font-bold"
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-[12px] leading-relaxed text-[var(--theme-text-secondary)]">
+                  Confirme les infos extraites de l'e-mail avant de passer à la notation.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="col-span-2">
+                  <ValidationField
+                    label="Film"
+                    value={validationDraft?.titre}
+                    onChange={(value) => handleValidationChange('titre', value)}
+                    placeholder="Titre du film"
+                  />
+                </div>
+                <ValidationField
+                  label="Date"
+                  value={validationDraft?.date}
+                  onChange={(value) => handleValidationChange('date', value)}
+                  placeholder="JJ/MM/AAAA"
+                  inputMode="numeric"
+                />
+                <ValidationField
+                  label="Heure"
+                  value={validationDraft?.heure}
+                  onChange={(value) => handleValidationChange('heure', value)}
+                  placeholder="20:30"
+                  inputMode="numeric"
+                />
+                <ValidationField
+                  label="Durée"
+                  value={validationDraft?.duree}
+                  onChange={(value) => handleValidationChange('duree', value)}
+                  placeholder="1h42"
+                />
+                <ValidationField
+                  label="Langue"
+                  value={validationDraft?.langue}
+                  onChange={(value) => handleValidationChange('langue', value.toUpperCase())}
+                  placeholder="FRA, ENG..."
+                />
+                <ValidationField
+                  label="Salle"
+                  value={validationDraft?.salle}
+                  onChange={(value) => handleValidationChange('salle', value)}
+                  placeholder="Salle 2"
+                />
+                <ValidationField
+                  label="Siège"
+                  value={validationDraft?.siege}
+                  onChange={(value) => handleValidationChange('siege', value)}
+                  placeholder="K / 14"
+                />
+                <div className="col-span-2">
+                  <ValidationField
+                    label="Dépense"
+                    value={validationDraft?.depense}
+                    onChange={(value) => handleValidationChange('depense', value)}
+                    placeholder="0.00"
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+
+              {validationError && (
+                <p className="text-[11px] text-red-500 font-semibold mb-4">
+                  {validationError}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={onSkip}
+                  className="h-12 px-5 rounded-full border border-[var(--theme-border)] text-[var(--theme-text-secondary)] text-[11px] font-bold active:scale-95 transition-transform"
+                >
+                  Plus tard
+                </button>
+                <motion.button
+                  onClick={handleValidationConfirm}
+                  className="flex-1 h-12 rounded-full bg-[var(--theme-text)] text-[var(--theme-surface)] text-[13px] font-black active:scale-95 transition-transform"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Valider la séance
+                </motion.button>
+              </div>
+            </motion.div>
+          ) : (
+            <>
           {/* ── 1. POSTER BANNER ── */}
           <div className="relative w-full h-[140px] rounded-2xl overflow-hidden mb-5">
             {posterUrl && (
@@ -595,6 +782,8 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
               </AnimatePresence>
             </motion.button>
           </div>
+            </>
+          )}
         </div>
 
         <div className="flex-1 bg-[var(--theme-surface)] w-full" />

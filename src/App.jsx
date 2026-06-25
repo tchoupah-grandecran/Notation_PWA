@@ -219,7 +219,7 @@ function App() {
     if (!token) return;
     setIsSearching(true);
     try {
-      const found = await api.getFilmsANoter(token);
+      const found = await api.getFilmsANoter(token, spreadsheetId);
       setFilms(found || []);
       setNextFilm(found?.[0] || null);
       setPendingCount(found?.length || 0);
