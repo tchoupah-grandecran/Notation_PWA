@@ -591,8 +591,9 @@ function drawPhotoSlot(ctx, img, x, y, w, h, palette, label, options = {}) {
     tape = true,
     feather = false,
   } = options;
-  const border = polaroid ? 26 : 0;
-  const bottom = polaroid ? 74 : 0;
+  const borderX = polaroid ? 16 : 0;
+  const borderTop = polaroid ? 14 : 0;
+  const bottom = polaroid ? 86 : 0;
   const radius = polaroid ? 18 : 28;
 
   ctx.save();
@@ -630,10 +631,10 @@ function drawPhotoSlot(ctx, img, x, y, w, h, palette, label, options = {}) {
     ctx.restore();
   }
 
-  const ix = border;
-  const iy = border;
-  const iw = w - border * 2;
-  const ih = h - border - bottom;
+  const ix = borderX;
+  const iy = borderTop;
+  const iw = w - borderX * 2;
+  const ih = h - borderTop - bottom;
   if (feather) {
     drawRawFeatherLayer(ctx, img, w, h, palette, label);
   } else {
@@ -647,7 +648,7 @@ function drawPhotoSlot(ctx, img, x, y, w, h, palette, label, options = {}) {
       ctx.font = `800 28px ${FONT_SANS}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label || 'IMAGE', w / 2, border + ih / 2);
+      ctx.fillText(label || 'IMAGE', w / 2, borderTop + ih / 2);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
     }
@@ -662,30 +663,9 @@ function drawPhotoSlot(ctx, img, x, y, w, h, palette, label, options = {}) {
     ctx.fillStyle = '#2B251F';
     ctx.font = `800 20px ${FONT_SANS}`;
     ctx.textBaseline = 'top';
-    ctx.fillText(String(caption || label || 'IMAGE').toUpperCase(), border, h - 52);
+    ctx.fillText(String(caption || label || 'IMAGE').toUpperCase(), borderX, h - 58);
     ctx.restore();
   }
-}
-
-function drawCarouselBridgePhoto(ctx, img, palette, label, styles, key, side, options = {}) {
-  const {
-    y = 770,
-    w = 560,
-    h = 430,
-    visible = 270,
-    rotation = 0,
-    alpha = 0.96,
-    caption = label,
-  } = options;
-  const x = side === 'right' ? REVIEW_POST_W - visible : visible - w;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  drawPhotoSlot(ctx, img, x, y, w, h, palette, label, photoOptions(styles, key, {
-    rotation,
-    caption,
-    tape: false,
-  }));
-  ctx.restore();
 }
 
 function coverSlide(ctx, data, genreConfig, imgs, formatName, seedOffset = 0) {
@@ -811,33 +791,6 @@ function drawDossierEdgeEcho(ctx, palette, index, inverted = false) {
     ctx.restore();
   }
 
-  ctx.globalAlpha = inverted ? 0.2 : 0.13;
-  ctx.fillStyle = palette.accent;
-  ctx.font = `900 34px ${FONT_SANS}`;
-  ctx.translate(index % 2 === 0 ? -28 : REVIEW_POST_W - 92, 1060);
-  ctx.rotate(index % 2 === 0 ? -Math.PI / 2 : Math.PI / 2);
-  ctx.fillText('A SUIVRE', 0, 0);
-  ctx.restore();
-}
-
-function drawSwipeCue(ctx, palette, text, x, y) {
-  ctx.save();
-  const cx = REVIEW_POST_W - 104;
-  const cy = y + 10;
-  ctx.fillStyle = rgba(palette.accent, 0.18);
-  ctx.beginPath();
-  ctx.arc(cx, cy, 36, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = rgba(palette.accent, 0.82);
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 36, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = palette.accent;
-  ctx.font = `900 38px ${FONT_SANS}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('→', cx, cy - 2);
   ctx.restore();
 }
 
@@ -854,89 +807,70 @@ function dossierSlide(ctx, index, data, genreConfig, imgs, seedOffset = 0) {
   const ink = inverted ? palette.bg : palette.ink;
 
   if (index === 1) {
-    ctx.fillStyle = palette.accent;
-    ctx.font = `900 24px ${FONT_SANS}`;
-    ctx.fillText(getGenreSlideText(genreConfig, 'dossierKickers', index, 'OUVERTURE DU DOSSIER').toUpperCase(), 76, 150);
-    ctx.fillStyle = PANEL_TEXT;
-    ctx.font = `900 66px ${FONT_DISPLAY}`;
-    drawSafeTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Ce que le film promet vraiment'), 76, 205, 570, 70, 3, palette);
-    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 590, 235, 390, 520, palette, 'IMAGE 01', photoOptions(imageStyles, 'still1', { rotation: 0.055, caption: genreConfig.lexicon?.[0] || 'Image 01' }));
+    ctx.fillStyle = ink;
+    ctx.font = `900 76px ${FONT_DISPLAY}`;
+    drawTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Ce que le film promet vraiment'), 76, 155, 700, 80, 3);
+    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 560, 245, 560, 690, palette, 'IMAGE 01', photoOptions(imageStyles, 'still1', { rotation: 0.045, caption: genreConfig.lexicon?.[0] || 'Image 01' }));
     ctx.font = `800 24px ${FONT_SANS}`;
     ctx.fillStyle = palette.accent;
-    drawTextBlock(ctx, [data.director && `REAL. ${data.director}`, data.cast && `CAST. ${data.cast}`].filter(Boolean).join('  /  '), 76, 450, 520, 34, 3);
+    drawTextBlock(ctx, [data.director && `REAL. ${data.director}`, data.cast && `CAST. ${data.cast}`].filter(Boolean).join('  /  '), 76, 430, 500, 34, 3);
     ctx.font = `500 35px ${FONT_SANS}`;
     ctx.fillStyle = PANEL_TEXT;
-    drawSafeTextBlock(ctx, data.pitch, 76, 560, 510, 50, 7, palette);
-    drawSwipeCue(ctx, palette, 'Les pieces du dossier', REVIEW_POST_W - 76, 1130, 'right');
+    drawSafeTextBlock(ctx, data.pitch, 76, 600, 500, 50, 7, palette);
     return;
   }
 
   if (index === 2) {
-    ctx.fillStyle = palette.accent;
-    ctx.font = `900 24px ${FONT_SANS}`;
-    ctx.fillText(getGenreSlideText(genreConfig, 'dossierKickers', index, 'CE QUI TIENT').toUpperCase(), 76, 150);
-    ctx.fillStyle = PANEL_TEXT;
-    ctx.font = `900 64px ${FONT_DISPLAY}`;
-    drawSafeTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Ce qui donne envie de croire au film'), 76, 205, 770, 70, 3, palette);
-    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 610, 390, 380, 475, palette, 'IMAGE 1', photoOptions(imageStyles, 'still1', { rotation: 0.045, caption: genreConfig.lexicon?.[0] || 'Detail' }));
-    if (imgs.still2) drawPhotoSlot(ctx, imgs.still2, 690, 790, 320, 390, palette, 'IMAGE 2', photoOptions(imageStyles, 'still2', { rotation: -0.035, caption: genreConfig.lexicon?.[1] || 'Detail' }));
+    ctx.fillStyle = ink;
+    ctx.font = `900 74px ${FONT_DISPLAY}`;
+    drawTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Ce qui donne envie de croire au film'), 76, 155, 820, 78, 3);
+    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 560, 365, 570, 610, palette, 'IMAGE 1', photoOptions(imageStyles, 'still1', { rotation: 0.035, caption: genreConfig.lexicon?.[0] || 'Detail' }));
+    if (imgs.still2) drawPhotoSlot(ctx, imgs.still2, 690, 815, 390, 470, palette, 'IMAGE 2', photoOptions(imageStyles, 'still2', { rotation: -0.028, caption: genreConfig.lexicon?.[1] || 'Detail' }));
     ctx.font = `500 35px ${FONT_SANS}`;
-    drawSafeRichTextBlock(ctx, data.worksText || data.works?.join(' '), 76, 430, 540, 49, 11, {
+    drawSafeRichTextBlock(ctx, data.worksText || data.works?.join(' '), 76, 455, 520, 49, 11, {
       font: `500 35px ${FONT_SANS}`,
       strongFont: `900 35px ${FONT_SANS}`,
       color: PANEL_TEXT,
       strongColor: panelAccent,
     }, palette);
-    drawSwipeCue(ctx, palette, 'Les zones d ombre', 76, 1130, 'left');
     return;
   }
 
   if (index === 3) {
-    ctx.fillStyle = palette.accent;
-    ctx.font = `900 24px ${FONT_SANS}`;
-    ctx.fillText(getGenreSlideText(genreConfig, 'dossierKickers', index, 'CE QUI MANQUE').toUpperCase(), 76, 150);
-    ctx.fillStyle = PANEL_TEXT;
-    ctx.font = `900 64px ${FONT_DISPLAY}`;
-    drawSafeTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'La ou le film laisse des traces moins nettes'), 76, 205, 840, 70, 3, palette);
-    if (imgs.still2) drawPhotoSlot(ctx, imgs.still2, 610, 395, 380, 475, palette, 'IMAGE', photoOptions(imageStyles, 'still2', { rotation: -0.05, caption: genreConfig.lexicon?.[2] || 'Contrechamp' }));
+    ctx.fillStyle = ink;
+    ctx.font = `900 74px ${FONT_DISPLAY}`;
+    drawTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'La ou le film laisse des traces moins nettes'), 76, 155, 860, 78, 3);
+    if (imgs.still2) drawPhotoSlot(ctx, imgs.still2, 560, 385, 570, 640, palette, 'IMAGE', photoOptions(imageStyles, 'still2', { rotation: -0.04, caption: genreConfig.lexicon?.[2] || 'Contrechamp' }));
     ctx.font = `500 35px ${FONT_SANS}`;
-    drawSafeRichTextBlock(ctx, data.blocksText || data.blocks?.join(' '), 76, 430, 560, 49, 11, {
+    drawSafeRichTextBlock(ctx, data.blocksText || data.blocks?.join(' '), 76, 455, 520, 49, 11, {
       font: `500 35px ${FONT_SANS}`,
       strongFont: `900 35px ${FONT_SANS}`,
       color: PANEL_TEXT,
       strongColor: panelAccent,
     }, palette);
-    drawSwipeCue(ctx, palette, 'Le focus', REVIEW_POST_W - 76, 1130, 'right');
     return;
   }
 
   if (index === 4) {
-    ctx.fillStyle = palette.accent;
-    ctx.font = `900 24px ${FONT_SANS}`;
-    ctx.fillText(getGenreSlideText(genreConfig, 'dossierKickers', index, 'FOCUS').toUpperCase(), 76, 150);
-    ctx.fillStyle = PANEL_TEXT;
-    ctx.font = `900 64px ${FONT_DISPLAY}`;
-    drawSafeTextBlock(ctx, data.highlightTitle || getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Le moment qui concentre tout'), 76, 205, 760, 70, 2, palette);
-    drawPhotoSlot(ctx, imgs.scene || imgs.still2 || imgs.poster, 72, 345, 940, 565, palette, 'FOCUS', photoOptions(imageStyles, 'scene', { rotation: -0.035, caption: genreConfig.beat.label }));
+    ctx.fillStyle = ink;
+    ctx.font = `900 76px ${FONT_DISPLAY}`;
+    drawTextBlock(ctx, data.highlightTitle || getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Le moment qui concentre tout'), 76, 155, 860, 80, 2);
+    drawPhotoSlot(ctx, imgs.scene || imgs.still2 || imgs.poster, 32, 315, 1010, 645, palette, 'FOCUS', photoOptions(imageStyles, 'scene', { rotation: -0.025, caption: genreConfig.beat.label }));
     ctx.font = `500 35px ${FONT_SANS}`;
     ctx.fillStyle = PANEL_TEXT;
-    drawSafeRichTextBlock(ctx, data.highlightText || data.sceneQuote || data.moment, 120, 920, 820, 48, 4, {
+    drawSafeRichTextBlock(ctx, data.highlightText || data.sceneQuote || data.moment, 120, 995, 820, 48, 4, {
       font: `500 35px ${FONT_SANS}`,
       strongFont: `900 35px ${FONT_SANS}`,
       color: PANEL_TEXT,
       strongColor: panelAccent,
     }, palette);
-    drawSwipeCue(ctx, palette, 'Recap express', REVIEW_POST_W - 76, 1130, 'right');
     return;
   }
 
-  ctx.fillStyle = palette.accent;
-  ctx.font = `900 24px ${FONT_SANS}`;
-  ctx.fillText(getGenreSlideText(genreConfig, 'dossierKickers', index, 'RECAP EXPRESS').toUpperCase(), 76, 150);
-  ctx.fillStyle = PANEL_TEXT;
-  ctx.font = `900 64px ${FONT_DISPLAY}`;
-  drawSafeTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Le dossier en une minute'), 76, 205, 560, 70, 2, palette);
-  drawPhotoSlot(ctx, imgs.poster || imgs.cover, 630, 150, 345, 505, palette, 'POSTER', photoOptions(imageStyles, 'still1', { rotation: 0.04, caption: 'Poster' }));
+  ctx.fillStyle = ink;
+  ctx.font = `900 74px ${FONT_DISPLAY}`;
+  drawTextBlock(ctx, getGenreSlideText(genreConfig, 'dossierHeadlines', index, 'Le dossier en une minute'), 76, 155, 620, 78, 2);
+  drawPhotoSlot(ctx, imgs.poster || imgs.cover, 610, 150, 430, 610, palette, 'POSTER', photoOptions(imageStyles, 'still1', { rotation: 0.035, caption: 'Poster' }));
   ctx.font = `900 126px ${FONT_DISPLAY}`;
   ctx.fillStyle = palette.accent;
   ctx.fillText(`${data.rating || '4'}/5`, 76, 420);
@@ -1039,8 +973,8 @@ function ficheSlide(ctx, index, data, genreConfig, imgs, seedOffset = 0) {
   }
 
   if (index === 3) {
-    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 82, 300, 420, 600, palette, 'EXTRAIT 1', photoOptions(imageStyles, 'still1', { rotation: -0.06, caption: 'Extrait 01' }));
-    drawPhotoSlot(ctx, imgs.still2 || imgs.scene, 578, 285, 420, 600, palette, 'EXTRAIT 2', photoOptions(imageStyles, imgs.still2 ? 'still2' : 'scene', { rotation: 0.05, caption: 'Extrait 02' }));
+    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, -15, 285, 535, 680, palette, 'EXTRAIT 1', photoOptions(imageStyles, 'still1', { rotation: -0.045, caption: 'Extrait 01' }));
+    drawPhotoSlot(ctx, imgs.still2 || imgs.scene, 560, 270, 545, 690, palette, 'EXTRAIT 2', photoOptions(imageStyles, imgs.still2 ? 'still2' : 'scene', { rotation: 0.04, caption: 'Extrait 02' }));
     ctx.font = `700 28px ${FONT_SANS}`;
     ctx.fillStyle = PANEL_TEXT;
     drawSafeTextBlock(ctx, data.caption1, 96, 930, 390, 40, 3, palette);
@@ -1055,12 +989,9 @@ function ficheSlide(ctx, index, data, genreConfig, imgs, seedOffset = 0) {
     roundRect(ctx, 48, 285, 980, 640, 42);
     ctx.fill();
     ctx.restore();
-    ctx.fillStyle = palette.accent;
-    ctx.font = `900 42px ${FONT_SANS}`;
-    ctx.fillText((genreConfig.ficheHeadlines?.[3] || 'SI TU AS AIME...').toUpperCase(), 76, 330);
     ctx.fillStyle = palette.ink;
     ctx.font = `900 72px ${FONT_DISPLAY}`;
-    drawTextBlock(ctx, data.comparisonTitle, 76, 405, 860, 86, 3);
+    drawTextBlock(ctx, data.comparisonTitle, 76, 330, 860, 86, 3);
     ctx.fillStyle = PANEL_TEXT;
     ctx.font = `500 38px ${FONT_SANS}`;
     drawSafeTextBlock(ctx, data.comparison, 76, 710, 840, 54, 6, palette);
@@ -1107,18 +1038,18 @@ function feuilletonSlide(ctx, index, data, genreConfig, imgs, seedOffset = 0) {
   }
 
   if (index === 2) {
-    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 90, 270, 890, 500, palette, 'PENDANT', photoOptions(imageStyles, 'still1', { rotation: -0.028, caption: 'Pendant' }));
+    drawPhotoSlot(ctx, imgs.still1 || imgs.poster, 28, 260, 1010, 610, palette, 'PENDANT', photoOptions(imageStyles, 'still1', { rotation: -0.025, caption: 'Pendant' }));
     ctx.fillStyle = PANEL_TEXT;
     ctx.font = `700 38px ${FONT_SANS}`;
-    drawSafeTextBlock(ctx, data.pendant, 76, 835, 860, 54, 6, palette);
+    drawSafeTextBlock(ctx, data.pendant, 76, 895, 860, 54, 5, palette);
     return;
   }
 
   if (index === 3) {
-    drawPhotoSlot(ctx, imgs.scene || imgs.still2 || imgs.poster, 88, 290, 900, 585, palette, genreConfig.beat.label, photoOptions(imageStyles, imgs.scene ? 'scene' : 'still2', { rotation: 0.04, caption: genreConfig.beat.label }));
+    drawPhotoSlot(ctx, imgs.scene || imgs.still2 || imgs.poster, 28, 265, 1010, 660, palette, genreConfig.beat.label, photoOptions(imageStyles, imgs.scene ? 'scene' : 'still2', { rotation: 0.035, caption: genreConfig.beat.label }));
     ctx.fillStyle = PANEL_TEXT;
     ctx.font = `900 58px ${FONT_DISPLAY}`;
-    drawSafeTextBlock(ctx, `“${data.moment || data.sceneQuote || 'Le moment qui accroche.'}”`, 110, 930, 830, 70, 4, palette);
+    drawSafeTextBlock(ctx, `“${data.moment || data.sceneQuote || 'Le moment qui accroche.'}”`, 110, 970, 830, 70, 4, palette);
     return;
   }
 
