@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from '../components/SmartPoster';
 import { SlidersHorizontal, X, Ticket } from 'lucide-react';
+import { ImaxTag } from '../components/ImaxTag';
 
 /* ── Custom assets ─────────────────────────────────────────────────── */
 
@@ -67,12 +68,15 @@ function FeatureCard({ film, onClick, isHero = false }) {
         <div className="absolute bottom-0 left-0 right-0 p-8 pt-20">
           <div className="flex items-end justify-between gap-6">
             <div className="flex-1 min-w-0">
-              {film.genre && (
-                <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-3 ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
-                  {film.genre}
-                </span>
-              )}
-              <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
+              <div className="flex items-center gap-1.5 mb-3">
+    {film.genre && (
+      <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+        {film.genre}
+      </span>
+    )}
+    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+  </div>
+  <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
             </div>
             {noteDisplay && (
@@ -109,12 +113,15 @@ function FeatureCard({ film, onClick, isHero = false }) {
       <div className="absolute bottom-0 left-0 right-0 p-8 pt-20">
         <div className="flex items-end justify-between gap-6">
           <div className="flex-1 min-w-0">
-            {film.genre && (
-              <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-3 ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
-                {film.genre}
-              </span>
-            )}
-            <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
+            <div className="flex items-center gap-1.5 mb-3">
+    {film.genre && (
+      <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+        {film.genre}
+      </span>
+    )}
+    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+  </div>
+  <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
           </div>
           {noteDisplay && (
@@ -145,9 +152,12 @@ function StandardRow({ film, onClick, showSeparator }) {
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-[11px] font-medium text-[var(--theme-text-secondary)] opacity-60">{film.date}</span>
             <div className="flex items-center gap-2">
-              {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />}
-              {film.coupDeCoeur && <ChubbyHeart className="w-3.5 h-3.5 text-[var(--theme-accent)]" />}
-              <span className="text-[11px] text-[var(--theme-text-secondary)] font-medium">{film.genre}</span>
+              <div className="flex items-center gap-2">
+    {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />}
+    {film.coupDeCoeur && <ChubbyHeart className="w-3.5 h-3.5 text-[var(--theme-accent)]" />}
+    <span className="text-[11px] text-[var(--theme-text-secondary)] font-medium">{film.genre}</span>
+    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+  </div>
             </div>
           </div>
         </div>

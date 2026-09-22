@@ -2010,6 +2010,210 @@ function CompareView({ allMetrics, onClose }) {
 }
 
 // ─────────────────────────────────────────────
+// HELPER — distribution générique (salle / siège / genre…)
+// ─────────────────────────────────────────────
+function computeDistribution(films, field, splitComma = false) {
+  const counts = {};
+
+  films.forEach((f) => {
+    const raw = f[field];
+    if (!raw) return;
+
+    const items = splitComma
+      ? String(raw).split(',').map((s) => s.trim()).filter(Boolean)
+      : [String(raw).trim()];
+
+    items.forEach((item) => {
+      if (!item || item === '?' || item.toUpperCase().includes('NON RENSEIGN')) return;
+      counts[item] = (counts[item] || 0) + 1;
+    });
+  });
+
+  const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count, pct: Math.round((count / total) * 100) }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ─────────────────────────────────────────────
+// SIMPLE HORIZONTAL BAR ROW (table + barre)
+// ─────────────────────────────────────────────
+function DistributionRow({ name, count, pct, color }) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setWidth(pct), 60);
+    return () => clearTimeout(t);
+  }, [pct]);
+
+  return (
+    <div className="mb-4">
+      <div className="flex justify-between items-baseline mb-1.5">
+        <span className="font-outfit text-[13px] font-medium">{name}</span>
+        <span className="font-outfit text-[12px]" style={{ opacity: .5 }}>
+          {count} · {pct}%
+        </span>
+      </div>
+
+      <div
+        className="h-[8px] rounded-full overflow-hidden"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--theme-text) 10%, transparent)' }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${width}%`,
+            backgroundColor: color || 'var(--theme-accent)',
+            transition: 'width 500ms ease-out',
+            borderRadius: 'inherit',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// DETAILED STATS VIEW (données brutes)
+// ─────────────────────────────────────────────
+function DetailedStatsView({ historyData, pricing, dashView, periodValue, periodLabel, onClose }) {
+  const metric = computeMetrics(dashView, periodValue, historyData, pricing);
+  const films = metric.films || [];
+
+  const roomDist = computeDistribution(films, 'salle');
+  const seatDist = computeDistribution(films, 'siege');
+  const genreDist = computeDistribution(films, 'genre', true);
+
+  const maxMonthCount = Math.max(...metric.filmsByMonth.map((m) => m.count), 1);
+
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex flex-col"
+      style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}
+    >
+      {/* HEADER */}
+      <header
+        className="flex-shrink-0 px-5 sm:px-8 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 flex items-center justify-between border-b"
+        style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 30%, transparent)' }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--theme-text) 6%, transparent)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <div>
+            <p className="font-outfit text-[9px] uppercase tracking-[.18em]" style={{ opacity: .4 }}>
+              Données brutes
+            </p>
+            <h2 className="font-galinoy italic text-[22px] leading-none">
+              {periodLabel}
+            </h2>
+          </div>
+        </div>
+
+        <div className="font-outfit text-[10px] uppercase tracking-wider text-right" style={{ opacity: .45 }}>
+          {metric.totalFilms} films
+        </div>
+      </header>
+
+      {/* CONTENU */}
+      <main className="flex-1 overflow-y-auto scrollbar-hide px-6 py-8 space-y-14">
+
+        {/* Films par mois/année */}
+        <section>
+          <h3 className="font-galinoy italic text-[24px] mb-5">Films par période</h3>
+
+          <div className="flex items-end gap-1.5 h-[140px] mb-6">
+            {metric.filmsByMonth.map((m) => (
+              <div key={m.key} className="flex-1 flex flex-col items-center justify-end gap-1.5 min-w-0">
+                <span className="font-outfit text-[9px]" style={{ opacity: .55 }}>{m.count}</span>
+                <div
+                  style={{
+                    height: `${Math.max(3, (m.count / maxMonthCount) * 105)}px`,
+                    width: '100%',
+                    backgroundColor: 'var(--theme-accent)',
+                    borderRadius: 3,
+                  }}
+                />
+                <span className="font-outfit text-[9px] truncate w-full text-center" style={{ opacity: .4 }}>
+                  {m.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
+            <table className="w-full font-outfit text-[12px] min-w-[420px]">
+              <thead>
+                <tr style={{ opacity: .45 }}>
+                  <th className="text-left py-2 font-medium">Période</th>
+                  <th className="text-right py-2 font-medium">Films</th>
+                  <th className="text-right py-2 font-medium">Note moy.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metric.filmsByMonth.map((m) => (
+                  <tr key={m.key} className="border-t" style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 20%, transparent)' }}>
+                    <td className="py-2">{m.label}</td>
+                    <td className="py-2 text-right">{m.count}</td>
+                    <td className="py-2 text-right">
+                      {m.avgNote > 0 ? m.avgNote.toFixed(1).replace('.', ',') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Salles */}
+        {roomDist.length > 0 && (
+          <section>
+            <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des salles</h3>
+            {roomDist.map((r) => (
+              <DistributionRow key={r.name} {...r} />
+            ))}
+          </section>
+        )}
+
+        {/* Sièges */}
+        {seatDist.length > 0 && (
+          <section>
+            <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des sièges</h3>
+            {seatDist.map((s) => (
+              <DistributionRow key={s.name} {...s} color="#6E8CFF" />
+            ))}
+          </section>
+        )}
+
+        {/* Genres */}
+        {genreDist.length > 0 && (
+          <section>
+            <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des genres</h3>
+            {genreDist.map((g) => (
+              <DistributionRow key={g.name} {...g} color="#F4C95D" />
+            ))}
+          </section>
+        )}
+
+        <p className="font-outfit text-[11px] text-center pb-4" style={{ opacity: .35 }}>
+          Données calculées sur {metric.totalFilms} film{metric.totalFilms > 1 ? 's' : ''} · {periodLabel}
+        </p>
+
+      </main>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────
 // SECTION DIVIDER
 // ─────────────────────────────────────────────
 function SectionDivider() {
@@ -2037,6 +2241,7 @@ export function Dashboard({
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelections, setCompareSelections] = useState([]);
   const [topPosterIdx, setTopPosterIdx] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear().toString();
@@ -2926,6 +3131,14 @@ return (
             >
               Comparer cette période
             </button>
+
+              <button
+    onClick={() => setShowDetails(true)}
+    className="mt-4 font-outfit text-[12px] underline underline-offset-4"
+    style={{ opacity: .45 }}
+  >
+    Voir toutes mes données brutes
+  </button>
           </div>
         </div>
       </section>
@@ -2953,6 +3166,17 @@ return (
         onClose={() => { setCompareMode(false); setCompareSelections([]); }}
       />
     )}
+
+      {showDetails && (
+    <DetailedStatsView
+      historyData={historyData}
+      pricing={pricing}
+      dashView={dashView}
+      periodValue={dashView === 'year' ? activeYear : activeMonth}
+      periodLabel={dashView === 'all' ? 'Bilan global' : periodLabel}
+      onClose={() => setShowDetails(false)}
+    />
+  )}
   </>
 );
 }
