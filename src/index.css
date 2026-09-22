@@ -99,6 +99,112 @@ body {
   display: none;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   COMPARISON — editorial data story
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --compare-coral: #F05A47;
+  --compare-yellow: #F4C95D;
+  --compare-blue: #6E8CFF;
+  --compare-lilac: #A78BFA;
+  --compare-mint: #67C7A5;
+  --compare-pink: #E98FB3;
+  --compare-paper: #F5F0E8;
+  --compare-ink: #151515;
+}
+
+.compare-story {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.compare-story-section {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.compare-story-number {
+  font-family: var(--font-galinoy);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.06em;
+}
+
+.compare-story-display {
+  font-family: var(--font-outfit);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+}
+
+.compare-story-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compare-story-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: var(--theme-grain-url);
+  mix-blend-mode: multiply;
+}
+
+.compare-story-line {
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  opacity: 0.15;
+}
+
+.compare-story-poster {
+  transition:
+    transform 500ms cubic-bezier(.2,.8,.2,1),
+    box-shadow 500ms ease;
+}
+
+.compare-story-poster:hover {
+  transform: translateY(-8px) rotate(-1deg);
+  box-shadow: 0 22px 50px rgba(0,0,0,.22);
+}
+
+@media (max-width: 640px) {
+  .compare-story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@keyframes compare-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.compare-rise {
+  animation: compare-rise .7s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.compare-story-number,
+.font-galinoy {
+  font-variant-numeric: oldstyle-nums;
+}
+
+@media (max-width: 640px) {
+  .compare-mobile-tight {
+    letter-spacing: -0.04em;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    7. Animations
    ───────────────────────────────────────────────────────────────────────── */
