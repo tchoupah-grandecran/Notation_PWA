@@ -1,7 +1,8 @@
+import { createElement, useEffect } from 'react';
 import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from './SmartPoster';
 import { ImaxTag } from './ImaxTag';
-import { X, MapPin, CreditCard, Languages, Calendar } from 'lucide-react';
+import { X, MapPin, CreditCard, Languages, Calendar, Clock3, Timer, Armchair } from 'lucide-react';
 
 // Réutilisation de ton cœur "dodu" personnalisé
 const ChubbyHeart = ({ className }) => (
@@ -10,11 +11,40 @@ const ChubbyHeart = ({ className }) => (
   </svg>
 );
 
+function DetailStatCard({ icon, value, label }) {
+  const iconNode = createElement(icon, { size: 15, 'aria-hidden': true, className: 'text-[var(--theme-accent)]' });
+  return (
+    <div className="min-w-0 rounded-2xl border border-[var(--theme-border)] bg-[color-mix(in_srgb,var(--theme-text)_4%,transparent)] px-3 py-3 flex flex-col items-center text-center gap-1.5">
+      {iconNode}
+      <span className="w-full truncate font-outfit text-[12px] font-semibold tabular-nums text-[var(--theme-text)]" title={String(value || '—')}>
+        {value || '—'}
+      </span>
+      <span className="font-outfit text-[9px] font-medium text-[var(--theme-text)] opacity-45 uppercase tracking-[0.12em]">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+const isMarked = (value) => value === true || value === 1 || ['1', 'oui', 'true'].includes(String(value ?? '').trim().toLowerCase());
+
 export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
+  useEffect(() => {
+    if (!film) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event) => { if (event.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [film, onClose]);
+
   if (!film) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center px-5">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto px-4 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       {/* Overlay */}
       <div
         className="absolute inset-0 backdrop-blur-xl bg-black/75 animate-in fade-in duration-300"
@@ -22,7 +52,11 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
       />
 
       <div
-        className="relative w-full max-w-[400px] rounded-[2rem] bg-[var(--theme-surface)] border border-[var(--theme-border)] shadow-[0_30px_80px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-bottom-4 duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="film-detail-title"
+        tabIndex={-1}
+        className="relative my-auto w-full max-w-[400px] max-h-[calc(100dvh-2rem)] rounded-[2rem] bg-[var(--theme-surface)] border border-[var(--theme-border)] shadow-[0_30px_80px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-bottom-4 duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-y-auto overscroll-contain"
         style={{
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
         }}
@@ -31,7 +65,9 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
         {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--theme-text)]/5 hover:bg-[var(--theme-text)]/10 transition-colors"
+          type="button"
+          aria-label="Fermer la fiche du film"
+          className="absolute top-3 right-3 z-20 w-11 h-11 rounded-full flex items-center justify-center bg-[var(--theme-surface)]/90 border border-[var(--theme-border)] hover:bg-[var(--theme-text)]/10 transition-colors"
         >
           <X size={14} className="text-[var(--theme-text)] opacity-50" strokeWidth={2.5} />
         </button>
@@ -51,10 +87,8 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
 
             <div className="min-w-0 pt-0.5">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-outfit text-[9px] font-black uppercase tracking-[0.25em] text-[var(--theme-text)] opacity-30">
-                  #{film.numero}
-                </span>
-                <span className="w-0.5 h-0.5 rounded-full bg-[var(--theme-text)] opacity-20" />
+                {film.numero && <span className="font-outfit text-[9px] font-black uppercase tracking-[0.25em] text-[var(--theme-text)] opacity-40">Séance #{film.numero}</span>}
+                {film.numero && film.date && <span aria-hidden="true" className="w-0.5 h-0.5 rounded-full bg-[var(--theme-text)] opacity-20" />}
                 <div className="flex items-center gap-1">
                   <Calendar size={9} className="text-[var(--theme-accent)]" />
                   <span className="font-outfit text-[9px] font-black uppercase tracking-[0.15em] text-[var(--theme-text)] opacity-55">
@@ -63,26 +97,28 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
                 </div>
               </div>
 
-              <h2 className="font-galinoy text-[2.1rem] text-[var(--theme-text)] italic leading-[0.86] tracking-tight mb-2.5">
+              <h2 id="film-detail-title" className="font-galinoy text-[1.75rem] sm:text-[2.1rem] text-[var(--theme-text)] italic leading-[0.92] tracking-tight mb-2.5 break-words">
                 {film.titre}
               </h2>
 
               <div className="flex flex-wrap gap-1.5">
-                <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${GENRE_COLORS[film.genre] || 'border-[var(--theme-border)] text-[var(--theme-text)] opacity-40'}`}>
+                {film.genre && <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${GENRE_COLORS[film.genre] || 'border-[var(--theme-border)] text-[var(--theme-text)] opacity-40'}`}>
                   {film.genre}
-                </span>
+                </span>}
 
                 <ImaxTag salle={film.salle} commentaire={film.commentaire} />
 
-                {film.capucine && (
+                {isMarked(film.capucine) && (
                   <div className="flex items-center gap-1 bg-red-900/20 border border-red-500/30 px-2 py-1 rounded-lg">
                     <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />
+                    <span className="font-outfit text-[8px] font-bold uppercase tracking-wide text-[var(--theme-text)]">Capucines</span>
                   </div>
                 )}
 
-                {film.coupDeCoeur && (
+                {isMarked(film.coupDeCoeur) && (
                   <div className="flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-lg">
                     <ChubbyHeart className="w-3 h-3 text-red-500" />
+                    <span className="font-outfit text-[8px] font-bold uppercase tracking-wide text-[var(--theme-text)]">Coup de cœur</span>
                   </div>
                 )}
               </div>
@@ -108,55 +144,20 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
             )}
 
             {film.commentaire && (
-              <p className="font-outfit text-[13px] text-[var(--theme-text)] opacity-70 leading-snug italic font-light pt-2 line-clamp-3">
-                "{film.commentaire}"
+              <p className="min-w-0 font-outfit text-[13px] text-[var(--theme-text)] opacity-70 leading-relaxed italic font-light pt-2 whitespace-pre-wrap break-words">
+                “{film.commentaire}”
               </p>
             )}
           </div>
 
-          {/* Stat strip */}
-          <div
-            className="flex items-stretch rounded-[1.4rem] overflow-hidden border"
-            style={{ borderColor: 'var(--theme-border)' }}
-          >
-            <div className="flex-1 px-3 py-3.5 flex flex-col items-center text-center gap-1.5 border-r" style={{ borderColor: 'var(--theme-border)' }}>
-              <MapPin size={13} className="text-[var(--theme-accent)]" />
-              <span className="font-outfit font-bold text-[11px] text-[var(--theme-text)] uppercase truncate w-full">
-                {film.salle || 'Cinéma'}
-              </span>
-              <span className="font-outfit text-[9px] text-[var(--theme-text)] opacity-40 uppercase tracking-wide">
-                Salle
-              </span>
-            </div>
-
-            <div className="flex-1 px-3 py-3.5 flex flex-col items-center text-center gap-1.5 border-r" style={{ borderColor: 'var(--theme-border)' }}>
-              <span className="font-galinoy text-[15px] text-[var(--theme-accent)] italic leading-none">
-                {film.siege || '—'}
-              </span>
-              <span className="font-outfit text-[9px] text-[var(--theme-text)] opacity-40 uppercase tracking-wide mt-0.5">
-                Siège
-              </span>
-            </div>
-
-            <div className="flex-1 px-3 py-3.5 flex flex-col items-center text-center gap-1.5 border-r" style={{ borderColor: 'var(--theme-border)' }}>
-              <CreditCard size={13} className="text-[var(--theme-accent)]" />
-              <span className="font-outfit font-bold text-[11px] text-[var(--theme-text)]">
-                {film.depense || '--'}€
-              </span>
-              <span className="font-outfit text-[9px] text-[var(--theme-text)] opacity-40 uppercase tracking-wide">
-                Prix
-              </span>
-            </div>
-
-            <div className="flex-1 px-3 py-3.5 flex flex-col items-center text-center gap-1.5">
-              <Languages size={13} className="text-[var(--theme-accent)]" />
-              <span className="font-outfit font-bold text-[11px] text-[var(--theme-text)] uppercase">
-                {film.langue || 'VOST'}
-              </span>
-              <span className="font-outfit text-[9px] text-[var(--theme-text)] opacity-40 uppercase tracking-wide">
-                Langue
-              </span>
-            </div>
+          {/* Détails de la séance : mêmes repères visuels pour chaque information */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <DetailStatCard icon={Clock3} value={film.heure} label="Heure" />
+            <DetailStatCard icon={Timer} value={film.duree} label="Durée" />
+            <DetailStatCard icon={MapPin} value={film.salle} label="Salle" />
+            <DetailStatCard icon={Armchair} value={film.siege} label="Siège" />
+            <DetailStatCard icon={CreditCard} value={film.depense ? `${film.depense} €` : ''} label="Dépense" />
+            <DetailStatCard icon={Languages} value={film.langue} label="Langue" />
           </div>
 
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { THEME_COLORS, THEME_TOKENS } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
@@ -142,15 +142,38 @@ function App() {
   const [films,         setFilms]         = useState([]);
   const [nextFilm,      setNextFilm]      = useState(null);
   const [pendingCount,  setPendingCount]  = useState(0);
-  const [isSearching,   setIsSearching]   = useState(false);
   const [showNotation,  setShowNotation]  = useState(false);
 
   const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
   const [headerRight, setHeaderRight] = useState(null);
 
+  const handleScanRef = useRef(null);
+
   const { userToken, login, logout: authLogout } = useAuth((token) => {
-    if (spreadsheetId) handleScan(token);
+    if (spreadsheetId) handleScanRef.current?.(token);
   });
+
+  const handleScan = useCallback(async (token = userToken) => {
+    if (!token) return;
+    try {
+      const found = await api.getFilmsANoter(token, spreadsheetId);
+      setFilms(found || []);
+      setNextFilm(found?.[0] || null);
+      setPendingCount(found?.length || 0);
+      if (found && found.length > 0) {
+        setShowNotation(true);
+      } else {
+        setShowNotation(false);
+      }
+    } catch (err) {
+      console.error('Erreur scan:', err);
+      if (err.status === 401) authLogout();
+    }
+  }, [userToken, spreadsheetId, authLogout]);
+
+  useEffect(() => {
+    handleScanRef.current = handleScan;
+  }, [handleScan]);
 
   const prefs    = usePreferences(userToken, spreadsheetId);
   const themeKey = prefs.isDark ? 'dark' : 'light';
@@ -214,27 +237,6 @@ function App() {
     setActiveTab(id);
     setHeaderRight(null); 
   }, []);
-
-  const handleScan = async (token = userToken) => {
-    if (!token) return;
-    setIsSearching(true);
-    try {
-      const found = await api.getFilmsANoter(token, spreadsheetId);
-      setFilms(found || []);
-      setNextFilm(found?.[0] || null);
-      setPendingCount(found?.length || 0);
-      if (found && found.length > 0) {
-        setShowNotation(true);
-      } else {
-        setShowNotation(false); // ← FIX : ferme la notation si plus rien à noter
-      }
-    } catch (err) {
-      console.error('Erreur scan:', err);
-      if (err.status === 401) authLogout();
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleLogout = () => {
     authLogout(); setFilms([]); setNextFilm(null); setPendingCount(0); invalidate();
@@ -343,7 +345,22 @@ function App() {
           token={userToken}
           spreadsheetId={spreadsheetId}
           ratingScale={prefs.ratingScale}
-          onSaved={async () => { invalidate(); loadHistory(); await handleScan(userToken); }}
+          onSaved={async (savedFilm) => {
+            invalidate();
+            void loadHistory();
+            const remaining = films.filter((candidate) => {
+              if (savedFilm?.messageId && candidate.messageId) return candidate.messageId !== savedFilm.messageId;
+              if (savedFilm?.fingerprint && candidate.fingerprint) return candidate.fingerprint !== savedFilm.fingerprint;
+              return !(candidate.titre === savedFilm?.titre && candidate.date === savedFilm?.date && candidate.heure === savedFilm?.heure);
+            });
+            setFilms(remaining);
+            setNextFilm(remaining[0] || null);
+            setPendingCount(remaining.length);
+            if (remaining.length === 0) {
+              setShowNotation(false);
+              await handleScan(userToken);
+            }
+          }}
           onSkip={() => setShowNotation(false)}
         />
       )}

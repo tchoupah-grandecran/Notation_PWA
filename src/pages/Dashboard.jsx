@@ -549,7 +549,10 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
       ? availableMonthsRaw.filter(m => m !== dashValue).map(m => ({ view: 'month', value: m, label: formatPeriodLabel('month', m) }))
       : [];
 
-  const toggle = (value) => setSelections(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+  const toggle = (value) => setSelections(prev => {
+    if (prev.includes(value)) return prev.filter(v => v !== value);
+    return prev.length < 2 ? [...prev, value] : prev;
+  });
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end mb-12">
@@ -559,7 +562,7 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
         <div className="w-10 h-1 bg-[var(--theme-text)] opacity-10 rounded-full self-center mt-4 mb-3" />
         <div className="px-6 mb-4">
           <h3 className="font-galinoy italic text-[var(--theme-text)] text-2xl leading-none">Comparer</h3>
-          <p className="font-outfit text-[var(--theme-text)] opacity-60 text-[13px] mt-1">Sélectionne les périodes à mettre face à face.</p>
+          <p className="font-outfit text-[var(--theme-text)] opacity-60 text-[13px] mt-1">Sélectionne jusqu'à deux autres périodes à mettre face à face.</p>
         </div>
         <div className="mx-6 mb-4 px-4 py-3 rounded-xl border border-[var(--theme-accent)]/40 bg-[var(--theme-accent)]/8 flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-[var(--theme-accent)] flex-shrink-0" />
@@ -584,7 +587,7 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
               {candidatePeriods.map(({ value, label }) => {
                 const active = selections.includes(value);
                 return (
-                  <button key={value} onClick={() => toggle(value)}
+                  <button key={value} onClick={() => toggle(value)} disabled={!active && selections.length >= 2}
                           className="flex items-center gap-3 py-3 px-4 rounded-xl text-left transition-all active:scale-[0.98]"
                           style={{
                             backgroundColor: active ? 'color-mix(in srgb, var(--theme-accent) 12%, transparent)' : 'color-mix(in srgb, var(--theme-text) 5%, transparent)',
@@ -622,7 +625,7 @@ function CompareSelector({ dashView, dashValue, availableYears, availableMonthsR
 // COMPARE VIEW — CINEMA STORY
 // ─────────────────────────────────────────────
 
-function CompareView({ allMetrics, onClose }) {
+function CompareView({ allMetrics, onClose, setSelectedFilm }) {
   const [mounted, setMounted] = useState(false);
   const [activeMetric, setActiveMetric] = useState('films');
   const [posterPeriod, setPosterPeriod] = useState(0);
@@ -1155,11 +1158,11 @@ function CompareView({ allMetrics, onClose }) {
               </span>
             </h1>
 
-            <div className="mt-10 grid grid-cols-2 gap-4">
+            <div className="mt-10 grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-3 gap-4">
               {allMetrics.map((metric, index) => (
                 <div
                   key={metric.label}
-                  className="relative p-5 sm:p-7 min-h-[190px] flex flex-col justify-between"
+                  className="relative p-5 sm:p-7 min-h-[150px] sm:min-h-[190px] flex flex-col justify-between"
                   style={{
                     backgroundColor:
                       palette[index] || palette[2],
@@ -2077,15 +2080,21 @@ function DistributionRow({ name, count, pct, color }) {
 // ─────────────────────────────────────────────
 // DETAILED STATS VIEW (données brutes)
 // ─────────────────────────────────────────────
-function DetailedStatsView({ historyData, pricing, dashView, periodValue, periodLabel, onClose }) {
-  const metric = computeMetrics(dashView, periodValue, historyData, pricing);
-  const films = metric.films || [];
+function DetailedStatsView({ historyData, pricing, onClose }) {
+  const [showAllFilms, setShowAllFilms] = useState(false);
+  const [showAllRooms, setShowAllRooms] = useState(false);
+  const [showAllSeats, setShowAllSeats] = useState(false);
+  const [showAllGenres, setShowAllGenres] = useState(false);
+  const metric = computeMetrics('all', '', historyData, pricing);
+  const films = metric.timeline || [];
 
   const roomDist = computeDistribution(films, 'salle');
   const seatDist = computeDistribution(films, 'siege');
   const genreDist = computeDistribution(films, 'genre', true);
 
   const maxMonthCount = Math.max(...metric.filmsByMonth.map((m) => m.count), 1);
+  const recentFilms = films.slice().reverse();
+  const expandableButtonClass = 'mt-3 font-outfit text-[11px] font-semibold uppercase tracking-wider';
 
   return (
     <div
@@ -2113,7 +2122,7 @@ function DetailedStatsView({ historyData, pricing, dashView, periodValue, period
               Données brutes
             </p>
             <h2 className="font-galinoy italic text-[22px] leading-none">
-              {periodLabel}
+              Toutes les périodes
             </h2>
           </div>
         </div>
@@ -2149,21 +2158,22 @@ function DetailedStatsView({ historyData, pricing, dashView, periodValue, period
             ))}
           </div>
 
-          <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
-            <table className="w-full font-outfit text-[12px] min-w-[420px]">
+          <div className="-mx-1">
+            <table className="w-full table-fixed font-outfit text-[11px] sm:text-[12px]">
+              <colgroup><col className="w-[48%]" /><col className="w-[24%]" /><col className="w-[28%]" /></colgroup>
               <thead>
                 <tr style={{ opacity: .45 }}>
-                  <th className="text-left py-2 font-medium">Période</th>
-                  <th className="text-right py-2 font-medium">Films</th>
-                  <th className="text-right py-2 font-medium">Note moy.</th>
+                  <th className="text-left py-2 pr-1 font-medium">Période</th>
+                  <th className="text-right py-2 px-1 font-medium">Films</th>
+                  <th className="text-right py-2 pl-1 font-medium">Note moy.</th>
                 </tr>
               </thead>
               <tbody>
                 {metric.filmsByMonth.map((m) => (
                   <tr key={m.key} className="border-t" style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 20%, transparent)' }}>
-                    <td className="py-2">{m.label}</td>
-                    <td className="py-2 text-right">{m.count}</td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 pr-1 truncate">{m.label}</td>
+                    <td className="py-2 px-1 text-right">{m.count}</td>
+                    <td className="py-2 pl-1 text-right">
                       {m.avgNote > 0 ? m.avgNote.toFixed(1).replace('.', ',') : '—'}
                     </td>
                   </tr>
@@ -2173,13 +2183,40 @@ function DetailedStatsView({ historyData, pricing, dashView, periodValue, period
           </div>
         </section>
 
+        {/* Historique exhaustif, consultable par défilement horizontal sur mobile */}
+        <section>
+          <h3 className="font-galinoy italic text-[24px] mb-2">Toutes les séances</h3>
+          <p className="font-outfit text-[11px] mb-4" style={{ opacity: .45 }}>Les {Math.min(showAllFilms ? recentFilms.length : 10, recentFilms.length)} dernières sur {films.length} séances</p>
+          <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
+            <table className="w-full min-w-[620px] font-outfit text-[12px]">
+              <thead><tr style={{ opacity: .45 }}>
+                <th className="text-left py-2 pr-4">Date</th><th className="text-left py-2 pr-4">Film</th>
+                <th className="text-right py-2 px-3">Note</th><th className="text-left py-2 px-3">Salle</th>
+                <th className="text-left py-2 px-3">Siège</th><th className="text-right py-2 pl-3">Durée</th>
+              </tr></thead>
+              <tbody>{(showAllFilms ? recentFilms : recentFilms.slice(0, 10)).map((film, index) => (
+                <tr key={`${film.date}-${film.titre}-${index}`} className="border-t" style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 20%, transparent)' }}>
+                  <td className="py-2 pr-4 whitespace-nowrap">{film.date || '—'}</td>
+                  <td className="py-2 pr-4">{film.titre || 'Film sans titre'}</td>
+                  <td className="py-2 px-3 text-right">{film.note || '—'}</td>
+                  <td className="py-2 px-3">{film.salle || '—'}</td>
+                  <td className="py-2 px-3">{film.siege || '—'}</td>
+                  <td className="py-2 pl-3 text-right whitespace-nowrap">{film.duree || '—'}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+          {recentFilms.length > 10 && <button type="button" onClick={() => setShowAllFilms((value) => !value)} className={expandableButtonClass} style={{ color: 'var(--theme-accent)' }}>{showAllFilms ? 'Réduire' : `Voir les ${recentFilms.length - 10} autres séances`}</button>}
+        </section>
+
         {/* Salles */}
         {roomDist.length > 0 && (
           <section>
             <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des salles</h3>
-            {roomDist.map((r) => (
+            {(showAllRooms ? roomDist : roomDist.slice(0, 5)).map((r) => (
               <DistributionRow key={r.name} {...r} />
             ))}
+            {roomDist.length > 5 && <button type="button" onClick={() => setShowAllRooms((value) => !value)} className={expandableButtonClass} style={{ color: 'var(--theme-accent)' }}>{showAllRooms ? 'Réduire' : `Voir les ${roomDist.length - 5} autres salles`}</button>}
           </section>
         )}
 
@@ -2187,9 +2224,10 @@ function DetailedStatsView({ historyData, pricing, dashView, periodValue, period
         {seatDist.length > 0 && (
           <section>
             <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des sièges</h3>
-            {seatDist.map((s) => (
+            {(showAllSeats ? seatDist : seatDist.slice(0, 5)).map((s) => (
               <DistributionRow key={s.name} {...s} color="#6E8CFF" />
             ))}
+            {seatDist.length > 5 && <button type="button" onClick={() => setShowAllSeats((value) => !value)} className={expandableButtonClass} style={{ color: '#6E8CFF' }}>{showAllSeats ? 'Réduire' : `Voir les ${seatDist.length - 5} autres sièges`}</button>}
           </section>
         )}
 
@@ -2197,14 +2235,15 @@ function DetailedStatsView({ historyData, pricing, dashView, periodValue, period
         {genreDist.length > 0 && (
           <section>
             <h3 className="font-galinoy italic text-[24px] mb-5">Répartition des genres</h3>
-            {genreDist.map((g) => (
+            {(showAllGenres ? genreDist : genreDist.slice(0, 5)).map((g) => (
               <DistributionRow key={g.name} {...g} color="#F4C95D" />
             ))}
+            {genreDist.length > 5 && <button type="button" onClick={() => setShowAllGenres((value) => !value)} className={expandableButtonClass} style={{ color: '#F4C95D' }}>{showAllGenres ? 'Réduire' : `Voir les ${genreDist.length - 5} autres genres`}</button>}
           </section>
         )}
 
         <p className="font-outfit text-[11px] text-center pb-4" style={{ opacity: .35 }}>
-          Données calculées sur {metric.totalFilms} film{metric.totalFilms > 1 ? 's' : ''} · {periodLabel}
+          Données calculées sur {metric.totalFilms} film{metric.totalFilms > 1 ? 's' : ''} · toutes les périodes
         </p>
 
       </main>
@@ -3172,8 +3211,6 @@ return (
       historyData={historyData}
       pricing={pricing}
       dashView={dashView}
-      periodValue={dashView === 'year' ? activeYear : activeMonth}
-      periodLabel={dashView === 'all' ? 'Bilan global' : periodLabel}
       onClose={() => setShowDetails(false)}
     />
   )}

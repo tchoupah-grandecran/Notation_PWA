@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 
 const COLLAPSE_AT = 48;
-const REVEAL_PX   = 2;
+const REVEAL_PX   = 24;
 const TOP_SNAP    = 2;
 
 const LOGO_ROW_H  = 52;
@@ -30,7 +30,6 @@ export function AppHeader({
   scrollY,
   headerTitle,
   headerRight,
-  isDark,
   accentColor = '#E8B200',
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -38,14 +37,20 @@ export function AppHeader({
   const upAccum     = useRef(0);
 
   useEffect(() => {
-    const delta = scrollY - prevScrollY.current;
-    prevScrollY.current = scrollY;
-    if (scrollY <= TOP_SNAP) { setExpanded(true); upAccum.current = 0; return; }
-    if (delta > 0 && scrollY > COLLAPSE_AT) { upAccum.current = 0; setExpanded(false); }
-    else if (delta < 0) {
-      upAccum.current += Math.abs(delta);
-      if (upAccum.current >= REVEAL_PX) setExpanded(true);
-    }
+    const frame = requestAnimationFrame(() => {
+      const delta = scrollY - prevScrollY.current;
+      prevScrollY.current = scrollY;
+      if (scrollY <= TOP_SNAP) { setExpanded(true); upAccum.current = 0; return; }
+      if (delta > 0 && scrollY > COLLAPSE_AT) { upAccum.current = 0; setExpanded(false); }
+      else if (delta < 0) {
+        upAccum.current += Math.abs(delta);
+        if (upAccum.current >= REVEAL_PX) {
+          setExpanded(true);
+          upAccum.current = 0;
+        }
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [scrollY]);
 
   const belowSafe = expanded ? LOGO_ROW_H + TITLE_ROW_H : TITLE_ROW_H;
@@ -58,9 +63,9 @@ export function AppHeader({
     }
   `;
 
-  const textPrimary = 'rgba(255,255,255,0.95)';
-  const textMuted   = 'rgba(255,255,255,0.58)';
-  const shadow      = '0 1px 8px rgba(0,0,0,0.4)';
+  const textPrimary = 'var(--theme-text, #fff)';
+  const textMuted   = 'color-mix(in srgb, var(--theme-text, #fff) 58%, transparent)';
+  const shadow      = '0 1px 8px color-mix(in srgb, var(--theme-bg, #000) 70%, transparent)';
 
   return (
     <>
@@ -137,18 +142,20 @@ export function AppHeader({
                 </p>
               </div>
 
-              <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-5">
+              <nav aria-label="Navigation principale" className="absolute left-1/2 -translate-x-1/2 flex items-center gap-[clamp(4px,2vw,14px)]">
                 {TABS.map(({ id, label }) => {
                   const isActive = activeTab === id;
                   return (
                     <button
                       key={id}
+                      type="button"
+                      aria-current={isActive ? 'page' : undefined}
                       onClick={() => setActiveTab(id)}
-                      className="relative outline-none"
+                      className="relative outline-none min-h-11 px-1 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-offset-2 rounded-md"
                       style={{
                         background: 'none', border: 'none',
-                        padding: '4px 0', cursor: 'pointer',
-                        fontSize: '11px', fontWeight: 700,
+                        cursor: 'pointer',
+                        fontSize: 'clamp(9px, 2.8vw, 11px)', fontWeight: 700,
                         letterSpacing: '0.07em',
                         color: isActive ? textPrimary : textMuted,
                         transition: 'color 200ms',
@@ -167,7 +174,6 @@ export function AppHeader({
                 })}
               </nav>
 
-              <div style={{ marginLeft: 'auto', width: '3.5rem', flexShrink: 0 }} />
             </div>
           </div>
 

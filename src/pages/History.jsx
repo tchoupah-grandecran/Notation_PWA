@@ -26,6 +26,21 @@ const FavoriPill = () => (
   </div>
 );
 
+const normalizeSearchText = (value) => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('fr-FR')
+  .trim();
+
+const isMarked = (value) => value === true || value === 1 || ['1', 'oui', 'true'].includes(normalizeSearchText(value));
+const parseFilmNote = (value) => parseFloat(String(value ?? '').replace(',', '.'));
+const parseHistoryDate = (value) => {
+  if (!value) return 0;
+  const [day, month, year] = String(value).split('/').map(Number);
+  if (!day || !month || !year) return 0;
+  return new Date(year, month - 1, day).getTime();
+};
+
 /* ── Cards ─────────────────────────────────────────────────────────── */
 
 function FeatureCard({ film, onClick, isHero = false }) {
@@ -35,6 +50,10 @@ function FeatureCard({ film, onClick, isHero = false }) {
     return (
       <div
         onClick={onClick}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${film.titre || 'Film'}${film.note ? `, note ${film.note}` : ''}`}
         className="relative overflow-hidden cursor-pointer active:scale-[0.995] transition-transform duration-300 group"
         style={{
           height: '62dvh',
@@ -91,6 +110,10 @@ function FeatureCard({ film, onClick, isHero = false }) {
   return (
     <div
       onClick={onClick}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${film.titre || 'Film'}${film.note ? `, note ${film.note}` : ''}`}
       className="relative w-full rounded-[2.5rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-500 mb-10 aspect-[4/3] shadow-2xl group"
     >
       <SmartPoster
@@ -139,6 +162,10 @@ function StandardRow({ film, onClick, showSeparator }) {
     <div className="group">
       <div
         onClick={onClick}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${film.titre || 'Film'}${film.note ? `, note ${film.note}` : ''}`}
         className="grid grid-cols-[auto_1fr_auto] items-center gap-5 py-5 px-2 pr-4 cursor-pointer active:bg-white/5 rounded-2xl transition-colors"
       >
         <div className="relative w-16 rounded-xl overflow-hidden bg-[var(--theme-surface)] border border-[var(--theme-border)]" style={{ height: '88px' }}>
@@ -148,7 +175,7 @@ function StandardRow({ film, onClick, showSeparator }) {
           <span className="text-[9px] font-black text-[var(--theme-text)] opacity-30 tracking-widest block mb-1">
             #{film.numero}
           </span>
-          <p className="font-galinoy text-lg leading-tight text-[var(--theme-text)]">{film.titre}</p>
+          <p className="font-outfit text-[15px] font-semibold leading-snug text-[var(--theme-text)]">{film.titre}</p>
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-[11px] font-medium text-[var(--theme-text-secondary)] opacity-60">{film.date}</span>
             <div className="flex items-center gap-2">
@@ -162,7 +189,7 @@ function StandardRow({ film, onClick, showSeparator }) {
           </div>
         </div>
         {noteDisplay && (
-          <div className="font-galinoy text-3xl italic text-[var(--theme-text-secondary)] opacity-40 pr-2">
+          <div className="font-outfit text-[18px] font-semibold tabular-nums text-[var(--theme-accent)] pr-2">
             {noteDisplay}
           </div>
         )}
@@ -206,6 +233,8 @@ function FilterToggle({ def, active, count, onClick }) {
   return (
     <button
       onClick={onClick}
+      type="button"
+      aria-pressed={active}
       className="group relative flex items-center gap-3 w-full py-3.5 transition-all duration-200 active:scale-[0.98]"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
@@ -268,6 +297,8 @@ function YearToggle({ year, active, count, onClick }) {
   return (
     <button
       onClick={onClick}
+      type="button"
+      aria-pressed={active}
       className="relative flex-shrink-0 transition-all duration-200 active:scale-95"
       style={{
         padding: '8px 14px',
@@ -306,6 +337,9 @@ function FilterDrawer({
   activeYears,
   toggleYear,
   availableYears,
+  availableGenres,
+  activeGenres,
+  toggleGenre,
   yearCounts,
   typeCounts,
   totalActive,
@@ -366,14 +400,17 @@ function FilterDrawer({
         className={`fixed inset-0 z-[300] ${isOpen ? 'pointer-events-auto fd-backdrop-enter' : 'pointer-events-none fd-backdrop-exit'}`}
         style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        role="dialog"
+        aria-modal={isOpen ? 'true' : undefined}
+        aria-label="Filtres du journal"
+        aria-hidden={!isOpen}
+        inert={!isOpen}
         className={`fixed bottom-0 left-0 right-0 z-[301] ${isOpen ? 'fd-sheet-enter' : 'fd-sheet-exit'}`}
         style={{
           borderRadius: '28px 28px 0 0',
@@ -382,18 +419,20 @@ function FilterDrawer({
           WebkitBackdropFilter: 'blur(32px)',
           borderTop: '1px solid rgba(255,255,255,0.07)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)',
+          maxHeight: 'min(82dvh, 680px)',
+          overflowY: 'auto',
           willChange: 'transform',
         }}
       >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3.5 pb-1">
+        <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} className="flex justify-center min-h-8 pt-3.5 pb-1 touch-none">
           <div className="w-8 h-[3px] rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-3 pb-4">
           <div className="flex items-baseline gap-2.5">
-            <span className="font-galinoy italic text-[18px] text-white/80 tracking-tight">Filtres</span>
+            <span className="font-outfit text-[12px] font-semibold uppercase tracking-[0.16em] text-white/80">Filtres</span>
             {totalActive > 0 && (
               <span
                 className="font-outfit text-[11px] font-semibold transition-all duration-200"
@@ -405,6 +444,8 @@ function FilterDrawer({
           </div>
           <button
             onClick={onClose}
+            type="button"
+            aria-label="Fermer les filtres"
             className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform"
             style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)' }}
           >
@@ -431,6 +472,21 @@ function FilterDrawer({
             </React.Fragment>
           ))}
         </div>
+
+        {availableGenres.length > 0 && (
+          <>
+            <div className="mx-6 my-3" style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+            <div className="px-6">
+              <p className="font-outfit text-[10px] uppercase tracking-[0.18em] mb-3" style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>Genre</p>
+              <div className="flex flex-wrap gap-2">
+                {availableGenres.map((genre) => {
+                  const active = activeGenres.has(genre);
+                  return <button key={genre} type="button" aria-pressed={active} onClick={() => toggleGenre(genre)} className="rounded-full px-3 py-2 text-[12px] font-outfit transition-colors" style={{ color: active ? '#111' : 'rgba(255,255,255,.72)', background: active ? 'var(--theme-accent)' : 'rgba(255,255,255,.07)', border: `1px solid ${active ? 'transparent' : 'rgba(255,255,255,.08)'}` }}>{genre}</button>;
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Divider */}
         <div className="mx-6 my-3" style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
@@ -492,6 +548,15 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   const sharedPill = {
     height: '2.5rem',
     backgroundColor: 'rgba(0,0,0,0.30)',
@@ -506,6 +571,8 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
     return (
       <button
         onClick={onOpen}
+        type="button"
+        aria-label="Ouvrir la recherche"
         className="flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
         style={{
           ...sharedPill,
@@ -524,11 +591,11 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
   /* ── État ouvert : barre expandée ── */
   return (
     <div
-      className="flex items-center gap-2"
+        className="flex items-center gap-2"
       style={{
         ...sharedPill,
         borderRadius: '999px',
-        width: '100%',
+        width: 'min(58vw, 280px)',
         paddingLeft: '0.75rem',
         paddingRight: '0.375rem',
         minWidth: 0,
@@ -541,17 +608,20 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
       >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
-      <input
+        <input
         ref={inputRef}
         type="text"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Rechercher…"
+        aria-label="Rechercher un film, un genre, une note ou une séance"
+        placeholder="Film, genre, note…"
         className="bg-transparent outline-none font-outfit text-xs flex-1 min-w-0"
         style={{ color: 'rgba(255,255,255,0.9)' }}
       />
       <button
         onClick={() => { setSearchQuery(''); onClose(); }}
+        type="button"
+        aria-label="Effacer la recherche et fermer"
         className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform"
         style={{ color: 'rgba(255,255,255,0.5)' }}
       >
@@ -568,7 +638,7 @@ function HistoryHeaderRight({ isSearchOpen, searchQuery, setSearchQuery, totalAc
     <div
       className="flex items-center gap-2"
       style={{
-        width: isSearchOpen ? '100%' : 'auto',
+        width: 'auto',
         transition: 'width 300ms cubic-bezier(0.4,0,0.2,1)',
         justifyContent: 'flex-end',
         overflow: 'visible',
@@ -577,6 +647,8 @@ function HistoryHeaderRight({ isSearchOpen, searchQuery, setSearchQuery, totalAc
       {!isSearchOpen && (
         <button
           onClick={onFilterOpen}
+          type="button"
+          aria-label={`Ouvrir les filtres${totalActiveFilters ? `, ${totalActiveFilters} actifs` : ''}`}
           className="relative flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
           style={{
             width: '2.5rem',
@@ -624,6 +696,7 @@ export function History({
 }) {
   const [activeTypes, setActiveTypes] = useState(new Set());
   const [activeYears, setActiveYears] = useState(new Set());
+  const [activeGenres, setActiveGenres] = useState(new Set());
   const [searchQuery,  setSearchQuery]  = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -644,7 +717,16 @@ export function History({
     });
   }, []);
 
-  const totalActiveFilters = activeTypes.size + activeYears.size;
+  const toggleGenre = useCallback((genre) => {
+    setActiveGenres(prev => {
+      const next = new Set(prev);
+      next.has(genre) ? next.delete(genre) : next.add(genre);
+      return next;
+    });
+  }, []);
+
+  const totalActiveFilters = activeTypes.size + activeYears.size + activeGenres.size;
+  const hasActiveCriteria = Boolean(searchQuery.trim()) || totalActiveFilters > 0;
 
   const handleSearchOpen  = useCallback(() => setIsSearchOpen(true),  []);
   const handleSearchClose = useCallback(() => setIsSearchOpen(false), []);
@@ -655,11 +737,15 @@ export function History({
     [...new Set(historyData.map(f => f.date?.split('/')[2]).filter(Boolean))].sort((a, b) => b - a),
   [historyData]);
 
+  const availableGenres = useMemo(() => [...new Set(
+    historyData.map(f => String(f.genre ?? '').trim()).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'fr')), [historyData]);
+
   /* ── Counts (sur données non filtrées) ── */
   const typeCounts = useMemo(() => ({
-    coeur:    historyData.filter(f => f.coupDeCoeur).length,
-    capucine: historyData.filter(f => f.capucine).length,
-    note4:    historyData.filter(f => parseFloat(String(f.note || 0).replace(',', '.')) >= 4).length,
+    coeur:    historyData.filter(f => isMarked(f.coupDeCoeur)).length,
+    capucine: historyData.filter(f => isMarked(f.capucine)).length,
+    note4:    historyData.filter(f => parseFilmNote(f.note) >= 4).length,
   }), [historyData]);
 
   const yearCounts = useMemo(() => {
@@ -673,17 +759,33 @@ export function History({
 
   /* ── Filtered + sorted — logique AND stricte ── */
   const filteredData = useMemo(() => {
-    let data = historyData;
+    let data = [...historyData];
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      data = data.filter(f => f.titre.toLowerCase().includes(q));
+    const queryTerms = normalizeSearchText(searchQuery).split(/\s+/).filter(Boolean);
+    if (queryTerms.length) {
+      data = data.filter(f => {
+        const note = String(f.note ?? '');
+        const fields = [
+          f.titre, f.genre, note, note.replace(',', '.'), f.date, f.salle,
+          f.siege, f.langue, f.commentaire, f.heure, f.numero,
+          isMarked(f.coupDeCoeur) ? 'coup de coeur favori' : '',
+          isMarked(f.capucine) ? 'capucines' : '',
+        ];
+        const searchable = normalizeSearchText(fields.join(' '));
+        return queryTerms.every(term => searchable.includes(term));
+      });
     }
 
     // Types : AND strict entre les filtres cochés
-    if (activeTypes.has('coeur'))    data = data.filter(f => f.coupDeCoeur);
-    if (activeTypes.has('capucine')) data = data.filter(f => f.capucine);
-    if (activeTypes.has('note4'))    data = data.filter(f => parseFloat(String(f.note || 0).replace(',', '.')) >= 4);
+    if (activeTypes.has('coeur'))    data = data.filter(f => isMarked(f.coupDeCoeur));
+    if (activeTypes.has('capucine')) data = data.filter(f => isMarked(f.capucine));
+    if (activeTypes.has('note4'))    data = data.filter(f => parseFilmNote(f.note) >= 4);
+
+    // Genres : OR entre les genres choisis, AND avec les autres filtres.
+    if (activeGenres.size > 0) {
+      const selectedGenres = new Set([...activeGenres].map(normalizeSearchText));
+      data = data.filter(f => selectedGenres.has(normalizeSearchText(f.genre)));
+    }
 
     // Années : OR dans la sélection des années (si aucune = tout passe)
     if (activeYears.size > 0) {
@@ -693,11 +795,8 @@ export function History({
       });
     }
 
-    return data.sort((a, b) => {
-      const p = d => { const [dd, mm, yy] = d.split('/').map(Number); return new Date(yy, mm - 1, dd); };
-      return p(b.date) - p(a.date);
-    });
-  }, [historyData, activeTypes, activeYears, searchQuery]);
+    return data.sort((a, b) => parseHistoryDate(b.date) - parseHistoryDate(a.date));
+  }, [historyData, activeTypes, activeYears, activeGenres, searchQuery]);
 
   /* ── Grouped by month ── */
   const groupedByMonth = useMemo(() => {
@@ -743,11 +842,61 @@ export function History({
   /* ── Render ── */
   return (
     <div className="bg-transparent text-[var(--theme-text)] font-outfit min-h-full overflow-x-hidden">
+      {hasActiveCriteria && (
+        <section
+          aria-label="Résultats de recherche et filtres actifs"
+          className="px-5 pb-4"
+          style={{ paddingTop: 'calc(var(--header-total-height, 96px) + 0.75rem)' }}
+        >
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <p className="font-outfit text-[13px] font-semibold">
+              {filteredData.length} séance{filteredData.length === 1 ? '' : 's'} trouvée{filteredData.length === 1 ? '' : 's'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setActiveTypes(new Set());
+                setActiveYears(new Set());
+                setActiveGenres(new Set());
+              }}
+              className="flex-shrink-0 font-outfit text-[11px] font-semibold"
+              style={{ color: 'var(--theme-accent)' }}
+            >
+              Tout effacer
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {searchQuery.trim() && (
+              <button type="button" onClick={() => setSearchQuery('')} aria-label={`Retirer la recherche ${searchQuery.trim()}`} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-outfit text-[11px]" style={{ background: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)', color: 'var(--theme-text)' }}>
+                « {searchQuery.trim()} » <X size={12} />
+              </button>
+            )}
+            {FILTER_DEFS.filter(({ id }) => activeTypes.has(id)).map((def) => (
+              <button key={def.id} type="button" onClick={() => toggleType(def.id)} aria-label={`Retirer le filtre ${def.label}`} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-outfit text-[11px]" style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)', color: 'var(--theme-text)' }}>
+                {def.label} <X size={12} />
+              </button>
+            ))}
+            {[...activeYears].sort((a, b) => b.localeCompare(a)).map((year) => (
+              <button key={year} type="button" onClick={() => toggleYear(year)} aria-label={`Retirer l'année ${year}`} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-outfit text-[11px]" style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)', color: 'var(--theme-text)' }}>
+                {year} <X size={12} />
+              </button>
+            ))}
+            {[...activeGenres].sort((a, b) => a.localeCompare(b, 'fr')).map((genre) => (
+              <button key={genre} type="button" onClick={() => toggleGenre(genre)} aria-label={`Retirer le genre ${genre}`} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-outfit text-[11px]" style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)', color: 'var(--theme-text)' }}>
+                {genre} <X size={12} />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {groupedByMonth.length === 0 ? (
         <div className="flex flex-col items-center justify-center opacity-20" style={{ paddingTop: 'var(--header-total-height, 96px)', minHeight: '60vh' }}>
           <Ticket size={48} className="mb-2" />
           <p className="font-galinoy text-4xl capitalize italic">
-            {searchQuery ? 'Aucun résultat' : 'Vide'}
+            {hasActiveCriteria ? 'Aucun résultat' : 'Vide'}
           </p>
         </div>
       ) : (
@@ -762,7 +911,7 @@ export function History({
               />
               {!isFirstMonth && (
                 <div className="px-5 pt-8 pb-3">
-                  <p className="font-galinoy italic text-lg capitalize text-[var(--theme-text)] opacity-30 tracking-tight">
+                  <p className="font-outfit text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--theme-text)] opacity-45">
                     {month}
                   </p>
                 </div>
@@ -807,10 +956,13 @@ export function History({
         activeYears={activeYears}
         toggleYear={toggleYear}
         availableYears={availableYears}
+        availableGenres={availableGenres}
+        activeGenres={activeGenres}
+        toggleGenre={toggleGenre}
         yearCounts={yearCounts}
         typeCounts={typeCounts}
         totalActive={totalActiveFilters}
-        onReset={() => { setActiveTypes(new Set()); setActiveYears(new Set()); }}
+        onReset={() => { setActiveTypes(new Set()); setActiveYears(new Set()); setActiveGenres(new Set()); }}
       />
     </div>
   );

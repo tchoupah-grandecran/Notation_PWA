@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { createElement, useState, useEffect, useRef, useId } from 'react';
+// ESLint's no-unused-vars does not detect Framer Motion's JSX namespace usage.
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
 
@@ -64,7 +66,7 @@ const ImageIcon = () => (
 
 // ─── COMPOSANT ETOILE ────────────────────────────────────────────────────────
 function Star({ fill = 0, size = 34 }) {
-  const id = useMemo(() => `star-grad-${Math.random().toString(36).slice(2)}`, []);
+  const id = `star-grad-${useId().replace(/:/g, '')}`;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className="flex-shrink-0 transition-transform">
       <defs>
@@ -98,15 +100,37 @@ function ValidationField({ label, value, onChange, placeholder, inputMode = 'tex
   );
 }
 
-// ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
-function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
+// Chaque séance possède une instance de formulaire indépendante. Quand la file
+// avance, le nouvel identifiant remonte le formulaire sans hériter de « Fait ».
+function Notation({ films, ...props }) {
+  const film = films?.[0] || null;
+  if (!film) return null;
+  const filmKey = film.messageId || film.fingerprint || `${film.titre || film.title}-${film.date}-${film.heure}`;
+  return <NotationForm key={filmKey} initialFilm={film} {...props} />;
+}
+
+function createValidationDraft(film) {
+  return {
+    titre: film.titre || film.title || '',
+    date: film.date || '',
+    heure: film.heure || '',
+    duree: film.duree && film.duree !== '--h--' ? film.duree : '',
+    langue: film.langue && film.langue !== '?' ? film.langue : '',
+    salle: film.salle || '',
+    siege: film.siege || '',
+    depense: film.depense || '0,00',
+  };
+}
+
+// ─── FORMULAIRE DE NOTATION ─────────────────────────────────────────────────
+function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSaved, onSkip }) {
   // 1. D'abord, on déclare tous les états locaux (Hooks d'état en premier)
   const [rating, setRating] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [comment, setComment] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCapucine, setIsCapucine] = useState(false);
-  const [price, setPrice] = useState('0.00');
+  const [price, setPrice] = useState(initialFilm.depense || '0.00');
 
   const [selectedLang, setSelectedLang] = useState(null);
   const [customLang, setCustomLang] = useState('');
@@ -122,72 +146,32 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [ratingError, setRatingError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const saveTimerRef = useRef(null);
   const [numeroSeance, setNumeroSeance] = useState('...');
   const [validatedFilm, setValidatedFilm] = useState(null);
-  const [validationDraft, setValidationDraft] = useState(null);
-  const [showValidation, setShowValidation] = useState(false);
+  const [validationDraft, setValidationDraft] = useState(() => createValidationDraft(initialFilm));
+  const [showValidation, setShowValidation] = useState(Boolean(initialFilm.needsValidation));
   const [validationError, setValidationError] = useState('');
 
-  // 2. Ensuite, on extrait le film le plus récent de manière blindée
-  const detectedFilm = useMemo(() => {
-    if (!films || films.length === 0) return null;
-
-    // Helper pour récupérer l'année peu importe la source (TMDB ou ton scraper)
-    const getYear = (f) => {
-      if (!f) return 0;
-      if (f.annee) return parseInt(f.annee, 10) || 0;
-      if (f.release_date) return parseInt(f.release_date.split('-')[0], 10) || 0;
-      if (f.date && f.date.includes('/')) {
-        const parts = f.date.split('/');
-        return parseInt(parts[parts.length - 1], 10) || 0;
-      }
-      return 0;
-    };
-
-    return [...films].sort((a, b) => getYear(b) - getYear(a))[0];
-  }, [films]);
-
-  const film = validatedFilm || detectedFilm;
-
-  // 3. Crucial : Reset du formulaire complet quand le film sélectionné change
-  useEffect(() => {
-    if (detectedFilm) {
-      setRating(0);
-      setComment('');
-      setIsFavorite(false);
-      setIsCapucine(false);
-      setPrice(detectedFilm.depense || '0.00');
-      setSelectedLang(null);
-      setCustomLang('');
-      setLangError(false);
-      setIsEditingTitle(false);
-      setEditedTitle('');
-      setCustomPoster(null);
-      setSaved(false);
-      setValidatedFilm(null);
-      setValidationDraft({
-        titre: detectedFilm.titre || detectedFilm.title || '',
-        date: detectedFilm.date || '',
-        heure: detectedFilm.heure || '',
-        duree: detectedFilm.duree && detectedFilm.duree !== '--h--' ? detectedFilm.duree : '',
-        langue: detectedFilm.langue && detectedFilm.langue !== '?' ? detectedFilm.langue : '',
-        salle: detectedFilm.salle || '',
-        siege: detectedFilm.siege || '',
-        depense: detectedFilm.depense || '0.00',
-      });
-      setShowValidation(Boolean(detectedFilm.needsValidation));
-      setValidationError('');
-    }
-  }, [detectedFilm]);
+  const film = validatedFilm || initialFilm;
 
   // 4. Récupération des données de séance
   useEffect(() => {
     // On utilise une détection adaptative de l'année pour l'API
-    const filmYear = film?.annee || film?.release_date?.split('-')[0] || '2026';
-    if (film && spreadsheetId) {
-      getProchainNumeroSeance(token, spreadsheetId, filmYear).then(setNumeroSeance);
+    const screeningYear = initialFilm?.date?.split('/')?.[2];
+    const filmYear = screeningYear || initialFilm?.annee || initialFilm?.release_date?.split('-')[0] || String(new Date().getFullYear());
+    if (initialFilm && spreadsheetId) {
+      let active = true;
+      getProchainNumeroSeance(token, spreadsheetId, filmYear).then((value) => {
+        if (active) setNumeroSeance(value);
+      });
+      return () => { active = false; };
     }
-  }, [film, spreadsheetId, token]);
+  }, [initialFilm, spreadsheetId, token]);
+
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -195,8 +179,6 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
       titleInputRef.current.select();
     }
   }, [isEditingTitle]);
-
-  if (!film) return null;
 
   // Fallbacks adaptatifs pour l'affichage (gère les clés FR et EN de TMDB)
   const movieTitle = film.titre || film.title || '';
@@ -227,21 +209,21 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
       return;
     }
     const nextFilm = {
-      ...detectedFilm,
+      ...initialFilm,
       titre: draft.titre.trim(),
       date: draft.date.trim(),
       heure: draft.heure.trim(),
-      duree: draft.duree?.trim() || detectedFilm.duree || '--h--',
+      duree: draft.duree?.trim() || initialFilm.duree || '--h--',
       langue: draft.langue?.trim().toUpperCase() || '?',
       salle: draft.salle?.trim(),
       siege: draft.siege?.trim(),
-      depense: draft.depense?.trim() || '0.00',
+      depense: draft.depense?.trim() || '0,00',
       needsValidation: false,
       validationReasons: [],
     };
     setValidatedFilm(nextFilm);
     setEditedTitle(nextFilm.titre);
-    setPrice(nextFilm.depense || '0.00');
+    setPrice(nextFilm.depense || '0,00');
     if (nextFilm.langue && nextFilm.langue !== '?' && nextFilm.langue !== 'FRA') {
       setSelectedLang(nextFilm.langue);
     }
@@ -262,7 +244,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') handleTitleEditConfirm();
     if (e.key === 'Escape') {
-      setEditedTitle(film.titre);
+      setEditedTitle(movieTitle);
       setIsEditingTitle(false);
     }
   };
@@ -285,6 +267,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const raw = (x / rect.width) * safeRatingScale;
     setRating(Math.round(raw * 2) / 2);
+    setRatingError('');
   };
 
   const handlePointerDown = (e) => {
@@ -299,11 +282,36 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
   const handlePointerUp = (e) => {
     setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleRatingKeyDown = (event) => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setRating((current) => Math.min(safeRatingScale, current + 0.5));
+      setRatingError('');
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      setRating((current) => Math.max(0, current - 0.5));
+      setRatingError('');
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setRating(0);
+      setRatingError('');
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setRating(safeRatingScale);
+      setRatingError('');
+    }
   };
 
   // ─── SAVE ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
+    if (loading || saved) return;
+    if (rating <= 0) {
+      setRatingError('Choisis une note pour continuer.');
+      return;
+    }
     const isVost = film.langue !== 'FRA' && film.langue !== 'VF';
     const hasLang = selectedLang && (selectedLang !== 'Autre' || customLang.trim().length > 0);
     if (isVost && !hasLang) {
@@ -311,6 +319,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
       return;
     }
     setLangError(false);
+    setSaveError('');
     setLoading(true);
 
     const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
@@ -332,9 +341,9 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
     if (success) {
       setSaved(true);
-      setTimeout(() => onSaved(), 1500);
+      saveTimerRef.current = setTimeout(() => onSaved?.(film), 700);
     } else {
-      alert('Erreur de sauvegarde');
+      setSaveError('La sauvegarde a échoué. Vérifie ta connexion puis réessaie.');
       setLoading(false);
     }
   };
@@ -358,7 +367,8 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
       {/* BOUTON PLUS TARD */}
       <button
         onClick={onSkip}
-        className="fixed top-[62px] right-4 flex items-center justify-center px-3.5 py-1.5 bg-black/20 backdrop-blur-xl rounded-full border border-white/20 text-white text-[10px] font-bold z-20 shadow-lg active:scale-95 transition-all"
+        type="button"
+        className="fixed top-[calc(env(safe-area-inset-top)+12px)] right-4 min-h-11 flex items-center justify-center px-4 bg-black/30 backdrop-blur-xl rounded-full border border-white/20 text-white text-[11px] font-bold z-20 shadow-lg active:scale-95 transition-all"
       >
         Plus tard
       </button>
@@ -400,16 +410,16 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                       Séance détectée
                     </h2>
                   </div>
-                  {detectedFilm?.source && (
+                  {initialFilm?.source && (
                     <span className="px-3 py-1 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-border)] text-[9px] font-black uppercase tracking-[0.14em] text-[var(--theme-text-secondary)]">
-                      {detectedFilm.source}
+                      {initialFilm.source}
                     </span>
                   )}
                 </div>
 
-                {detectedFilm?.validationReasons?.length > 0 && (
+                {initialFilm?.validationReasons?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {detectedFilm.validationReasons.map((reason) => (
+                    {initialFilm.validationReasons.map((reason) => (
                       <span
                         key={reason}
                         className="px-2.5 py-1 rounded-full bg-[var(--theme-accent-muted)] text-[var(--theme-accent)] text-[9px] font-bold"
@@ -477,7 +487,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                     label="Dépense"
                     value={validationDraft?.depense}
                     onChange={(value) => handleValidationChange('depense', value)}
-                    placeholder="0.00"
+                    placeholder="0,00"
                     inputMode="decimal"
                   />
                 </div>
@@ -491,12 +501,14 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={onSkip}
-                  className="h-12 px-5 rounded-full border border-[var(--theme-border)] text-[var(--theme-text-secondary)] text-[11px] font-bold active:scale-95 transition-transform"
+                  className="min-h-12 px-5 rounded-full border border-[var(--theme-border)] text-[var(--theme-text-secondary)] text-[11px] font-bold active:scale-95 transition-transform"
                 >
                   Plus tard
                 </button>
                 <motion.button
+                  type="button"
                   onClick={handleValidationConfirm}
                   className="flex-1 h-12 rounded-full bg-[var(--theme-text)] text-[var(--theme-surface)] text-[13px] font-black active:scale-95 transition-transform"
                   whileTap={{ scale: 0.98 }}
@@ -525,14 +537,16 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
             {/* Badge numéro de séance */}
             <div className="absolute top-3 left-4 px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
               <span className="text-white/80 text-[10px] font-medium block leading-none">
-                #{numeroSeance}è séance
+                Séance n° {numeroSeance}
               </span>
             </div>
 
             {/* Bouton changer le poster */}
             <button
               onClick={() => posterInputRef.current?.click()}
-              className="absolute top-3 right-3 flex items-center gap-[5px] px-2.5 py-1.5 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white/80 text-[10px] font-medium active:scale-95 transition-all"
+              type="button"
+              aria-label={customPoster ? 'Changer l’affiche' : 'Ajouter une affiche'}
+              className="absolute top-3 right-3 min-h-11 flex items-center gap-[5px] px-3 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white/90 text-[11px] font-medium active:scale-95 transition-all"
             >
               <ImageIcon />
               {customPoster ? 'Changer' : 'Affiche'}
@@ -573,7 +587,9 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
               {!isEditingTitle && (
                 <motion.button
                   onClick={handleTitleEditStart}
-                  className="flex-shrink-0 mb-[3px] p-1 rounded-full bg-black/20 backdrop-blur-md border border-white/15 text-white/60 active:scale-90 transition-all"
+                  type="button"
+                  aria-label="Modifier le titre du film"
+                  className="flex-shrink-0 min-w-11 min-h-11 flex items-center justify-center mb-[3px] rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white active:scale-90 transition-all"
                   whileTap={{ scale: 0.85 }}
                 >
                   <PencilIcon />
@@ -583,13 +599,13 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
             <div className="absolute bottom-3 right-3 h-6 flex items-center px-3 rounded-full border border-white/20 bg-black/30 backdrop-blur-sm">
               <span className="text-white/90 text-[10px] font-semibold tracking-wide leading-none">
-                {film.genre || 'Drame'}
+                {film.genre || 'Genre à préciser'}
               </span>
             </div>
           </div>
 
           {/* ── 2. STAR RATING ── */}
-          <div className="relative flex items-center justify-center gap-[5px] h-[34px] mb-5">
+          <div className="relative flex items-center justify-center gap-[5px] h-12 mb-5">
             <AnimatePresence>
               {isDragging && (
                 <motion.div
@@ -605,7 +621,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
             <div
               ref={starsRef}
-              className={`flex items-center justify-center ${gapSize} w-full`}
+              className={`flex items-center justify-center ${gapSize} w-full pointer-events-none`}
             >
               {[...Array(safeRatingScale)].map((_, i) => (
                 <Star
@@ -617,46 +633,57 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
             </div>
 
             <div
-              className="absolute inset-0 z-10 touch-none cursor-pointer"
+              className="absolute inset-0 z-10 touch-none cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] focus-visible:ring-inset"
+              role="slider"
+              tabIndex={0}
+              aria-label="Note du film"
+              aria-valuemin={0}
+              aria-valuemax={safeRatingScale}
+              aria-valuenow={rating}
+              aria-valuetext={rating > 0 ? `${rating} sur ${safeRatingScale}` : 'Aucune note sélectionnée'}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
+              onKeyDown={handleRatingKeyDown}
             />
           </div>
+          {ratingError && <p role="alert" className="-mt-3 mb-4 text-center text-[11px] font-semibold text-red-500">{ratingError}</p>}
 
           {/* ── 3. METADATA CHIPS ── */}
           <div className="flex flex-wrap gap-[6px] mb-4 opacity-50">
             {[
-              { Icon: CalendarIcon, val: film.date || '00/00/2026' },
-              { Icon: ClockIcon,    val: film.heure || '00:00' },
-              { Icon: TimerIcon,    val: film.duree || '--h--' },
-              { Icon: GlobeIcon,    val: film.langue || 'VOST' },
-              { Icon: TheaterIcon,  val: film.salle || 'Salle --' },
-              { Icon: SeatIcon,     val: film.siege || 'F--' },
+              { Icon: CalendarIcon, val: film.date || '—' },
+              { Icon: ClockIcon,    val: film.heure || '—' },
+              { Icon: TimerIcon,    val: film.duree && film.duree !== '--h--' ? film.duree : '—' },
+              { Icon: GlobeIcon,    val: film.langue && film.langue !== '?' ? film.langue : '—' },
+              { Icon: TheaterIcon,  val: film.salle || '—' },
+              { Icon: SeatIcon,     val: film.siege || '—' },
             ].map(({ Icon, val }, idx) => (
               <div
                 key={idx}
                 className="flex items-center gap-[5px] px-[10px] py-[5px] rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)]"
               >
-                <Icon />
+                {createElement(Icon)}
                 <span className="text-[var(--theme-text)] text-[10px] font-light italic">{val}</span>
               </div>
             ))}
           </div>
 
           {/* ── 3.5 SÉLECTION LANGUE (SI VOST) ── */}
-          {film.langue !== 'FRA' && (
+          {film.langue !== 'FRA' && film.langue !== 'VF' && (
             <div className={`mb-5 bg-[var(--theme-bg)] rounded-[16px] border p-3 transition-colors ${langError ? 'border-red-500' : 'border-[var(--theme-border)]'}`}>
   <span className={`text-[11px] font-medium block mb-2 transition-colors ${langError ? 'text-red-500 opacity-100' : 'text-[var(--theme-text-secondary)] opacity-70'}`}>
     {langError ? '⚠ Sélectionne une langue pour continuer' : 'Langue originale (Trigramme)'}
   </span>
   <div className="flex flex-wrap gap-2">
     {['ENG', 'GER', 'CHI', 'ITA', 'Autre'].map(lang => (
-      <button
-        key={lang}
-        onClick={() => { setSelectedLang(lang); setLangError(false); }}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all border ${
+                    <button
+                      key={lang}
+                      type="button"
+                      aria-pressed={selectedLang === lang}
+                      onClick={() => { setSelectedLang(lang); setLangError(false); }}
+                    className={`min-h-11 px-4 rounded-full text-[11px] font-bold tracking-wide transition-all border ${
                       selectedLang === lang
                         ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)] text-[var(--theme-bg)] shadow-sm'
                         : 'bg-transparent border-[var(--theme-border)] text-[var(--theme-text-secondary)]'
@@ -677,11 +704,12 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                   >
                     <input
                       type="text"
+                      aria-label="Préciser la langue"
                       maxLength={3}
                       value={customLang}
                       onChange={(e) => setCustomLang(e.target.value.toUpperCase())}
                       placeholder="EX: JPN"
-                      className="w-[80px] bg-transparent border-b border-[var(--theme-border)] text-[var(--theme-text)] text-xs font-bold outline-none uppercase pb-1 text-center focus:border-[var(--theme-accent)] transition-colors"
+                      className="w-[96px] min-h-11 bg-transparent border-b border-[var(--theme-border)] text-[var(--theme-text)] text-xs font-bold outline-none uppercase pb-1 text-center focus:border-[var(--theme-accent)] transition-colors"
                     />
                   </motion.div>
                 )}
@@ -693,6 +721,8 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
           <div className="flex gap-[10px] mb-4">
             <button
               onClick={() => setIsFavorite(!isFavorite)}
+              type="button"
+              aria-pressed={isFavorite}
               className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[23px] border transition-all ${
                 isFavorite
                 ? 'border-red-500/50 bg-red-500/10 text-red-500'
@@ -707,6 +737,8 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
 
             <button
               onClick={() => setIsCapucine(!isCapucine)}
+              type="button"
+              aria-pressed={isCapucine}
               className={`flex-1 flex items-center justify-center gap-[8px] h-[46px] rounded-[23px] border transition-all ${
                 isCapucine
                 ? 'border-[var(--theme-accent)] bg-[var(--theme-accent-muted)]'
@@ -727,10 +759,12 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
           {/* ── 5. DÉPENSE ROW ── */}
           <div className="flex items-center justify-between h-[50px] px-5 rounded-[16px] border border-[var(--theme-border)] bg-[var(--theme-bg)] mb-4">
             <div className="flex items-center gap-[8px]">
-              <span className="text-[var(--theme-text-secondary)] text-[16px] font-light opacity-50">Extras</span>
+              <label htmlFor="ticket-price" className="text-[var(--theme-text-secondary)] text-[14px] font-medium">Dépense</label>
             </div>
             <div className="flex items-center gap-[4px]">
               <input
+                id="ticket-price"
+                aria-label="Dépense en euros"
                 type="number"
                 inputMode="decimal"
                 value={price}
@@ -742,17 +776,21 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
           </div>
 
           {/* ── 6. COMMENTAIRE ── */}
-          <textarea
+      <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            aria-label="Commentaire sur la séance"
             placeholder="Ton avis à chaud"
-            className="w-full h-[80px] bg-[var(--theme-bg)] rounded-[15px] p-3 text-xs font-light text-[var(--theme-text)] placeholder:text-[var(--theme-text-secondary)] outline-none resize-none border border-[var(--theme-border)] transition-colors focus:border-[var(--theme-accent)]"
+            className="w-full min-h-[96px] bg-[var(--theme-bg)] rounded-[15px] p-3 text-xs font-light text-[var(--theme-text)] placeholder:text-[var(--theme-text-secondary)] outline-none resize-y border border-[var(--theme-border)] transition-colors focus:border-[var(--theme-accent)]"
           />
 
           {/* ── 7. NOTER BUTTON ── */}
-          <div className="mt-6 w-full flex justify-center">
+          {saveError && <p role="alert" className="mt-4 text-center text-[11px] font-semibold text-red-500">{saveError}</p>}
+          <div className="mt-5 w-full flex justify-center">
             <motion.button
-              disabled={loading}
+              type="button"
+              disabled={loading || saved}
+              aria-live="polite"
               onClick={handleSave}
               className="w-full max-w-[280px] py-[14px] rounded-[42px] flex justify-center items-center font-outfit shadow-lg transition-all"
               style={{
@@ -776,7 +814,7 @@ function Notation({ films, token, spreadsheetId, ratingScale = 5, onSaved, onSki
                     className="text-2xl font-light tracking-tight"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   >
-                    {loading ? '...' : 'Noter'}
+                    {loading ? 'Enregistrement…' : 'Noter'}
                   </motion.span>
                 )}
               </AnimatePresence>
