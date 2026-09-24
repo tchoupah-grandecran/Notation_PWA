@@ -81,7 +81,7 @@ export function AppHeader({
         <header
           className="fixed inset-x-0 top-0 z-[100] overflow-visible md:hidden"
           style={{
-            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
             color: textPrimary,
           }}
         >
