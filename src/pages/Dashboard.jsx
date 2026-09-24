@@ -2819,21 +2819,27 @@ return (
             </h2>
           </div>
 
-          <div className="flex gap-4 px-6 mt-12 overflow-x-auto scrollbar-hide">
+          <div className="grid grid-cols-2 gap-3 px-6 mt-10 mx-auto max-w-[620px]">
             {coupsDeCoeur.map((film, index) => (
               <button
                 key={`${film.titre}-${index}`}
                 onClick={() => setSelectedFilm(film)}
-                className="flex-shrink-0 w-[170px] sm:w-[210px] text-left active:scale-[.97] transition-transform"
+                type="button"
+                className="min-w-0 w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/80"
               >
                 <div
                   className="relative aspect-[2/3] rounded-[16px] overflow-hidden"
                   style={{
-                    transform: index % 2 === 0 ? 'rotate(-2deg)' : 'rotate(2deg)',
-                    boxShadow: '0 18px 45px rgba(0,0,0,.3)',
+                    backgroundColor: 'rgba(0,0,0,.16)',
+                    boxShadow: '0 14px 32px rgba(0,0,0,.24)',
                   }}
                 >
-                  <SmartPoster afficheInitiale={film.affiche} titre={film.titre} className="w-full h-full object-cover" />
+                  <SmartPoster
+                    afficheInitiale={film.affiche}
+                    titre={film.titre}
+                    className="w-full h-full"
+                    objectFit="contain"
+                  />
 
                   <div
                     className="absolute inset-x-0 bottom-0 p-4"
@@ -2871,12 +2877,22 @@ return (
 
           {getPoster(4) && (
             <div className="w-[58vw] max-w-[230px] mx-auto my-10">
+              <button
+                type="button"
+                onClick={() => setSelectedFilm(getPoster(4))}
+                aria-label={`Ouvrir la fiche de ${getPoster(4)?.titre}`}
+                className="group block w-full rounded-[18px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--theme-accent)]"
+              >
               <div
                 className="aspect-[2/3] rounded-[18px] overflow-hidden"
-                style={{ transform: 'rotate(-3deg)', boxShadow: '0 16px 35px rgba(0,0,0,0.25)' }}
+                style={{ boxShadow: '0 16px 35px rgba(0,0,0,0.25)' }}
               >
-                <SmartPoster afficheInitiale={getPoster(4)?.affiche} titre={getPoster(4)?.titre} className="w-full h-full object-cover" />
+                <SmartPoster afficheInitiale={getPoster(4)?.affiche} titre={getPoster(4)?.titre} className="w-full h-full" />
               </div>
+                <span className="mt-3 block text-center font-outfit text-[10px] uppercase tracking-[.16em] opacity-55 group-hover:opacity-90">
+                  Voir le film ↗
+                </span>
+              </button>
             </div>
           )}
 
@@ -2928,12 +2944,22 @@ return (
 
             {getPoster(5) && (
               <div className="w-[48vw] max-w-[190px] mx-auto mt-10 mb-4">
-                <div
-                  className="aspect-[2/3] rounded-[18px] overflow-hidden"
-                  style={{ transform: 'rotate(4deg)', boxShadow: '0 16px 35px rgba(0,0,0,0.25)' }}
+                <button
+                  type="button"
+                  onClick={() => setSelectedFilm(getPoster(5))}
+                  aria-label={`Ouvrir la fiche de ${getPoster(5)?.titre}`}
+                  className="group block w-full rounded-[18px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--theme-accent)]"
                 >
-                  <SmartPoster afficheInitiale={getPoster(5)?.affiche} titre={getPoster(5)?.titre} className="w-full h-full object-cover" />
-                </div>
+                  <div
+                    className="aspect-[2/3] rounded-[18px] overflow-hidden"
+                    style={{ boxShadow: '0 16px 35px rgba(0,0,0,0.25)' }}
+                  >
+                    <SmartPoster afficheInitiale={getPoster(5)?.affiche} titre={getPoster(5)?.titre} className="w-full h-full" />
+                  </div>
+                  <span className="mt-3 block text-center font-outfit text-[10px] uppercase tracking-[.16em] opacity-55 group-hover:opacity-90">
+                    Voir le film ↗
+                  </span>
+                </button>
               </div>
             )}
 

@@ -5,7 +5,7 @@ import { getMissingPosterFromTMDB } from '../api';
  * Affiche une affiche de film.
  * Si l'URL fournie est invalide, tente de la récupérer sur TMDB via le titre.
  */
-export function SmartPoster({ afficheInitiale, titre, className = 'w-20 h-full' }) {
+export function SmartPoster({ afficheInitiale, titre, className = 'w-20 h-full', objectFit = 'cover' }) {
   const [posterUrl, setPosterUrl] = useState(null);
 
   useEffect(() => {
@@ -27,7 +27,8 @@ export function SmartPoster({ afficheInitiale, titre, className = 'w-20 h-full' 
         <img
           src={posterUrl}
           alt={titre}
-          className="w-full h-full object-cover animate-in fade-in duration-500"
+          className="w-full h-full animate-in fade-in duration-500"
+          style={{ objectFit }}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-2xl opacity-50">
