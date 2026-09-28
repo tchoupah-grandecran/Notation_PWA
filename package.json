@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vercel dev --listen 5173",
-    "dev:vite": "vite --host 127.0.0.1 --port 5173",
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "dev:vercel": "vercel dev --listen 5173",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
