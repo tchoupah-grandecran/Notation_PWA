@@ -48,7 +48,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
     <div
       className="fixed right-4 flex items-center justify-end pointer-events-none"
       style={{
-        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+        bottom: 'calc(65px + env(safe-area-inset-bottom, 0px))',
         zIndex: 99999,
       }}
     >
@@ -83,7 +83,7 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
           {/* Count badge — déborde librement */}
           {count > 1 && (
             <div
-              className="absolute -top-1 -right-1 bg-[#E8B200] text-[var(--theme-bg)] text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center leading-none shadow"
+              className="absolute -top-1 -right-1 bg-[var(--theme-accent)] text-[var(--theme-accent-ink)] text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center leading-none shadow"
               style={{ zIndex: 100000 }}
             >
               +{count - 1}
@@ -124,7 +124,8 @@ const PendingRatingToast = ({ film, onOpen, count = 1 }) => {
                     e.stopPropagation();
                     onOpen?.();
                   }}
-                  className="bg-[var(--theme-accent)] text-[var(--theme-bg)] text-[10px] font-black uppercase px-3 py-[6px] rounded-full active:scale-95 transition-transform whitespace-nowrap flex-shrink-0"
+                  className="shrink-0 rounded-full border-2 border-transparent px-3 py-[6px] text-[10px] font-black uppercase text-[var(--theme-action-ink)] transition-transform active:scale-95 whitespace-nowrap"
+                  style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
                 >
                   Noter
                 </button>

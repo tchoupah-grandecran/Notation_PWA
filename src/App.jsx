@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { THEME_COLORS, THEME_TOKENS } from './constants';
+import { THEME_COLORS, THEME_TOKENS, getThemeAccent } from './constants';
 import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
@@ -154,7 +154,7 @@ function App() {
   });
 
   const handleScan = useCallback(async (token = userToken) => {
-    if (!token) return;
+    if (!token) return false;
     try {
       const found = await api.getFilmsANoter(token, spreadsheetId);
       setFilms(found || []);
@@ -165,9 +165,11 @@ function App() {
       } else {
         setShowNotation(false);
       }
+      return true;
     } catch (err) {
       console.error('Erreur scan:', err);
       if (err.status === 401) authLogout();
+      return false;
     }
   }, [userToken, spreadsheetId, authLogout]);
 
@@ -178,7 +180,7 @@ function App() {
   const prefs    = usePreferences(userToken, spreadsheetId);
   const themeKey = prefs.isDark ? 'dark' : 'light';
   const theme    = THEME_COLORS[themeKey];
-  const tokens   = THEME_TOKENS(themeKey);
+  const tokens   = THEME_TOKENS(themeKey, prefs.accentPalette);
 
   const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
 
@@ -298,6 +300,8 @@ function App() {
             updateAvatar={prefs.updateAvatar}
             themeMode={prefs.themeMode}
             toggleDarkMode={prefs.toggleDarkMode}
+            accentPalette={prefs.accentPalette}
+            updateAccentPalette={prefs.updateAccentPalette}
             ratingScale={prefs.ratingScale}
             updateRatingScale={prefs.updateRatingScale}
             pricing={prefs.pricing}
@@ -308,7 +312,6 @@ function App() {
         {activeTab === 'studio' && (
           <Studio
             historyData={historyData}
-            isScrolled={scrollY > 10}
             pendingFilm={nextFilm}
             onHeaderRight={handleSetHeaderRight}
             onHeaderTitle={handleSetHeaderTitle}
@@ -325,7 +328,7 @@ function App() {
             headerTitle={headerTitle}
             headerRight={headerRight}
             isDark={prefs.isDark}
-            accentColor={theme.accent}
+            accentColor={getThemeAccent(themeKey, prefs.accentPalette)}
           />
         </div>
       )}

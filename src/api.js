@@ -778,31 +778,37 @@ export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
     // Conversion de l'objet de prix en chaîne de texte JSON (si existant)
     const pricingString = prefs.pricing ? JSON.stringify(prefs.pricing) : "";
 
-    // On cible désormais les colonnes de A à E (A2:E2)
-    const range = "Config!A2:E2"; 
+    // Préférences et palette d’accent (A2:F2)
+    const range = "Config!A2:F2";
     const values = [[
       prefs.userName || "", 
       prefs.userAvatar || "", 
       prefs.themeKey || "", 
       prefs.ratingScale || "", 
-      pricingString // <-- La magie opère ici (Colonne E)
+      pricingString,
+      prefs.accentPalette || 'classic'
     ]];
     
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
+    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values })
     });
+    if (!response.ok) {
+      throw new Error(`Échec de la sauvegarde des préférences (${response.status}).`);
+    }
+    return true;
   } catch (error) {
     console.error("Erreur synchro cloud:", error);
+    throw error;
   }
 };
 
 // ✅ Récupérer les préférences au démarrage
 export const getPreferencesFromSheet = async (token, spreadsheetId) => {
   try {
-    // On lit les colonnes A à E
-    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:E2`, {
+    // Les anciennes feuilles peuvent ne pas encore contenir la colonne F.
+    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:F2`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const data = await response.json();
@@ -825,7 +831,8 @@ export const getPreferencesFromSheet = async (token, spreadsheetId) => {
         userAvatar: row[1] || null,
         themeKey: row[2] || null,
         ratingScale: row[3] ? parseInt(row[3], 10) : null,
-        pricing: pricingObj // Objet récupéré et prêt à l'emploi
+        pricing: pricingObj,
+        accentPalette: row[5] || null,
       };
     }
   } catch (e) { 
@@ -886,14 +893,15 @@ export const createAutoSpreadsheet = async (token) => {
           // Initialisation des Headers pour Config
           {
             updateCells: {
-              range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 5 }, // <- Mis à jour à 5 colonnes
+              range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 },
               rows: [{
                 values: [
                   { userEnteredValue: { stringValue: "Pseudo" } },
                   { userEnteredValue: { stringValue: "Avatar URL" } },
                   { userEnteredValue: { stringValue: "Thème" } },
                   { userEnteredValue: { stringValue: "Échelle de Note" } },
-                  { userEnteredValue: { stringValue: "Historique des Tarifs (JSON)" } }
+                  { userEnteredValue: { stringValue: "Historique des Tarifs (JSON)" } },
+                  { userEnteredValue: { stringValue: "Palette d’accent" } }
                 ]
               }],
               fields: "userEnteredValue"

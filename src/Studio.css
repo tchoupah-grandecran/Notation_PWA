@@ -146,6 +146,23 @@
 .animate-gradient-x   { animation: gradient-x   4s ease infinite; background-size: 200% auto; }
 .animate-bubble       { animation: bubble-in    0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
 
+@media (prefers-reduced-motion: reduce) {
+  .studio-hub.animate-in,
+  .studio-hub .animate-title-glow,
+  .studio-hub .animate-gradient-x {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .studio-hub *,
+  .studio-hub *::before,
+  .studio-hub *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ─── STUDIO CHROME OVERRIDE
    Ensure hub/chrome elements stay on Galinoy + Outfit, never inheriting
    slide fonts. Tailwind classes font-galinoy and font-outfit map to the

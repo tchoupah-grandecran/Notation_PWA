@@ -58,7 +58,7 @@ const wrapText = (ctx, text, maxWidth) => {
   for (let i = 1; i < words.length; i++) {
     const word = words[i];
     const width = ctx.measureText(currentLine + " " + word).width;
-    if (width < maxWidth) { currentLine += " " + word; } 
+    if (width < maxWidth) { currentLine += " " + word; }
     else { lines.push(currentLine); currentLine = word; }
   }
   lines.push(currentLine);
@@ -93,7 +93,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
     ctx.clearRect(0, 0, SHARE_W, SHARE_H);
 
     const logoImg = imageCache.current[INSTA_LOGO_URL];
-    
+
     const drawSharedHeader = (isLight = false) => {
       if (logoImg) {
         ctx.save(); ctx.beginPath(); ctx.arc(SHARE_W - 64, 64, 30, 0, Math.PI * 2); ctx.clip();
@@ -109,12 +109,12 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
       ctx.strokeStyle = isLight ? 'rgba(30,30,30,0.07)' : 'rgba(255,255,255,0.07)';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, SHARE_H - 100); ctx.lineTo(SHARE_W, SHARE_H - 100); ctx.stroke();
-      
+
       ctx.font = `800 24px ${FONT_SYNE}`;
       ctx.fillStyle = isLight ? 'rgba(30,30,30,0.25)' : 'rgba(255,255,255,0.2)';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillText(film.titre || '', 48, SHARE_H - 50);
-      
+
       ctx.font = `bold 20px ${FONT_SANS}`;
       ctx.textAlign = 'right';
       ctx.fillText(`${slideIdx + 1} / 6`, SHARE_W - 48, SHARE_H - 50);
@@ -125,15 +125,15 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
       ctx.fillStyle = '#0A0A0A'; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
       const poster = imageCache.current[proxyUrl(film.affiche)];
       if (poster) drawImageCover(ctx, poster, 0, 0, SHARE_W, SHARE_H);
-      
+
       const g1 = ctx.createLinearGradient(0, SHARE_H * 0.4, 0, SHARE_H);
       g1.addColorStop(0, 'rgba(0,0,0,0)'); g1.addColorStop(0.5, 'rgba(0,0,0,0.5)'); g1.addColorStop(1, 'rgba(0,0,0,0.98)');
       ctx.fillStyle = g1; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
-      
+
       drawSharedHeader(false);
 
       const metaText = `${film.genre || 'Cinéma'}   ·   ${film.duree || '—'}   ·   ${film.langue || '—'}`;
-      const metaBaseY = SHARE_H - 60; 
+      const metaBaseY = SHARE_H - 60;
 
       ctx.font = `800 78px ${FONT_SYNE}`;
       const lines = wrapText(ctx, film.titre || '', SHARE_W - 96);
@@ -162,19 +162,19 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
         g2.addColorStop(0, 'transparent'); g2.addColorStop(1, '#0C0C0C');
         ctx.fillStyle = g2; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
       }
-      
+
       drawSharedHeader(false);
-      
+
       ctx.font = `bold 21px ${FONT_SANS}`; ctx.fillStyle = GOLD; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       ctx.fillText("LE FILM", 48, 150);
-      
+
       ctx.font = `800 51px ${FONT_SYNE}`; ctx.fillStyle = '#FFF';
       const titleLines = wrapText(ctx, film.titre || '—', SHARE_W - 96);
       const titleLineHeight = 55;
       titleLines.forEach((line, i) => ctx.fillText(line, 48, 180 + (i * titleLineHeight)));
-      
+
       let currentY = 180 + (titleLines.length * titleLineHeight);
-      
+
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(48, currentY + 15); ctx.lineTo(SHARE_W - 48, currentY + 15); ctx.stroke();
 
@@ -185,7 +185,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
 
       ctx.font = `bold 18px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.fillText("AVEC", 48, currentY + 175);
-      
+
       const cast = movieDetails?.credits?.cast?.slice(0, 6) || [];
       let cy = currentY + 205;
       cast.forEach((c, i) => {
@@ -195,11 +195,11 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
 
         const castImg = imageCache.current[proxyUrl(`https://image.tmdb.org/t/p/w185${c.profile_path}`)];
         ctx.save(); ctx.beginPath(); ctx.arc(cx + 42, cy + 42, 42, 0, Math.PI * 2); ctx.clip();
-        if (castImg) { ctx.drawImage(castImg, cx, cy, 84, 84); } 
-        else { 
-          ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); 
-          ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font=`bold 24px ${FONT_SYNE}`; ctx.textAlign='center'; ctx.textBaseline='middle'; 
-          ctx.fillText(c.name.substring(0,2).toUpperCase(), cx+42, cy+42); 
+        if (castImg) { ctx.drawImage(castImg, cx, cy, 84, 84); }
+        else {
+          ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+          ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font=`bold 24px ${FONT_SYNE}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(c.name.substring(0,2).toUpperCase(), cx+42, cy+42);
         }
         ctx.restore();
 
@@ -208,16 +208,16 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
         ctx.fillText(c.name, cx + 100, cy + 12);
         ctx.font = `italic 24px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.fillText(c.character || '—', cx + 100, cy + 46);
-        
+
         cy += 100;
       });
 
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(48, 1080); ctx.lineTo(SHARE_W - 48, 1080); ctx.stroke();
-      
+
       const cols = ["GENRE", "SORTIE", "DURÉE", "VERSION"];
       const vals = [film.genre, formatDate(movieDetails?.release_date), film.duree, film.langue];
-      
+
       cols.forEach((col, i) => {
         const x = 48 + i * ((SHARE_W - 96) / 4);
         ctx.font = `bold 36px ${FONT_SYNE}`; ctx.fillStyle = '#FFF';
@@ -233,47 +233,47 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
       // === SLIDE 3 : NOTE ===
       ctx.fillStyle = '#FFFDF2'; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
       drawSharedHeader(true);
-      
+
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.font = `bold 21px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.3)';
       ctx.fillText('MA NOTE', SHARE_W / 2, 380);
-      
+
       const rating = parseFloat(String(film.note || 0).replace(',', '.')) || 0;
       const intPart = Math.floor(rating);
       const decPart = (rating % 1 === 0) ? '.0' : ('.' + Math.round((rating % 1) * 10));
-      
+
       ctx.font = `800 270px ${FONT_SYNE}`; const wInt = ctx.measureText(intPart).width;
       ctx.font = `800 102px ${FONT_SYNE}`; const wDec = ctx.measureText(decPart).width;
       ctx.font = `bold 27px ${FONT_SANS}`; const wScale = ctx.measureText(`/ ${ratingScale}`).width;
-      
+
       const wRight = Math.max(wDec, wScale);
-      const gap = 15; 
+      const gap = 15;
       const totalW = wInt + gap + wRight;
       const startX = (SHARE_W - totalW) / 2;
       const baseY = 420;
-      
+
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       ctx.font = `800 270px ${FONT_SYNE}`; ctx.fillStyle = '#1E1E1E';
       ctx.fillText(intPart, startX, baseY);
-      
+
       const rightX = startX + wInt + gap;
       ctx.font = `800 102px ${FONT_SYNE}`; ctx.fillStyle = GOLD;
       ctx.fillText(decPart, rightX, baseY + 35);
-      
+
       ctx.font = `bold 27px ${FONT_SANS}`; ctx.fillStyle = 'rgba(30,30,30,0.3)';
       ctx.fillText(`/ ${ratingScale}`, rightX + 5, baseY + 145);
 
       const starW = 42; const starGap = 12;
       const totalStarW = (5 * starW) + (4 * starGap);
       const starStartX = (SHARE_W - totalStarW) / 2;
-      const starY = baseY + 320; 
+      const starY = baseY + 320;
 
       for (let i = 0; i < 5; i++) {
         const filled = i < Math.floor(rating);
         const half = !filled && (rating % 1 >= 0.5) && i === Math.floor(rating);
         const cx = starStartX + i * (starW + starGap) + starW / 2;
         const cy = starY + starW / 2;
-        
+
         ctx.save(); ctx.translate(cx, cy); ctx.scale(21, 21);
         const sp = new Path2D('M 0 -1 L 0.29 -0.40 L 0.95 -0.31 L 0.48 0.15 L 0.59 0.81 L 0 0.50 L -0.59 0.81 L -0.48 0.15 L -0.95 -0.31 L -0.29 -0.40 Z');
         if (half) {
@@ -308,19 +308,19 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
       // === SLIDES 4 & 5 : POINTS ===
       const isPros = slideIdx === 3;
       ctx.fillStyle = isPros ? '#0C0C0C' : '#FFFDF2'; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
-      
+
       const poster = imageCache.current[proxyUrl(film.affiche)];
       if (poster) {
         ctx.globalAlpha = isPros ? 0.12 : 0.06;
         drawImageCover(ctx, poster, 0, 0, SHARE_W, SHARE_H); ctx.globalAlpha = 1;
       }
-      
+
       const gP = ctx.createLinearGradient(0, 0, 0, SHARE_H);
       gP.addColorStop(0, isPros ? 'rgba(12,12,12,0.8)' : 'rgba(255,253,242,0.8)'); gP.addColorStop(1, isPros ? '#0C0C0C' : '#FFFDF2');
       ctx.fillStyle = gP; ctx.fillRect(0, 0, SHARE_W, SHARE_H);
 
       drawSharedHeader(!isPros);
-      
+
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       ctx.font = `bold 21px ${FONT_SANS}`; ctx.fillStyle = isPros ? GOLD : 'rgba(30,30,30,0.3)';
       ctx.fillText(isPros ? "✦ POINTS FORTS" : "– POINTS FAIBLES", 48, 150);
@@ -328,7 +328,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
       ctx.fillText("Ce qui m'a", 48, 185);
       ctx.fillStyle = isPros ? GOLD : 'rgba(30,30,30,0.42)';
       ctx.fillText(isPros ? "convaincu" : "moins convaincu", 48, 265);
-      
+
       ctx.strokeStyle = isPros ? 'rgba(255,255,255,0.07)' : 'rgba(30,30,30,0.09)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(48, 360); ctx.lineTo(SHARE_W - 48, 360); ctx.stroke();
 
@@ -383,9 +383,9 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
 
       const recentFilms = historyData.slice(selectedIdx + 1, selectedIdx + 4);
       let pX = 48;
-      const pwSmall = 240; 
+      const pwSmall = 240;
       const phSmall = 360;
-      const gapSmall = 132; 
+      const gapSmall = 132;
 
       for (let i = 0; i < 3; i++) {
         const m = recentFilms[i];
@@ -394,14 +394,14 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
           ctx.save(); roundRect(ctx, pX, 170, pwSmall, phSmall, 16); ctx.clip();
           ctx.fillStyle = '#111'; ctx.fillRect(pX, 170, pwSmall, phSmall);
           if (pImg) drawImageCover(ctx, pImg, pX, 170, pwSmall, phSmall);
-          const gradP = ctx.createLinearGradient(0, 170 + phSmall*0.4, 0, 170 + phSmall); 
+          const gradP = ctx.createLinearGradient(0, 170 + phSmall*0.4, 0, 170 + phSmall);
           gradP.addColorStop(0, 'transparent'); gradP.addColorStop(1, 'rgba(0,0,0,0.8)');
           ctx.fillStyle = gradP; ctx.fillRect(pX, 170, pwSmall, phSmall);
           ctx.restore();
 
           ctx.textAlign = 'center'; ctx.font = `800 22px ${FONT_SYNE}`; ctx.fillStyle = GOLD;
           ctx.fillText(`${String(m.note || 0).replace('.',',')} ★`, pX + pwSmall/2, 170 + phSmall - 35);
-          
+
           ctx.textAlign = 'left'; ctx.font = `bold 18px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.55)';
           const smallTitleLines = wrapText(ctx, m.titre || '—', pwSmall);
           smallTitleLines.slice(0, 2).forEach((l, idx) => ctx.fillText(l, pX, 170 + phSmall + 16 + (idx * 24)));
@@ -410,7 +410,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
           ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fillRect(pX, 170, pwSmall, phSmall);
           ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 2; ctx.stroke();
           ctx.restore();
-          
+
           ctx.textAlign = 'left'; ctx.font = `bold 18px ${FONT_SANS}`; ctx.fillStyle = 'rgba(255,255,255,0.2)';
           ctx.fillText('À découvrir', pX, 170 + phSmall + 16);
         }
@@ -459,7 +459,7 @@ const renderShareSlideToCanvas = async (canvas, slideIdx, params) => {
         ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fillRect(nfX, nfY, pwLarge, phLarge);
         ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 2; ctx.stroke();
         ctx.restore();
-        
+
         const infoX = nfX + pwLarge + 48;
         const infoY = nfY + 160;
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
@@ -483,7 +483,7 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [movieDetails, setMovieDetails] = useState(null);
-  
+
   const [pros, setPros] = useState([]);
   const [cons, setCons] = useState([]);
   const [isEditingPoints, setIsEditingPoints] = useState(false);
@@ -526,7 +526,7 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
       }
 
       const urlsToLoad = [INSTA_LOGO_URL, proxyUrl(film.affiche)];
-      
+
       if (currentSlide === 1 && movieDetails?.credits?.cast) {
         movieDetails.credits.cast.slice(0, 6).forEach(c => {
           if (c.profile_path) urlsToLoad.push(proxyUrl(`https://image.tmdb.org/t/p/w185${c.profile_path}`));
@@ -638,17 +638,19 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
 
   if (!film) return (
     <div className="min-h-screen bg-[#0C0C0E] flex flex-col">
-       <header className="px-6 py-4 flex items-center border-b border-white/10"><button onClick={onBack} className="text-white"><ChevronLeft/></button></header>
+       <header className="sticky top-0 z-[110] flex items-center border-b border-white/10 bg-[#0C0C0E]/90 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-white backdrop-blur-xl">
+         <button type="button" onClick={onBack} aria-label="Retourner à l’édition du format" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><ChevronLeft aria-hidden="true"/></button>
+       </header>
        <div className="flex-1 flex items-center justify-center text-white/40">Aucun film à partager.</div>
     </div>
   );
 
   return (
     <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden text-[#F0EEF5]">
-      
+
       {/* HEADER */}
-      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-90 transition-transform"><ChevronLeft size={20} strokeWidth={2.5}/></button>
+      <header className="sticky top-0 z-[110] flex w-full items-center justify-between border-b border-white/10 bg-[#0C0C0E]/90 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-white backdrop-blur-xl">
+        <button type="button" onClick={onBack} aria-label="Retourner à l’édition du format" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true"/></button>
         <h2 className="font-syne font-black text-lg">Avis Express</h2>
         <div className="w-10"/>
       </header>
@@ -658,7 +660,7 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
       <div className="pt-6 px-6 pb-6 mb-2 overflow-x-auto flex items-center gap-3 scrollbar-hide snap-x">
         {historyData.map((m, idx) => (
           <div key={idx} onClick={() => { setSelectedIdx(idx); setCurrentSlide(0); setIsEditingPoints(false); }}
-            className={`flex-shrink-0 w-14 h-20 rounded-md bg-cover bg-center border-2 transition-all cursor-pointer snap-center ${idx === selectedIdx ? 'border-[#E8B200] scale-110 shadow-lg' : 'border-transparent opacity-40'}`}
+            className={`flex-shrink-0 w-14 h-20 rounded-md bg-cover bg-center border-2 transition-all cursor-pointer snap-center ${idx === selectedIdx ? 'border-[var(--theme-accent)] scale-110 shadow-lg' : 'border-transparent opacity-40'}`}
             style={{ backgroundImage: `url('${proxyUrl(m.affiche)}')` }}
           />
         ))}
@@ -666,17 +668,17 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
 
       {/* PRÉVISUALISATION CANVAS AVEC SWIPE & FLÈCHES */}
       <div className="px-6 mb-6 relative flex justify-center group">
-        
-        <button 
+
+        <button
           onClick={handlePrev}
           className={`absolute left-2 z-10 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all ${currentSlide === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-black/80 hover:scale-110'}`}
         >
           <ChevronLeft size={20} className="text-white ml-[-2px]"/>
         </button>
 
-        <div 
-          onTouchStart={onTouchStart} 
-          onTouchMove={onTouchMove} 
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
           onTouchEnd={onTouchEndHandler}
           className="w-full max-w-md aspect-[4/5] bg-[#1A1A1F] rounded-[18px] shadow-[0_32px_64px_rgba(0,0,0,0.4)] border border-white/10 overflow-hidden relative cursor-ew-resize"
         >
@@ -686,9 +688,9 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
             height={SHARE_H}
             className="w-full h-full object-contain"
           />
-          
+
           {(currentSlide === 3 || currentSlide === 4) && (
-            <button 
+            <button
               onClick={(e) => { e.stopPropagation(); setIsEditingPoints(true); }}
               className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/20 bg-black/70 backdrop-blur-md text-white/90 text-[10px] font-bold uppercase tracking-widest hover:bg-black/90 active:scale-95 transition-all shadow-lg"
             >
@@ -697,7 +699,7 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
           )}
         </div>
 
-        <button 
+        <button
           onClick={handleNext}
           className={`absolute right-2 z-10 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all ${currentSlide === 5 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-black/80 hover:scale-110'}`}
         >
@@ -709,19 +711,19 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
       <div className="px-5 mt-4 mb-4 max-w-md mx-auto w-full">
         <div className="flex items-center gap-1.5 mb-2">
           {slideNames.map((_, i) => (
-            <div 
-              key={i} 
-              onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} 
-              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`} 
+            <div
+              key={i}
+              onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }}
+              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[var(--theme-accent)]' : i < currentSlide ? 'bg-[var(--theme-accent)]/30' : 'bg-white/10 hover:bg-white/20'}`}
             />
           ))}
         </div>
         <div className="flex justify-between px-1">
           {slideNames.map((name, i) => (
-             <span 
-               key={i} 
-               onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }} 
-               className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[#E8B200]' : 'text-white/30 hover:text-white/50'}`}
+             <span
+               key={i}
+               onClick={() => { setCurrentSlide(i); setIsEditingPoints(false); }}
+               className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[var(--theme-accent)]' : 'text-white/30 hover:text-white/50'}`}
              >
                {name}
              </span>
@@ -731,16 +733,17 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
 
       {/* ACTIONS DE TÉLÉCHARGEMENT */}
       <div className="px-6 pb-6 max-w-md mx-auto w-full flex flex-col gap-3">
-        <button 
-          onClick={handleDownloadAll} 
-          disabled={isDownloading} 
-          className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-sans font-extrabold text-sm transition-all ${isDownloading ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95'}`}
+        <button
+          onClick={handleDownloadAll}
+          disabled={isDownloading}
+          className={`w-full h-14 rounded-2xl border-2 border-transparent flex items-center justify-center gap-2.5 font-sans font-extrabold text-sm text-[var(--theme-action-ink)] transition-all ${isDownloading ? 'opacity-50 cursor-wait' : 'shadow-lg active:scale-95'}`}
+          style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
         >
           {isDownloading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"></div> : <><Layers size={18} strokeWidth={2.5}/>Tout télécharger (6 slides)</>}
         </button>
-        <button 
-          onClick={handleDownload} 
-          disabled={isDownloading} 
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading}
           className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-xs text-white/70 bg-white/5 border border-white/10 active:scale-95 transition-all hover:bg-white/10"
         >
           <Download size={14} strokeWidth={2.5}/>Uniquement cette slide — {slideNames[currentSlide]}
@@ -767,24 +770,24 @@ export default function ShareReview({ historyData, pendingFilm, onBack, ratingSc
               {(currentSlide === 3 ? pros : cons).map((p, i) => (
                 <div key={i} className="flex flex-col gap-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${currentSlide === 3 ? 'text-[#E8B200]' : 'text-black/40'}`}>0{i+1}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${currentSlide === 3 ? 'text-[var(--theme-accent)]' : 'text-black/40'}`}>0{i+1}</span>
                     {i > 0 && (
                       <button onClick={() => { const arr = currentSlide === 3 ? [...pros] : [...cons]; arr.splice(i, 1); currentSlide === 3 ? setPros(arr) : setCons(arr); }} className="text-[9px] font-bold text-red-500/80 hover:text-red-500 uppercase tracking-widest">✕ retirer</button>
                     )}
                   </div>
-                  <input type="text" placeholder="Titre du point..." value={p.title} onChange={(e) => { const arr = currentSlide === 3 ? [...pros] : [...cons]; arr[i].title = e.target.value; currentSlide === 3 ? setPros(arr) : setCons(arr); }} className={`w-full border rounded-xl px-4 py-3.5 text-sm font-bold outline-none transition-colors ${currentSlide === 3 ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[#E8B200]' : 'bg-black/5 border-black/10 text-black placeholder-black/30 focus:border-black/30'}`} maxLength={60}/>
-                  <textarea placeholder="Détail optionnel..." value={p.detail} onChange={(e) => { const arr = currentSlide === 3 ? [...pros] : [...cons]; arr[i].detail = e.target.value; currentSlide === 3 ? setPros(arr) : setCons(arr); }} className={`w-full border rounded-xl px-4 py-3 text-xs outline-none transition-colors resize-none h-24 ${currentSlide === 3 ? 'bg-white/5 border-white/10 text-white/70 placeholder-white/30 focus:border-[#E8B200]' : 'bg-black/5 border-black/10 text-black/70 placeholder-black/30 focus:border-black/30'}`} maxLength={160}/>
+                  <input type="text" placeholder="Titre du point..." value={p.title} onChange={(e) => { const arr = currentSlide === 3 ? [...pros] : [...cons]; arr[i].title = e.target.value; currentSlide === 3 ? setPros(arr) : setCons(arr); }} className={`w-full border rounded-xl px-4 py-3.5 text-sm font-bold outline-none transition-colors ${currentSlide === 3 ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[var(--theme-accent)]' : 'bg-black/5 border-black/10 text-black placeholder-black/30 focus:border-black/30'}`} maxLength={60}/>
+                  <textarea placeholder="Détail optionnel..." value={p.detail} onChange={(e) => { const arr = currentSlide === 3 ? [...pros] : [...cons]; arr[i].detail = e.target.value; currentSlide === 3 ? setPros(arr) : setCons(arr); }} className={`w-full border rounded-xl px-4 py-3 text-xs outline-none transition-colors resize-none h-24 ${currentSlide === 3 ? 'bg-white/5 border-white/10 text-white/70 placeholder-white/30 focus:border-[var(--theme-accent)]' : 'bg-black/5 border-black/10 text-black/70 placeholder-black/30 focus:border-black/30'}`} maxLength={160}/>
                   {i < (currentSlide === 3 ? pros : cons).length - 1 && (<div className={`h-px w-full mt-4 ${currentSlide === 3 ? 'bg-white/10' : 'bg-black/10'}`} />)}
                 </div>
               ))}
               {(currentSlide === 3 ? pros : cons).length < 4 && (
-                <button onClick={() => { currentSlide === 3 ? setPros([...pros, {title:'', detail:''}]) : setCons([...cons, {title:'', detail:''}]); }} className={`w-full py-3.5 border border-dashed rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${currentSlide === 3 ? 'border-white/20 text-white/40 hover:border-[#E8B200] hover:text-[#E8B200]' : 'border-black/20 text-black/40 hover:border-black/40 hover:text-black/60'}`}>
+                <button onClick={() => { currentSlide === 3 ? setPros([...pros, {title:'', detail:''}]) : setCons([...cons, {title:'', detail:''}]); }} className={`w-full py-3.5 border border-dashed rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${currentSlide === 3 ? 'border-white/20 text-white/40 hover:border-[var(--theme-accent)] hover:text-[var(--theme-accent)]' : 'border-black/20 text-black/40 hover:border-black/40 hover:text-black/60'}`}>
                   <Plus size={14} strokeWidth={2.5}/> Ajouter un point
                 </button>
               )}
             </div>
             <div className={`p-6 border-t ${currentSlide === 3 ? 'border-white/10 bg-[#0C0C0E]' : 'border-black/10 bg-[#F5F2EC]'}`}>
-              <button onClick={() => setIsEditingPoints(false)} className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm active:scale-95 transition-transform ${currentSlide === 3 ? 'bg-[#E8B200] text-black' : 'bg-[#1E1E1E] text-[#F5F2EC]'}`}>
+              <button onClick={() => setIsEditingPoints(false)} className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm active:scale-95 transition-transform ${currentSlide === 3 ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-ink)]' : 'bg-[#1E1E1E] text-[#F5F2EC]'}`}>
                 Appliquer
               </button>
             </div>

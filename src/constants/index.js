@@ -30,12 +30,91 @@ export const THEME_COLORS = {
   },
 };
 
+export const ACCENT_PALETTES = {
+  classic: {
+    key: 'classic',
+    name: 'Classique',
+    description: 'Le doré du carnet.',
+    dark: '#C8A84B',
+    light: '#1A1A1A',
+    darkMuted: 'rgba(200,168,75,0.12)',
+    lightMuted: 'rgba(26,26,26,0.06)',
+    darkInk: '#111111',
+    lightInk: '#FFFFFF',
+    swatches: ['#C8A84B', '#1A1A1A'],
+  },
+  midnight: {
+    key: 'midnight',
+    name: 'Midnight Dream',
+    description: 'Violet nocturne et lavande.',
+    dark: '#B59AF7',
+    light: '#6D28D9',
+    darkMuted: 'rgba(181,154,247,0.14)',
+    lightMuted: 'rgba(109,40,217,0.08)',
+    darkInk: '#171329',
+    lightInk: '#FFFFFF',
+    swatches: ['#8B6CE0', '#B59AF7', '#4B356F'],
+  },
+  forest: {
+    key: 'forest',
+    name: 'Forêt profonde',
+    description: 'Vert mousse et clairière.',
+    dark: '#91D5A5',
+    light: '#176B45',
+    darkMuted: 'rgba(145,213,165,0.14)',
+    lightMuted: 'rgba(23,107,69,0.08)',
+    darkInk: '#102418',
+    lightInk: '#FFFFFF',
+    swatches: ['#91D5A5', '#4E9B70', '#176B45'],
+  },
+  passionate: {
+    key: 'passionate',
+    name: 'Passionate Red',
+    description: 'Rouge profond et velours.',
+    dark: '#FF8293',
+    light: '#BE123C',
+    darkMuted: 'rgba(255,130,147,0.14)',
+    lightMuted: 'rgba(190,18,60,0.08)',
+    darkInk: '#241014',
+    lightInk: '#FFFFFF',
+    swatches: ['#FF8293', '#BE123C', '#641A2C'],
+  },
+  pride: {
+    key: 'pride',
+    name: 'Fiertés',
+    description: 'Un accent arc-en-ciel, quand tu le souhaites.',
+    dark: '#FF4D9D',
+    light: '#C2185B',
+    darkMuted: 'rgba(255,77,157,0.16)',
+    lightMuted: 'rgba(194,24,91,0.09)',
+    darkInk: '#29101E',
+    lightInk: '#FFFFFF',
+    gradient: 'linear-gradient(105deg, #F04458 0%, #F58B3D 18%, #E9C93B 36%, #33A66F 54%, #3585D5 72%, #8B5BCC 88%, #E84A9A 100%)',
+    swatches: ['#F05A63', '#F29A45', '#E8C84A', '#48A878', '#4785D2', '#A463C5'],
+  },
+};
+
+export const normalizeAccentPalette = (paletteKey) => {
+  if (paletteKey === 'gilded') return 'forest';
+  return ACCENT_PALETTES[paletteKey] ? paletteKey : 'classic';
+};
+
+export const getThemeAccent = (mode = 'dark', paletteKey = 'classic') => {
+  const palette = ACCENT_PALETTES[paletteKey] || ACCENT_PALETTES.classic;
+  return mode === 'light' ? palette.light : palette.dark;
+};
+
 /**
  * Returns an object of CSS variable assignments.
  * Includes a background-image definition for the noise grain.
  */
-export const THEME_TOKENS = (key = 'dark') => {
+export const THEME_TOKENS = (key = 'dark', paletteKey = 'classic') => {
   const t = THEME_COLORS[key] || THEME_COLORS.dark;
+  const palette = ACCENT_PALETTES[paletteKey] || ACCENT_PALETTES.classic;
+  const accent = key === 'light' ? palette.light : palette.dark;
+  const accentMuted = key === 'light' ? palette.lightMuted : palette.darkMuted;
+  const accentInk = key === 'light' ? palette.lightInk : palette.darkInk;
+  const isPride = palette.key === 'pride';
   
   // This SVG creates a fractal noise pattern that simulates paper fiber/film grain
   const grainSvg = `
@@ -59,8 +138,12 @@ export const THEME_TOKENS = (key = 'dark') => {
     '--theme-border':         t.border,
     '--theme-text':           t.text,
     '--theme-text-secondary': t.textSecondary,
-    '--theme-accent':         t.accent,
-    '--theme-accent-muted':   t.accentMuted,
+    '--theme-accent':         accent,
+    '--theme-accent-muted':   accentMuted,
+    '--theme-accent-ink':     accentInk,
+    '--theme-accent-gradient': palette.gradient || `linear-gradient(105deg, ${accent}, ${accent})`,
+    '--theme-action-bg':      isPride ? t.text : accent,
+    '--theme-action-ink':     isPride ? t.bg : accentInk,
     '--theme-nav-bg':         t.navBg,
     '--theme-grain-opacity':  t.grainOpacity,
     '--theme-grain-url':      `url("${grainDataUri}")`,

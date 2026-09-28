@@ -28,7 +28,7 @@ const FORMAT_HINTS = {
   feuilleton: 'Experience de seance: avant, pendant, moment, apres.',
 };
 
-const HEADER_OFFSET = 'var(--header-total-height, 96px)';
+const HEADER_OFFSET = '-96px';
 const TOOL_ROOT_STYLE = { paddingTop: `calc(${HEADER_OFFSET} + 0.75rem)` };
 const TOOL_HEADER_STYLE = { top: HEADER_OFFSET };
 
@@ -125,7 +125,7 @@ function TextInput({ label, value, onChange, placeholder }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 font-outfit text-sm font-semibold text-white outline-none transition-colors placeholder:text-white/18 focus:border-[#E8B200]/50"
+        className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 font-outfit text-sm font-semibold text-white outline-none transition-colors placeholder:text-white/18 focus:border-[var(--theme-accent)]/50"
       />
     </label>
   );
@@ -139,7 +139,7 @@ function TextArea({ label, value, onChange, rows = 3 }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
-        className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 font-outfit text-sm font-medium leading-relaxed text-white outline-none transition-colors placeholder:text-white/18 focus:border-[#E8B200]/50"
+        className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 font-outfit text-sm font-medium leading-relaxed text-white outline-none transition-colors placeholder:text-white/18 focus:border-[var(--theme-accent)]/50"
       />
     </label>
   );
@@ -185,7 +185,7 @@ function ImageSlot({ label, value, onChange, styleValue, onStyleChange, allowSty
               key={mode}
               type="button"
               onClick={() => onStyleChange(mode)}
-              className={`rounded-lg px-3 py-2 font-outfit text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${styleValue === mode ? 'bg-white text-black' : 'text-white/45'}`}
+              className={`rounded-lg px-3 py-2 font-outfit text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${styleValue === mode ? 'bg-white text-[var(--theme-bg)]' : 'text-white/45'}`}
             >
               {text}
             </button>
@@ -204,7 +204,7 @@ function GenreSelect({ value, onChange }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-[#17171A] px-3 py-3 font-outfit text-sm font-semibold text-white outline-none focus:border-[#E8B200]/50"
+        className="w-full rounded-xl border border-white/10 bg-[#17171A] px-3 py-3 font-outfit text-sm font-semibold text-white outline-none focus:border-[var(--theme-accent)]/50"
       >
         {Object.keys(REVIEW_GENRES).map((item) => <option key={item} value={item}>{item === 'default' ? 'Cinema' : item}</option>)}
       </select>
@@ -246,7 +246,7 @@ function PreviewCanvas({ format, slideIndex, review, genreConfig, imageSources, 
     >
       {busy && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-black/40">
-          <div className="h-7 w-7 rounded-full border-2 border-[#E8B200] border-t-transparent animate-spin"/>
+          <div className="h-7 w-7 rounded-full border-2 border-[var(--theme-accent)] border-t-transparent animate-spin"/>
         </div>
       )}
       <canvas ref={canvasRef} width={REVIEW_POST_W} height={REVIEW_POST_H} className="h-full w-full"/>
@@ -345,7 +345,7 @@ function SlideControls({
             {review.scoreLabels.map((label, index) => (
               <label key={label} className="block">
                 <span className="mb-1.5 block font-outfit text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{label}</span>
-                <input type="range" min="0" max="100" value={review.scores[index]} onChange={(event) => updateScore(index, event.target.value)} className="w-full accent-[#E8B200]"/>
+                <input type="range" min="0" max="100" value={review.scores[index]} onChange={(event) => updateScore(index, event.target.value)} className="w-full accent-[var(--theme-accent)]"/>
               </label>
             ))}
           </div>
@@ -372,7 +372,7 @@ function SlideControls({
           <div className="space-y-3">
             <label className="block">
               <span className="mb-1.5 block font-outfit text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Hype avant</span>
-              <input type="range" min="1" max="5" value={review.hype} onChange={(event) => updateReview({ hype: Number(event.target.value) })} className="w-full accent-[#E8B200]"/>
+              <input type="range" min="1" max="5" value={review.hype} onChange={(event) => updateReview({ hype: Number(event.target.value) })} className="w-full accent-[var(--theme-accent)]"/>
             </label>
             <TextArea label="Avant" value={review.avant} onChange={(avant) => updateReview({ avant })}/>
           </div>
@@ -478,11 +478,11 @@ function FormatBuilder({ format, film, initialGenre, onBack, onClassic }) {
 
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] pb-safe-24 text-[#F0EEF5]" style={TOOL_ROOT_STYLE}>
-      <header className="sticky z-40 border-y border-white/10 bg-[#050505]/92 px-3 py-2.5 backdrop-blur-xl sm:px-4 sm:py-3" style={TOOL_HEADER_STYLE}>
+      <header className="sticky z-[110] border-y border-white/10 bg-[#050505]/92 px-3 py-2.5 backdrop-blur-xl sm:px-4 sm:py-3" style={TOOL_HEADER_STYLE}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={onBack} className="grid h-10 w-10 place-items-center rounded-full bg-white/5 text-white/70 active:scale-95">
-              <ArrowLeft size={18}/>
+            <button type="button" onClick={onBack} aria-label="Retourner aux formats d’avis" className="grid h-11 w-11 place-items-center rounded-full bg-white/5 text-white/70 transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
+              <ArrowLeft size={18} aria-hidden="true"/>
             </button>
             <div className="min-w-0">
               <p className="font-outfit text-[8px] font-black uppercase tracking-[0.2em] text-white/35 sm:text-[9px]">1080 x 1350</p>
@@ -493,7 +493,8 @@ function FormatBuilder({ format, film, initialGenre, onBack, onClassic }) {
             type="button"
             onClick={exportAll}
             disabled={isExporting}
-            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[#E8B200] px-3 font-outfit text-[10px] font-black uppercase tracking-[0.1em] text-black active:scale-95 disabled:opacity-50 sm:gap-2 sm:px-4"
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border-2 border-transparent px-3 font-outfit text-[10px] font-black uppercase tracking-[0.1em] text-[var(--theme-action-ink)] active:scale-95 disabled:opacity-50 sm:gap-2 sm:px-4"
+            style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
           >
             {isExporting ? <span className="h-4 w-4 rounded-full border-2 border-black/30 border-t-black animate-spin"/> : <Download size={15}/>}
             Tout
@@ -522,7 +523,7 @@ function FormatBuilder({ format, film, initialGenre, onBack, onClassic }) {
                 key={`${slide}-${index}`}
                 type="button"
                 onClick={() => setActiveSlide(index)}
-                className={`shrink-0 rounded-full px-3 py-2 font-outfit text-[10px] font-black uppercase tracking-[0.12em] ${index === activeSlide ? 'text-black' : 'bg-white/5 text-white/45'}`}
+                className={`shrink-0 rounded-full px-3 py-2 font-outfit text-[10px] font-black uppercase tracking-[0.12em] ${index === activeSlide ? 'text-[var(--theme-bg)]' : 'bg-white/5 text-white/45'}`}
                 style={index === activeSlide ? { backgroundColor: genreConfig.palette.accent } : undefined}
               >
                 {slide}
@@ -584,10 +585,10 @@ export default function ReviewsHub({ historyData = [], pendingFilm, onBack }) {
 
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] pb-safe-24 text-[#F0EEF5]" style={TOOL_ROOT_STYLE}>
-      <header className="sticky z-40 border-y border-white/10 bg-[#050505]/92 px-3 py-2.5 backdrop-blur-xl sm:px-4 sm:py-3" style={TOOL_HEADER_STYLE}>
+      <header className="sticky z-[110] border-y border-white/10 bg-[#050505]/92 px-3 py-2.5 backdrop-blur-xl sm:px-4 sm:py-3" style={TOOL_HEADER_STYLE}>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onBack} className="grid h-10 w-10 place-items-center rounded-full bg-white/5 text-white/70 active:scale-95">
-            <ArrowLeft size={18}/>
+          <button type="button" onClick={onBack} aria-label="Retourner à l’Atelier" className="grid h-11 w-11 place-items-center rounded-full bg-white/5 text-white/70 transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
+            <ArrowLeft size={18} aria-hidden="true"/>
           </button>
           <div>
             <p className="font-outfit text-[9px] font-black uppercase tracking-[0.22em] text-white/35">Atelier critique</p>

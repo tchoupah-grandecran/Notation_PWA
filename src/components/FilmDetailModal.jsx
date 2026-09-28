@@ -58,6 +58,9 @@ const TITLE_MIN_PX = 1;
 const CONTROL_CLASSES =
   'border border-[var(--theme-border)] bg-[color-mix(in_srgb,var(--theme-text)_6%,var(--theme-surface))] text-[var(--theme-text)] shadow-md backdrop-blur-xl transition-colors hover:bg-[color-mix(in_srgb,var(--theme-text)_10%,var(--theme-surface))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]';
 
+const DETAILS_ACTION_CLASSES =
+  'relative z-10 border-2 border-transparent text-[var(--theme-action-ink)] shadow-md transition-opacity hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--theme-bg)]';
+
 export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
   const [showDetails, setShowDetails] = useState(false);
   const [titleSize, setTitleSize] = useState(32);
@@ -267,7 +270,7 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
         </div>
 
         <div
-          className="film-card-inner relative min-h-0 w-full flex-1 rounded-[1.8rem]"
+          className="film-card-inner relative z-0 min-h-0 w-full flex-1 rounded-[1.8rem]"
           style={{ transform: showDetails ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
           {/* Recto : l’affiche devient la couverture du souvenir. */}
@@ -448,7 +451,8 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
           type="button"
           onClick={() => setShowDetails((value) => !value)}
           aria-label={showDetails ? 'Revoir l’affiche' : `Voir les détails de ${title}`}
-          className={`flex h-11 shrink-0 items-center justify-center gap-2 rounded-full font-outfit text-[11px] font-semibold ${CONTROL_CLASSES}`}
+          className={`flex h-11 shrink-0 items-center justify-center gap-2 rounded-full font-outfit text-[11px] font-semibold ${DETAILS_ACTION_CLASSES}`}
+          style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
         >
           <RotateCcw size={14} aria-hidden="true" />
           {showDetails ? 'Revoir l’affiche' : 'Voir les détails'}

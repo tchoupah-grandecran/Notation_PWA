@@ -88,14 +88,14 @@ function FeatureCard({ film, onClick, isHero = false }) {
           <div className="flex items-end justify-between gap-6">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-3">
-    {film.genre && (
-      <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
-        {film.genre}
-      </span>
-    )}
-    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
-  </div>
-  <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
+                {film.genre && (
+                  <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+                    {film.genre}
+                  </span>
+                )}
+                <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+              </div>
+              <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
             </div>
             {noteDisplay && (
@@ -137,14 +137,14 @@ function FeatureCard({ film, onClick, isHero = false }) {
         <div className="flex items-end justify-between gap-6">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-3">
-    {film.genre && (
-      <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
-        {film.genre}
-      </span>
-    )}
-    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
-  </div>
-  <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
+              {film.genre && (
+                <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${GENRE_COLORS[film.genre] || 'border-white/20 text-white/60'}`}>
+                  {film.genre}
+                </span>
+              )}
+              <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+            </div>
+            <h3 className="font-galinoy text-white text-2xl italic leading-[0.85]">{film.titre}</h3>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-3 block">{film.date}</span>
           </div>
           {noteDisplay && (
@@ -180,11 +180,11 @@ function StandardRow({ film, onClick, showSeparator }) {
             <span className="text-[11px] font-medium text-[var(--theme-text-secondary)] opacity-60">{film.date}</span>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2">
-    {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />}
-    {film.coupDeCoeur && <ChubbyHeart className="w-3.5 h-3.5 text-[var(--theme-accent)]" />}
-    <span className="text-[11px] text-[var(--theme-text-secondary)] font-medium">{film.genre}</span>
-    <ImaxTag salle={film.salle} commentaire={film.commentaire} />
-  </div>
+                {film.capucine && <img src="https://i.imgur.com/lg1bkrO.png" className="w-3 h-3 object-contain" alt="" />}
+                {film.coupDeCoeur && <ChubbyHeart className="w-3.5 h-3.5 text-[var(--theme-accent)]" />}
+                <span className="text-[11px] text-[var(--theme-text-secondary)] font-medium">{film.genre}</span>
+                <ImaxTag salle={film.salle} commentaire={film.commentaire} />
+              </div>
             </div>
           </div>
         </div>
@@ -348,6 +348,11 @@ function FilterDrawer({
   const dragRef = useRef({ startY: 0, currentY: 0, dragging: false });
   const sheetRef = useRef(null);
 
+  // Les animations de sortie ne doivent jouer qu'après une première ouverture
+  const hasOpenedRef = useRef(false);
+  if (isOpen) hasOpenedRef.current = true;
+  const hasOpened = hasOpenedRef.current;
+
   const handleTouchStart = (e) => {
     dragRef.current = { startY: e.touches[0].clientY, currentY: 0, dragging: true };
   };
@@ -397,7 +402,13 @@ function FilterDrawer({
 
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-[300] ${isOpen ? 'pointer-events-auto fd-backdrop-enter' : 'pointer-events-none fd-backdrop-exit'}`}
+        className={`fixed inset-0 z-[300] ${
+          isOpen
+            ? 'pointer-events-auto fd-backdrop-enter'
+            : hasOpened
+              ? 'pointer-events-none fd-backdrop-exit'
+              : 'pointer-events-none opacity-0'
+        }`}
         style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
         onClick={onClose}
         aria-hidden="true"
@@ -411,7 +422,13 @@ function FilterDrawer({
         aria-label="Filtres du journal"
         aria-hidden={!isOpen}
         inert={!isOpen}
-        className={`fixed bottom-0 left-0 right-0 z-[301] ${isOpen ? 'fd-sheet-enter' : 'fd-sheet-exit'}`}
+        className={`fixed bottom-0 left-0 right-0 z-[301] ${
+          isOpen
+            ? 'fd-sheet-enter'
+            : hasOpened
+              ? 'fd-sheet-exit'
+              : 'translate-y-full'
+        }`}
         style={{
           borderRadius: '28px 28px 0 0',
           background: 'rgba(14,14,18,0.82)',
@@ -422,6 +439,7 @@ function FilterDrawer({
           maxHeight: 'min(82dvh, 680px)',
           overflowY: 'auto',
           willChange: 'transform',
+          visibility: hasOpened ? 'visible' : 'hidden',
         }}
       >
         {/* Drag handle */}
@@ -591,7 +609,7 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
   /* ── État ouvert : barre expandée ── */
   return (
     <div
-        className="flex items-center gap-2"
+      className="flex items-center gap-2"
       style={{
         ...sharedPill,
         borderRadius: '999px',
@@ -608,7 +626,7 @@ function InlineSearchBar({ isOpen, searchQuery, setSearchQuery, onOpen, onClose 
       >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
-        <input
+      <input
         ref={inputRef}
         type="text"
         value={searchQuery}

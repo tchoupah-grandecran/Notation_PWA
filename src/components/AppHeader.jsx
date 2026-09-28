@@ -22,7 +22,7 @@ export function AppHeader({
   scrollY,
   headerTitle,
   headerRight,
-  accentColor = '#E8B200',
+  accentColor = 'var(--theme-accent, #E8B200)',
 }) {
   const [expanded, setExpanded] = useState(true);
   const prevScrollY = useRef(0);
@@ -114,11 +114,11 @@ export function AppHeader({
 
         <div
           className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] px-4 md:hidden"
-          style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+          style={{ bottom: 'calc(0px + env(safe-area-inset-bottom, 0px))' }}
         >
           <nav
             aria-label="Navigation principale"
-            className="relative mx-auto grid h-[62px] w-full max-w-[360px] grid-cols-4 overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
+            className="relative mx-auto grid h-[60px] w-full max-w-[360px] grid-cols-4 overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
             style={{
               background: 'color-mix(in srgb, var(--theme-surface, var(--theme-bg, #111)) 42%, transparent)',
               borderColor: 'color-mix(in srgb, var(--theme-text, #fff) 16%, transparent)',
@@ -151,6 +151,7 @@ export function AppHeader({
                   <span className="font-outfit text-[10px] font-semibold leading-none tracking-[0.01em]">
                     {label}
                   </span>
+                  {isActive && <span aria-hidden="true" className="absolute bottom-1 h-[2px] w-5 rounded-full" style={{ background: 'var(--theme-accent-gradient, var(--theme-accent))' }} />}
                 </button>
               );
             })}
@@ -212,12 +213,12 @@ export function AppHeader({
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: isActive ? textPrimary : textMuted,
+                        color: isActive ? accentColor : textMuted,
                         '--tw-ring-color': accentColor,
                       }}
                     >
                       {label}
-                      {isActive && <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full" style={{ background: accentColor }} />}
+                      {isActive && <span aria-hidden="true" className="absolute -bottom-0.5 left-1/2 h-[2px] w-4 -translate-x-1/2 rounded-full" style={{ background: 'var(--theme-accent-gradient, var(--theme-accent))' }} />}
                     </button>
                   );
                 })}

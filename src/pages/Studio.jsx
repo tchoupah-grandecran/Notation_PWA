@@ -1,13 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import RecapTool from '../studio/monthly/MonthlyRecapTool';
 import SeanceStoryTool from '../studio/seance/SeanceStoryTool';
 import ReviewsHub from '../studio/reviews/ReviewsHub';
 import StudioHub from '../studio/hub/StudioHub';
 import '../Studio.css';
 
-export function Studio({ historyData, pendingFilm, isScrolled, onHeaderRight, onHeaderTitle }) {
+export function Studio({ historyData, pendingFilm, onHeaderRight, onHeaderTitle }) {
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('grandecran_studio_unlocked') === 'true');
   const [activeTool, setActiveTool] = useState(null);
+  const handleLock = useCallback(() => {
+    setIsUnlocked(false);
+    localStorage.removeItem('grandecran_studio_unlocked');
+  }, []);
 
   useEffect(() => {
     if (activeTool !== null) {
@@ -29,7 +33,7 @@ export function Studio({ historyData, pendingFilm, isScrolled, onHeaderRight, on
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 pb-[env(safe-area-inset-bottom)]">
         <div className="w-20 h-20 bg-white/5 rounded-full border border-white/10 flex items-center justify-center mb-6 shadow-2xl">
-          <svg className="w-8 h-8 text-[#E8B200]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="w-8 h-8 text-[var(--theme-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
@@ -52,11 +56,12 @@ export function Studio({ historyData, pendingFilm, isScrolled, onHeaderRight, on
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             enterKeyHint="done"
-            className="font-outfit bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[#E8B200] transition-colors text-white placeholder:text-white/20"
+            className="font-outfit bg-black/40 border border-white/10 rounded-2xl p-4 text-center font-bold tracking-widest outline-none focus:border-[var(--theme-accent)] transition-colors text-white placeholder:text-white/20"
           />
           <button
             type="submit"
-            className="font-outfit bg-[#E8B200] text-black font-black uppercase tracking-widest py-4 rounded-2xl active:scale-95 transition-transform text-sm"
+            className="w-full border-2 border-transparent font-outfit font-black uppercase tracking-widest py-4 rounded-2xl text-[var(--theme-action-ink)] active:scale-95 transition-transform text-sm"
+            style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
           >
             Deverrouiller
           </button>
@@ -72,13 +77,11 @@ export function Studio({ historyData, pendingFilm, isScrolled, onHeaderRight, on
 
   return (
     <StudioHub
-      isScrolled={isScrolled}
       onSelectTool={setActiveTool}
-      onLock={() => { setIsUnlocked(false); localStorage.removeItem('grandecran_studio_unlocked'); }}
+      onLock={handleLock}
       pendingFilm={pendingFilm}
       historyData={historyData}
       onHeaderRight={onHeaderRight}
-      onHeaderTitle={onHeaderTitle}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { savePreferencesToSheet, getPreferencesFromSheet } from '../api';
+import { ACCENT_PALETTES, normalizeAccentPalette } from '../constants';
 
 export function usePreferences(userToken, spreadsheetId) {
   const [themeMode, setThemeMode] = useState(() => {
@@ -8,6 +9,10 @@ export function usePreferences(userToken, spreadsheetId) {
     const legacyDark = localStorage.getItem('grandecran_dark_mode');
     if (legacyDark !== null) return legacyDark === 'true' ? 'dark' : 'light';
     return 'system';
+  });
+  const [accentPalette, setAccentPalette] = useState(() => {
+    const saved = localStorage.getItem('grandecran_accent_palette');
+    return normalizeAccentPalette(saved);
   });
   const [userAvatar,  setUserAvatar]  = useState(localStorage.getItem('grandecran_avatar')       || 'https://i.imgur.com/54i18a4.png');
   const [userName,    setUserName]    = useState(localStorage.getItem('grandecran_username')      || 'Cinéphile');
@@ -23,6 +28,7 @@ export function usePreferences(userToken, spreadsheetId) {
   const tokenRef        = useRef(userToken);
   const sheetRef        = useRef(spreadsheetId);
   const themeModeRef    = useRef(themeMode);
+  const accentPaletteRef = useRef(accentPalette);
   const userAvatarRef   = useRef(userAvatar);
   const userNameRef     = useRef(userName);
   const ratingScaleRef  = useRef(ratingScale);
@@ -31,6 +37,7 @@ export function usePreferences(userToken, spreadsheetId) {
   useEffect(() => { tokenRef.current       = userToken;    }, [userToken]);
   useEffect(() => { sheetRef.current       = spreadsheetId; }, [spreadsheetId]);
   useEffect(() => { themeModeRef.current   = themeMode;    }, [themeMode]);
+  useEffect(() => { accentPaletteRef.current = accentPalette; }, [accentPalette]);
   useEffect(() => { userAvatarRef.current  = userAvatar;   }, [userAvatar]);
   useEffect(() => { userNameRef.current    = userName;     }, [userName]);
   useEffect(() => { ratingScaleRef.current = ratingScale;  }, [ratingScale]);
@@ -56,15 +63,16 @@ export function usePreferences(userToken, spreadsheetId) {
   const triggerCloudSave = useCallback((overrides = {}) => {
     const token = tokenRef.current;
     const sheet = sheetRef.current;
-    if (!token || !sheet) return;
+    if (!token || !sheet) return Promise.resolve(false);
     const payload = {
       userName:    overrides.userName    ?? userNameRef.current,
       userAvatar:  overrides.userAvatar  ?? userAvatarRef.current,
       themeKey:    overrides.themeMode   ?? themeModeRef.current,
+      accentPalette: overrides.accentPalette ?? accentPaletteRef.current,
       ratingScale: overrides.ratingScale ?? ratingScaleRef.current,
       pricing:     overrides.pricing     ?? pricingRef.current,
     };
-    savePreferencesToSheet(token, sheet, payload);
+    return savePreferencesToSheet(token, sheet, payload);
   }, []); // dépendances vides : les refs assurent la fraîcheur
 
   // syncFromCloud stable
@@ -81,6 +89,11 @@ export function usePreferences(userToken, spreadsheetId) {
       setThemeMode(mode);
       localStorage.setItem('grandecran_theme_mode', mode);
     }
+    if (cloud.accentPalette && (ACCENT_PALETTES[cloud.accentPalette] || cloud.accentPalette === 'gilded')) {
+      const palette = normalizeAccentPalette(cloud.accentPalette);
+      setAccentPalette(palette);
+      localStorage.setItem('grandecran_accent_palette', palette);
+    }
     if (cloud.ratingScale) { setRatingScale(cloud.ratingScale); localStorage.setItem('grandecran_rating_scale', String(cloud.ratingScale)); }
     if (cloud.pricing)     { setPricing(cloud.pricing);          localStorage.setItem('grandecran_pricing', JSON.stringify(cloud.pricing)); }
   }, []); // dépendances vides : les refs assurent la fraîcheur
@@ -89,14 +102,18 @@ export function usePreferences(userToken, spreadsheetId) {
   const updateThemeMode = useCallback((mode) => {
     setThemeMode(mode);
     localStorage.setItem('grandecran_theme_mode', mode);
-    triggerCloudSave({ themeMode: mode });
-  }, [triggerCloudSave]);
+  }, []);
+
+  const updateAccentPalette = useCallback((palette) => {
+    if (!ACCENT_PALETTES[palette]) return;
+    setAccentPalette(palette);
+    localStorage.setItem('grandecran_accent_palette', palette);
+  }, []);
 
   const updateAvatar = useCallback((url) => {
     setUserAvatar(url);
     localStorage.setItem('grandecran_avatar', url);
-    triggerCloudSave({ userAvatar: url });
-  }, [triggerCloudSave]);
+  }, []);
 
   const updateUserName = useCallback((name) => {
     setUserName(name);
@@ -107,18 +124,17 @@ export function usePreferences(userToken, spreadsheetId) {
   const updateRatingScale = useCallback((s) => {
     setRatingScale(s);
     localStorage.setItem('grandecran_rating_scale', String(s));
-    triggerCloudSave({ ratingScale: s });
-  }, [triggerCloudSave]);
+  }, []);
 
   const updatePricing = useCallback((p) => {
     setPricing(p);
     localStorage.setItem('grandecran_pricing', JSON.stringify(p));
-    //triggerCloudSave({ pricing: p });
-  }, [triggerCloudSave]);
+  }, []);
 
   return {
     isDark,
     themeMode,
+    accentPalette,
     userAvatar,
     userName,
     ratingScale,
@@ -126,6 +142,7 @@ export function usePreferences(userToken, spreadsheetId) {
     syncFromCloud,
     triggerCloudSave,
     toggleDarkMode:    updateThemeMode,
+    updateAccentPalette,
     updateAvatar,
     updateUserName,
     updateRatingScale,

@@ -819,7 +819,7 @@ async function renderStoryToCanvas(canvas, params) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const INPUT_CLASS =
-  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors';
+  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[var(--theme-accent)]/50 transition-colors';
 
 const LABEL_CLASS =
   'font-outfit text-[9px] font-semibold text-white/30 uppercase tracking-widest block mb-1.5';
@@ -1084,12 +1084,14 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
   return (
     <div className="animate-in fade-in pb-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden">
       {/* HEADER */}
-      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
+      <header className="sticky top-0 z-[110] flex w-full items-center justify-between border-b border-white/10 bg-[#0C0C0E]/90 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-white backdrop-blur-xl">
         <button
+          type="button"
           onClick={onBack}
-          className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-95 transition-transform"
+          aria-label="Retourner à l’Atelier"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
         >
-          <ChevronLeft size={20} strokeWidth={2.5} />
+          <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" />
         </button>
 
         <h2 className="font-galinoy italic text-xl tracking-tight">Story Séance</h2>
@@ -1106,7 +1108,7 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
         >
           {posterLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/60 rounded-[2rem]">
-              <div className="w-8 h-8 border-2 border-[#E8B200] border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-[var(--theme-accent)] border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
@@ -1146,7 +1148,7 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
               onClick={() => setStyleMode('cinema')}
               className={`rounded-xl px-3 py-3 text-left transition-all border ${
                 styleMode === 'cinema'
-                  ? 'bg-white/10 border-[#E8B200]/40 text-white'
+                  ? 'bg-white/10 border-[var(--theme-accent)]/40 text-white'
                   : 'bg-white/[0.03] border-white/5 text-white/35'
               }`}
             >
@@ -1222,7 +1224,7 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
                   onClick={() => toggleTag(option)}
                   className={`rounded-full px-3 py-2 font-outfit text-[10px] font-semibold border transition-all active:scale-95 ${
                     selected
-                      ? 'bg-[#E8B200] border-[#E8B200] text-[#111]'
+                      ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)] text-[var(--theme-accent-ink)]'
                       : 'bg-white/5 border-white/10 text-white/45'
                   } ${locked ? 'opacity-30' : ''}`}
                 >
@@ -1239,7 +1241,7 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
               maxLength={PERSONAL_MAX}
               rows={2}
               placeholder="Une petite phrase personnelle…"
-              className="w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E8B200]/50 transition-colors"
+              className="w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-outfit text-sm text-white placeholder:text-white/20 outline-none focus:border-[var(--theme-accent)]/50 transition-colors"
             />
             <span className="absolute bottom-2 right-3 font-outfit text-[9px] text-white/25">
               {personalText.length}/{PERSONAL_MAX}
@@ -1297,11 +1299,10 @@ export default function SeanceStoryTool({ historyData = [], onBack, pendingFilm 
           type="button"
           onClick={downloadStory}
           disabled={shareDisabled}
-          className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-outfit font-extrabold text-sm transition-all ${
-            shareDisabled
-              ? 'bg-[#E8B200]/40 text-black/40 cursor-wait'
-              : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.28)] active:scale-95'
+          className={`w-full h-14 rounded-2xl border-2 border-transparent flex items-center justify-center gap-2.5 font-outfit font-extrabold text-sm text-[var(--theme-action-ink)] transition-all ${
+            shareDisabled ? 'opacity-50 cursor-wait' : 'shadow-lg active:scale-95'
           }`}
+          style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
         >
           {isDownloading ? (
             <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full" />

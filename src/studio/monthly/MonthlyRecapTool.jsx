@@ -900,8 +900,8 @@ export default function RecapTool({ onBack, historyData }) {
 
   // ── Loading / empty states ──
   const emptyHeader = (title) => (
-    <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
-      <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><ChevronLeft size={20} strokeWidth={2.5}/></button>
+    <header className="sticky top-0 z-[110] flex w-full items-center justify-between border-b border-white/10 bg-[#0C0C0E]/90 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-white backdrop-blur-xl">
+      <button type="button" onClick={onBack} aria-label="Retourner à l’Atelier" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true"/></button>
       <h2 className="font-galinoy italic text-xl">{title}</h2>
       <div className="w-10"/>
     </header>
@@ -940,9 +940,9 @@ export default function RecapTool({ onBack, historyData }) {
     <div className="animate-in fade-in pb-safe-24 flex flex-col min-h-screen bg-[#0C0C0E] overflow-x-hidden text-[#F0EEF5]">
 
       {/* ── HEADER — chrome uses Galinoy italic ── */}
-      <header className="z-40 sticky top-0 w-full bg-[#0C0C0E]/90 backdrop-blur-xl border-b border-white/10 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-6 flex justify-between items-center text-white">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-          <ChevronLeft size={20} strokeWidth={2.5}/>
+      <header className="sticky top-0 z-[110] flex w-full items-center justify-between border-b border-white/10 bg-[#0C0C0E]/90 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-white backdrop-blur-xl">
+        <button type="button" onClick={onBack} aria-label="Retourner à l’Atelier" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
+          <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true"/>
         </button>
         <h2 className="font-galinoy italic text-xl tracking-tight">Récap' Mensuel</h2>
         <div className="w-10"/>
@@ -957,9 +957,9 @@ export default function RecapTool({ onBack, historyData }) {
             const isActive = mKey === selectedMonth;
             return (
               <div key={mKey} onClick={() => { setSelectedMonth(mKey); setCurrentSlide(0); }}
-                className={`flex-shrink-0 flex flex-col items-center justify-center w-[60px] h-[56px] rounded-[10px] border cursor-pointer transition-all select-none ${isActive ? 'border-[#E8B200] bg-[#E8B200]/10' : 'border-white/5 bg-[#1A1A1F]'}`}>
-                <div className={`font-outfit text-[11px] font-bold ${isActive ? 'text-[#E8B200]' : 'text-[#F0EEF5]'}`}>{MONTH_NAMES[parseInt(m, 10) - 1].substring(0, 3)}</div>
-                <div className={`font-outfit text-[8px] font-medium mt-1 ${isActive ? 'text-[#E8B200]/60' : 'text-white/20'}`}>{y}</div>
+                className={`flex-shrink-0 flex flex-col items-center justify-center w-[60px] h-[56px] rounded-[10px] border cursor-pointer transition-all select-none ${isActive ? 'border-[var(--theme-accent)] bg-[var(--theme-accent)]/10' : 'border-white/5 bg-[#1A1A1F]'}`}>
+                <div className={`font-outfit text-[11px] font-bold ${isActive ? 'text-[var(--theme-accent)]' : 'text-[#F0EEF5]'}`}>{MONTH_NAMES[parseInt(m, 10) - 1].substring(0, 3)}</div>
+                <div className={`font-outfit text-[8px] font-medium mt-1 ${isActive ? 'text-[var(--theme-accent)]/60' : 'text-white/20'}`}>{y}</div>
               </div>
             );
           })}
@@ -969,7 +969,7 @@ export default function RecapTool({ onBack, historyData }) {
       {/* ── INFO BAR ── */}
       <div className="mx-5 mt-4 flex items-center justify-between bg-[#1A1A1F] border border-white/5 rounded-[10px] px-3.5 py-2.5">
         <div className="flex gap-2.5 items-center">
-          <Layers size={16} className="text-[#E8B200]" />
+          <Layers size={16} className="text-[var(--theme-accent)]" />
           <div className="font-outfit text-[10px] text-white/40">
             <strong className="text-white">{currentData?.totalFilms || 0} films</strong> · slide {currentSlide + 1}/6
           </div>
@@ -1335,13 +1335,13 @@ export default function RecapTool({ onBack, historyData }) {
         <div className="flex items-center gap-1.5 mb-2">
           {SLIDE_NAMES.map((_, i) => (
             <div key={i} onClick={() => goToSlide(i)}
-              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[#E8B200]' : i < currentSlide ? 'bg-[#E8B200]/30' : 'bg-white/10 hover:bg-white/20'}`}/>
+              className={`flex-1 h-1.5 cursor-pointer rounded-full transition-all ${i === currentSlide ? 'bg-[var(--theme-accent)]' : i < currentSlide ? 'bg-[var(--theme-accent)]/30' : 'bg-white/10 hover:bg-white/20'}`}/>
           ))}
         </div>
         <div className="flex justify-between px-1">
           {SLIDE_NAMES.map((name, i) => (
             <span key={i} onClick={() => goToSlide(i)}
-              className={`font-outfit text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[#E8B200]' : 'text-white/30 hover:text-white/50'}`}>
+              className={`font-outfit text-[9px] uppercase font-bold tracking-widest cursor-pointer ${i === currentSlide ? 'text-[var(--theme-accent)]' : 'text-white/30 hover:text-white/50'}`}>
               {name}
             </span>
           ))}
@@ -1351,7 +1351,8 @@ export default function RecapTool({ onBack, historyData }) {
       {/* ── EXPORT ACTIONS ── */}
       <div className="mx-5 mt-6 mb-12 flex flex-col gap-3">
         <button onClick={handleDownloadAll} disabled={isDownloading}
-          className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 font-outfit font-extrabold text-sm transition-all ${isDownloading ? 'bg-[#E8B200]/50 text-black/50 cursor-wait' : 'bg-[#E8B200] text-[#0A0A0A] shadow-[0_4px_24px_rgba(232,178,0,0.3)] active:scale-95'}`}>
+          className={`w-full h-14 rounded-2xl border-2 border-transparent flex items-center justify-center gap-2.5 font-outfit font-extrabold text-sm text-[var(--theme-action-ink)] transition-all ${isDownloading ? 'opacity-50 cursor-wait' : 'shadow-lg active:scale-95'}`}
+          style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}>
           {isDownloading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black animate-spin rounded-full"/> : <><Layers size={18} strokeWidth={2.5}/>Tout télécharger (6 slides)</>}
         </button>
         <button onClick={handleDownload} disabled={isDownloading}
