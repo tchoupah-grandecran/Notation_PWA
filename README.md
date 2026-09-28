@@ -1,16 +1,21 @@
-# React + Vite
+# Notation Ciné
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application React/Vite déployée sur Vercel. Les routes `api/` gèrent notamment la session OAuth Google et nécessitent le runtime Vercel.
 
-Currently, two official plugins are available:
+## Développement local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Installer les dépendances avec `npm install`.
+2. Se connecter une fois au compte Vercel depuis ce dossier avec `npx vercel login`, puis associer le projet avec `npx vercel link`.
+3. Dans Vercel, configurer les variables d'environnement **Development** nécessaires à l'authentification et à l'application, puis lancer `npm run dev`.
+4. Ouvrir `http://localhost:5173`.
 
-## React Compiler
+`npm run dev` lance Vercel localement pour que les routes `/api/*` fonctionnent en même temps que l'interface Vite. Vercel CLI récupère les variables Development du projet. Les identifiants Google doivent autoriser `http://localhost:5173` parmi les origines JavaScript.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Variables serveur requises en Development : `POSTGRES_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` et `OAUTH_TOKEN_ENCRYPTION_KEY`. L'interface utilise aussi `VITE_GOOGLE_CLIENT_ID` et `VITE_TMDB_API_KEY`. Utiliser une base Neon de développement distincte de la production afin que les essais locaux ne modifient pas les sessions de production.
 
-## Expanding the ESLint configuration
+`npm run dev:vite` lance uniquement le serveur Vite, sans les fonctions API Vercel. La connexion persistante Google ne fonctionnera donc pas avec cette commande.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Vérifications
+
+- `npm run lint`
+- `npm run build`
