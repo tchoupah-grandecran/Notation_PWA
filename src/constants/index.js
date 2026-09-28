@@ -23,8 +23,8 @@ export const THEME_COLORS = {
     border: 'rgba(0,0,0,0.08)',
     text: '#1A1A1A',
     textSecondary: 'rgba(26,26,26,0.45)',
-    accent: '#1A1A1A',
-    accentMuted: 'rgba(26,26,26,0.06)',
+    accent: '#80631A',
+    accentMuted: 'rgba(128,99,26,0.08)',
     navBg: 'rgba(245,240,232,0.92)',
     grainOpacity: '0.07', // More visible on light for "analog" feel
   },
@@ -36,12 +36,14 @@ export const ACCENT_PALETTES = {
     name: 'Classique',
     description: 'Le doré du carnet.',
     dark: '#C8A84B',
-    light: '#1A1A1A',
+    light: '#80631A',
     darkMuted: 'rgba(200,168,75,0.12)',
-    lightMuted: 'rgba(26,26,26,0.06)',
+    lightMuted: 'rgba(128,99,26,0.08)',
     darkInk: '#111111',
     lightInk: '#FFFFFF',
-    swatches: ['#C8A84B', '#1A1A1A'],
+    swatches: ['#C8A84B', '#80631A'],
+    darkTint: '#C8A84B',
+    lightTint: '#D8C397',
   },
   midnight: {
     key: 'midnight',
@@ -54,6 +56,8 @@ export const ACCENT_PALETTES = {
     darkInk: '#171329',
     lightInk: '#FFFFFF',
     swatches: ['#8B6CE0', '#B59AF7', '#4B356F'],
+    darkTint: '#7657C5',
+    lightTint: '#C8BAED',
   },
   forest: {
     key: 'forest',
@@ -66,6 +70,8 @@ export const ACCENT_PALETTES = {
     darkInk: '#102418',
     lightInk: '#FFFFFF',
     swatches: ['#91D5A5', '#4E9B70', '#176B45'],
+    darkTint: '#347850',
+    lightTint: '#B8D5C0',
   },
   passionate: {
     key: 'passionate',
@@ -78,24 +84,14 @@ export const ACCENT_PALETTES = {
     darkInk: '#241014',
     lightInk: '#FFFFFF',
     swatches: ['#FF8293', '#BE123C', '#641A2C'],
-  },
-  pride: {
-    key: 'pride',
-    name: 'Fiertés',
-    description: 'Un accent arc-en-ciel, quand tu le souhaites.',
-    dark: '#FF4D9D',
-    light: '#C2185B',
-    darkMuted: 'rgba(255,77,157,0.16)',
-    lightMuted: 'rgba(194,24,91,0.09)',
-    darkInk: '#29101E',
-    lightInk: '#FFFFFF',
-    gradient: 'linear-gradient(105deg, #F04458 0%, #F58B3D 18%, #E9C93B 36%, #33A66F 54%, #3585D5 72%, #8B5BCC 88%, #E84A9A 100%)',
-    swatches: ['#F05A63', '#F29A45', '#E8C84A', '#48A878', '#4785D2', '#A463C5'],
+    darkTint: '#8D344B',
+    lightTint: '#E8B1BF',
   },
 };
 
 export const normalizeAccentPalette = (paletteKey) => {
   if (paletteKey === 'gilded') return 'forest';
+  if (paletteKey === 'pride') return 'classic';
   return ACCENT_PALETTES[paletteKey] ? paletteKey : 'classic';
 };
 
@@ -108,13 +104,17 @@ export const getThemeAccent = (mode = 'dark', paletteKey = 'classic') => {
  * Returns an object of CSS variable assignments.
  * Includes a background-image definition for the noise grain.
  */
-export const THEME_TOKENS = (key = 'dark', paletteKey = 'classic') => {
+export const THEME_TOKENS = (key = 'dark', paletteKey = 'classic', prideAccentEnabled = false) => {
   const t = THEME_COLORS[key] || THEME_COLORS.dark;
   const palette = ACCENT_PALETTES[paletteKey] || ACCENT_PALETTES.classic;
   const accent = key === 'light' ? palette.light : palette.dark;
   const accentMuted = key === 'light' ? palette.lightMuted : palette.darkMuted;
   const accentInk = key === 'light' ? palette.lightInk : palette.darkInk;
-  const isPride = palette.key === 'pride';
+  const isPride = Boolean(prideAccentEnabled);
+  const tint = key === 'light' ? palette.lightTint : palette.darkTint;
+  const tintedBg = `color-mix(in srgb, ${t.bg} 95%, ${tint})`;
+  const tintedSurface = `color-mix(in srgb, ${t.surface} 97%, ${tint})`;
+  const prideGradient = 'linear-gradient(105deg, #F04458 0%, #F58B3D 18%, #E9C93B 36%, #33A66F 54%, #3585D5 72%, #8B5BCC 88%, #E84A9A 100%)';
   
   // This SVG creates a fractal noise pattern that simulates paper fiber/film grain
   const grainSvg = `
@@ -133,15 +133,15 @@ export const THEME_TOKENS = (key = 'dark', paletteKey = 'classic') => {
   const grainDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(grainSvg)}`;
 
   return {
-    '--theme-bg':             t.bg,
-    '--theme-surface':        t.surface,
+    '--theme-bg':             tintedBg,
+    '--theme-surface':        tintedSurface,
     '--theme-border':         t.border,
     '--theme-text':           t.text,
     '--theme-text-secondary': t.textSecondary,
     '--theme-accent':         accent,
     '--theme-accent-muted':   accentMuted,
     '--theme-accent-ink':     accentInk,
-    '--theme-accent-gradient': palette.gradient || `linear-gradient(105deg, ${accent}, ${accent})`,
+    '--theme-accent-gradient': isPride ? prideGradient : `linear-gradient(105deg, ${accent}, ${accent})`,
     '--theme-action-bg':      isPride ? t.text : accent,
     '--theme-action-ink':     isPride ? t.bg : accentInk,
     '--theme-nav-bg':         t.navBg,

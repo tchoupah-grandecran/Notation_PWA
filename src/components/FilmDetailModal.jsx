@@ -450,12 +450,12 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
         <button
           type="button"
           onClick={() => setShowDetails((value) => !value)}
-          aria-label={showDetails ? 'Revoir l’affiche' : `Voir les détails de ${title}`}
+          aria-label={showDetails ? 'Voir l’affiche' : `Voir les détails de ${title}`}
           className={`flex h-11 shrink-0 items-center justify-center gap-2 rounded-full font-outfit text-[11px] font-semibold ${DETAILS_ACTION_CLASSES}`}
           style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' }}
         >
           <RotateCcw size={14} aria-hidden="true" />
-          {showDetails ? 'Revoir l’affiche' : 'Voir les détails'}
+          {showDetails ? 'Voir l’affiche' : 'Voir les détails'}
         </button>
       </div>
     </div>

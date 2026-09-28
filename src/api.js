@@ -778,15 +778,16 @@ export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
     // Conversion de l'objet de prix en chaîne de texte JSON (si existant)
     const pricingString = prefs.pricing ? JSON.stringify(prefs.pricing) : "";
 
-    // Préférences et palette d’accent (A2:F2)
-    const range = "Config!A2:F2";
+    // Préférences, thème de couleur et accent Fiertés (A2:G2)
+    const range = "Config!A2:G2";
     const values = [[
       prefs.userName || "", 
       prefs.userAvatar || "", 
       prefs.themeKey || "", 
       prefs.ratingScale || "", 
       pricingString,
-      prefs.accentPalette || 'classic'
+      prefs.accentPalette || 'classic',
+      prefs.prideAccentEnabled ? 'true' : 'false'
     ]];
     
     const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
@@ -807,8 +808,8 @@ export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
 // ✅ Récupérer les préférences au démarrage
 export const getPreferencesFromSheet = async (token, spreadsheetId) => {
   try {
-    // Les anciennes feuilles peuvent ne pas encore contenir la colonne F.
-    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:F2`, {
+    // Les anciennes feuilles peuvent ne pas encore contenir les colonnes F et G.
+    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Config!A2:G2`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const data = await response.json();
@@ -833,6 +834,7 @@ export const getPreferencesFromSheet = async (token, spreadsheetId) => {
         ratingScale: row[3] ? parseInt(row[3], 10) : null,
         pricing: pricingObj,
         accentPalette: row[5] || null,
+        prideAccentEnabled: row[6] === undefined ? null : String(row[6]).toLowerCase() === 'true',
       };
     }
   } catch (e) { 
@@ -893,7 +895,7 @@ export const createAutoSpreadsheet = async (token) => {
           // Initialisation des Headers pour Config
           {
             updateCells: {
-              range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 },
+              range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 7 },
               rows: [{
                 values: [
                   { userEnteredValue: { stringValue: "Pseudo" } },
@@ -901,7 +903,8 @@ export const createAutoSpreadsheet = async (token) => {
                   { userEnteredValue: { stringValue: "Thème" } },
                   { userEnteredValue: { stringValue: "Échelle de Note" } },
                   { userEnteredValue: { stringValue: "Historique des Tarifs (JSON)" } },
-                  { userEnteredValue: { stringValue: "Palette d’accent" } }
+                  { userEnteredValue: { stringValue: "Thème de couleur" } },
+                  { userEnteredValue: { stringValue: "Accent Fiertés" } }
                 ]
               }],
               fields: "userEnteredValue"

@@ -2889,9 +2889,6 @@ return (
               >
                 <SmartPoster afficheInitiale={getPoster(4)?.affiche} titre={getPoster(4)?.titre} className="w-full h-full" />
               </div>
-                <span className="mt-3 block text-center font-outfit text-[10px] uppercase tracking-[.16em] opacity-55 group-hover:opacity-90">
-                  Voir le film ↗
-                </span>
               </button>
             </div>
           )}
@@ -2956,9 +2953,6 @@ return (
                   >
                     <SmartPoster afficheInitiale={getPoster(5)?.affiche} titre={getPoster(5)?.titre} className="w-full h-full" />
                   </div>
-                  <span className="mt-3 block text-center font-outfit text-[10px] uppercase tracking-[.16em] opacity-55 group-hover:opacity-90">
-                    Voir le film ↗
-                  </span>
                 </button>
               </div>
             )}

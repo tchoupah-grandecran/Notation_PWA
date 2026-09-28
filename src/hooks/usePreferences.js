@@ -14,6 +14,11 @@ export function usePreferences(userToken, spreadsheetId) {
     const saved = localStorage.getItem('grandecran_accent_palette');
     return normalizeAccentPalette(saved);
   });
+  const [prideAccentEnabled, setPrideAccentEnabled] = useState(() => {
+    const saved = localStorage.getItem('grandecran_pride_accent');
+    if (saved !== null) return saved === 'true';
+    return localStorage.getItem('grandecran_accent_palette') === 'pride';
+  });
   const [userAvatar,  setUserAvatar]  = useState(localStorage.getItem('grandecran_avatar')       || 'https://i.imgur.com/54i18a4.png');
   const [userName,    setUserName]    = useState(localStorage.getItem('grandecran_username')      || 'Cinéphile');
   const [ratingScale, setRatingScale] = useState(Number(localStorage.getItem('grandecran_rating_scale')) || 5);
@@ -29,6 +34,7 @@ export function usePreferences(userToken, spreadsheetId) {
   const sheetRef        = useRef(spreadsheetId);
   const themeModeRef    = useRef(themeMode);
   const accentPaletteRef = useRef(accentPalette);
+  const prideAccentRef = useRef(prideAccentEnabled);
   const userAvatarRef   = useRef(userAvatar);
   const userNameRef     = useRef(userName);
   const ratingScaleRef  = useRef(ratingScale);
@@ -38,6 +44,7 @@ export function usePreferences(userToken, spreadsheetId) {
   useEffect(() => { sheetRef.current       = spreadsheetId; }, [spreadsheetId]);
   useEffect(() => { themeModeRef.current   = themeMode;    }, [themeMode]);
   useEffect(() => { accentPaletteRef.current = accentPalette; }, [accentPalette]);
+  useEffect(() => { prideAccentRef.current = prideAccentEnabled; }, [prideAccentEnabled]);
   useEffect(() => { userAvatarRef.current  = userAvatar;   }, [userAvatar]);
   useEffect(() => { userNameRef.current    = userName;     }, [userName]);
   useEffect(() => { ratingScaleRef.current = ratingScale;  }, [ratingScale]);
@@ -69,6 +76,7 @@ export function usePreferences(userToken, spreadsheetId) {
       userAvatar:  overrides.userAvatar  ?? userAvatarRef.current,
       themeKey:    overrides.themeMode   ?? themeModeRef.current,
       accentPalette: overrides.accentPalette ?? accentPaletteRef.current,
+      prideAccentEnabled: overrides.prideAccentEnabled ?? prideAccentRef.current,
       ratingScale: overrides.ratingScale ?? ratingScaleRef.current,
       pricing:     overrides.pricing     ?? pricingRef.current,
     };
@@ -89,10 +97,18 @@ export function usePreferences(userToken, spreadsheetId) {
       setThemeMode(mode);
       localStorage.setItem('grandecran_theme_mode', mode);
     }
-    if (cloud.accentPalette && (ACCENT_PALETTES[cloud.accentPalette] || cloud.accentPalette === 'gilded')) {
+    if (cloud.accentPalette && (ACCENT_PALETTES[cloud.accentPalette] || ['gilded', 'pride'].includes(cloud.accentPalette))) {
       const palette = normalizeAccentPalette(cloud.accentPalette);
       setAccentPalette(palette);
       localStorage.setItem('grandecran_accent_palette', palette);
+    }
+    if (cloud.prideAccentEnabled !== null && cloud.prideAccentEnabled !== undefined) {
+      const enabled = cloud.prideAccentEnabled === true || cloud.prideAccentEnabled === 'true';
+      setPrideAccentEnabled(enabled);
+      localStorage.setItem('grandecran_pride_accent', String(enabled));
+    } else if (cloud.accentPalette === 'pride') {
+      setPrideAccentEnabled(true);
+      localStorage.setItem('grandecran_pride_accent', 'true');
     }
     if (cloud.ratingScale) { setRatingScale(cloud.ratingScale); localStorage.setItem('grandecran_rating_scale', String(cloud.ratingScale)); }
     if (cloud.pricing)     { setPricing(cloud.pricing);          localStorage.setItem('grandecran_pricing', JSON.stringify(cloud.pricing)); }
@@ -108,6 +124,12 @@ export function usePreferences(userToken, spreadsheetId) {
     if (!ACCENT_PALETTES[palette]) return;
     setAccentPalette(palette);
     localStorage.setItem('grandecran_accent_palette', palette);
+  }, []);
+
+  const updatePrideAccentEnabled = useCallback((enabled) => {
+    const nextValue = Boolean(enabled);
+    setPrideAccentEnabled(nextValue);
+    localStorage.setItem('grandecran_pride_accent', String(nextValue));
   }, []);
 
   const updateAvatar = useCallback((url) => {
@@ -135,6 +157,7 @@ export function usePreferences(userToken, spreadsheetId) {
     isDark,
     themeMode,
     accentPalette,
+    prideAccentEnabled,
     userAvatar,
     userName,
     ratingScale,
@@ -143,6 +166,7 @@ export function usePreferences(userToken, spreadsheetId) {
     triggerCloudSave,
     toggleDarkMode:    updateThemeMode,
     updateAccentPalette,
+    updatePrideAccentEnabled,
     updateAvatar,
     updateUserName,
     updateRatingScale,

@@ -8,7 +8,7 @@ import {
 
 export function Profile({
   handleScan, userName, userAvatar, themeMode, toggleDarkMode,
-  accentPalette, updateAccentPalette,
+  accentPalette, updateAccentPalette, prideAccentEnabled, updatePrideAccentEnabled,
   ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
   updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
   onHeaderRight, // Récupéré depuis App.jsx
@@ -291,12 +291,12 @@ export function Profile({
             </Row>
             <div className="border-t border-[var(--theme-border)] px-5 py-4">
               <div className="mb-3">
-                <p className="font-outfit text-[13px] font-bold text-[var(--theme-text)]">Palette d’accent</p>
+                <p className="font-outfit text-[13px] font-bold text-[var(--theme-text)]">Thème de couleur</p>
                 <p className="mt-1 font-outfit text-[11px] leading-relaxed text-[var(--theme-text-secondary)]">
-                  Choisis les couleurs des actions et des repères visuels.
+                  Quatre accents au choix, indépendants du mode clair ou sombre.
                 </p>
               </div>
-              <div role="group" aria-label="Palette de couleurs" className="grid grid-cols-2 gap-2">
+              <div role="group" aria-label="Thèmes de couleur" className="grid grid-cols-2 gap-2">
                 {Object.values(ACCENT_PALETTES).map((palette) => {
                   const isSelected = accentPalette === palette.key;
                   return (
@@ -304,19 +304,14 @@ export function Profile({
                       key={palette.key}
                       type="button"
                       aria-pressed={isSelected}
-                      aria-label={`Palette ${palette.name}`}
+                      aria-label={`Thème ${palette.name}`}
                       onClick={() => handleChange(updateAccentPalette, palette.key)}
-                      className={`relative min-h-[72px] rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${palette.key === 'pride' ? 'col-span-2' : ''}`}
+                      className="relative min-h-[72px] rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
                       style={{
-                        borderColor: isSelected ? (palette.key === 'pride' ? 'transparent' : 'var(--theme-accent)') : 'var(--theme-border)',
+                        borderColor: isSelected ? 'var(--theme-accent)' : 'var(--theme-border)',
                         backgroundColor: isSelected
                           ? 'color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface))'
                           : 'var(--theme-bg)',
-                        ...(isSelected && palette.key === 'pride' ? {
-                          backgroundImage: 'linear-gradient(var(--theme-surface), var(--theme-surface)), var(--theme-accent-gradient)',
-                          backgroundOrigin: 'padding-box, border-box',
-                          backgroundClip: 'padding-box, border-box',
-                        } : {}),
                       }}
                     >
                       <span className="flex items-center justify-between gap-2">
@@ -336,18 +331,47 @@ export function Profile({
                             style={{ backgroundColor: color }}
                           />
                         ))}
-                        {palette.gradient && <span className="ml-1 h-1.5 flex-1 rounded-full" style={{ background: palette.gradient }} />}
                       </span>
                     </button>
                   );
                 })}
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-bg)] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">Accent Fiertés</p>
+                  <p className="mt-1 font-outfit text-[10px] leading-relaxed text-[var(--theme-text-secondary)]">
+                    Liserés arc-en-ciel sur le thème choisi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="Activer l’accent Fiertés"
+                  aria-checked={prideAccentEnabled}
+                  onClick={() => handleChange(updatePrideAccentEnabled, !prideAccentEnabled)}
+                  className="relative h-8 w-[54px] shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                  style={{
+                    background: prideAccentEnabled
+                      ? 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box'
+                      : 'color-mix(in srgb, var(--theme-text) 12%, var(--theme-bg))',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full shadow-sm transition-all"
+                    style={{
+                      left: prideAccentEnabled ? 'calc(100% - 24px)' : '3px',
+                      backgroundColor: prideAccentEnabled ? 'var(--theme-action-ink)' : 'var(--theme-text-secondary)',
+                    }}
+                  />
+                </button>
               </div>
               <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg)] px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <span className="h-2 w-14 shrink-0 rounded-full" style={{ background: 'var(--theme-accent-gradient)' }} />
                   <span className="truncate font-outfit text-[10px] text-[var(--theme-text-secondary)]">Aperçu de la palette choisie</span>
                 </div>
-                <span className="shrink-0 rounded-full px-3 py-1 font-outfit text-[9px] font-bold" style={{ backgroundColor: 'var(--theme-accent)', color: 'var(--theme-bg)' }}>
+                <span className="shrink-0 rounded-full border-2 border-transparent px-3 py-1 font-outfit text-[9px] font-bold" style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box', color: 'var(--theme-action-ink)' }}>
                   Action
                 </span>
               </div>

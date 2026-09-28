@@ -28,7 +28,7 @@ const PaperGrain = () => (
 );
 
 /* ─── WelcomeScreen ───────────────────────────────────────────────── */
-function WelcomeScreen({ login }) {
+function WelcomeScreen({ login, isAuthenticating, error }) {
   const isReturning = !!localStorage.getItem('grandecran_username');
   const savedName   = localStorage.getItem('grandecran_username') || '';
   const DARK   = THEME_COLORS.dark;
@@ -99,6 +99,7 @@ function WelcomeScreen({ login }) {
         <div className="px-8 pb-12 flex flex-col gap-10">
           <button
             onClick={() => login()}
+            disabled={isAuthenticating}
             className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
             style={{
               background: 'transparent',
@@ -113,8 +114,13 @@ function WelcomeScreen({ login }) {
             }}
           >
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: DARK.accent, flexShrink: 0 }} />
-            <span style={{ flex: 1 }}>{isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}</span>
+            <span style={{ flex: 1 }}>{isAuthenticating ? 'Connexion…' : isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}</span>
           </button>
+          {error && (
+            <p role="alert" className="text-sm leading-relaxed" style={{ color: '#f0a39a', marginTop: '-1.5rem' }}>
+              {error}
+            </p>
+          )}
           <p className="text-xs italic leading-relaxed" style={{ color: DARK.text, opacity: 0.18, maxWidth: '30ch' }}>
             "Le cinéma, c'est vingt-quatre fois la vérité par seconde."
           </p>
@@ -147,46 +153,70 @@ function App() {
   const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
   const [headerRight, setHeaderRight] = useState(null);
 
-  const handleScanRef = useRef(null);
-
-  const { userToken, login, logout: authLogout } = useAuth((token) => {
-    if (spreadsheetId) handleScanRef.current?.(token);
-  });
+  const {
+    userToken,
+    login,
+    logout: authLogout,
+    refreshSession,
+    isLoading: isAuthLoading,
+    isAuthenticating,
+    error: authError,
+  } = useAuth();
+  const didScanSessionRef = useRef(false);
 
   const handleScan = useCallback(async (token = userToken) => {
     if (!token) return false;
-    try {
-      const found = await api.getFilmsANoter(token, spreadsheetId);
-      setFilms(found || []);
-      setNextFilm(found?.[0] || null);
-      setPendingCount(found?.length || 0);
-      if (found && found.length > 0) {
-        setShowNotation(true);
-      } else {
-        setShowNotation(false);
+    let activeToken = token;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const found = await api.getFilmsANoter(activeToken, spreadsheetId);
+        setFilms(found || []);
+        setNextFilm(found?.[0] || null);
+        setPendingCount(found?.length || 0);
+        setShowNotation(Boolean(found?.length));
+        return true;
+      } catch (err) {
+        console.error('Erreur scan:', err);
+        if (err.status !== 401) return false;
+
+        if (attempt === 0) {
+          const renewedToken = await refreshSession({ force: true });
+          if (renewedToken) {
+            activeToken = renewedToken;
+            continue;
+          }
+        }
+
+        authLogout();
+        return false;
       }
-      return true;
-    } catch (err) {
-      console.error('Erreur scan:', err);
-      if (err.status === 401) authLogout();
-      return false;
     }
-  }, [userToken, spreadsheetId, authLogout]);
+    return false;
+  }, [userToken, spreadsheetId, authLogout, refreshSession]);
 
   useEffect(() => {
-    handleScanRef.current = handleScan;
-  }, [handleScan]);
+    if (!userToken) {
+      didScanSessionRef.current = false;
+      return;
+    }
+    if (spreadsheetId && !didScanSessionRef.current) {
+      didScanSessionRef.current = true;
+      void handleScan(userToken);
+    }
+  }, [userToken, spreadsheetId, handleScan]);
 
   const prefs    = usePreferences(userToken, spreadsheetId);
   const themeKey = prefs.isDark ? 'dark' : 'light';
   const theme    = THEME_COLORS[themeKey];
-  const tokens   = THEME_TOKENS(themeKey, prefs.accentPalette);
+  const tokens   = THEME_TOKENS(themeKey, prefs.accentPalette, prefs.prideAccentEnabled);
+  const appBackground = tokens['--theme-bg'];
 
   const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--theme-bg', theme.bg);
-  }, [theme.bg]);
+    document.documentElement.style.setProperty('--theme-bg', appBackground);
+  }, [appBackground]);
 
   useEffect(() => { prefs.syncFromCloud(); },                                                     [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
@@ -252,12 +282,20 @@ function App() {
     }
   };
 
-  if (!userToken) return <WelcomeScreen login={login} />;
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: THEME_COLORS.dark.bg, color: THEME_COLORS.dark.text }}>
+        <p className="text-xs uppercase tracking-[0.24em] opacity-50">Restauration de la séance</p>
+      </div>
+    );
+  }
+
+  if (!userToken) return <WelcomeScreen login={login} isAuthenticating={isAuthenticating} error={authError} />;
 
   return (
     <div
       className="min-h-dvh font-outfit transition-colors duration-700"
-      style={{ background: theme.bg, color: theme.text, ...tokens }}
+      style={{ background: 'var(--theme-bg)', color: theme.text, ...tokens }}
     >
       <PaperGrain />
 
@@ -302,6 +340,8 @@ function App() {
             toggleDarkMode={prefs.toggleDarkMode}
             accentPalette={prefs.accentPalette}
             updateAccentPalette={prefs.updateAccentPalette}
+            prideAccentEnabled={prefs.prideAccentEnabled}
+            updatePrideAccentEnabled={prefs.updatePrideAccentEnabled}
             ratingScale={prefs.ratingScale}
             updateRatingScale={prefs.updateRatingScale}
             pricing={prefs.pricing}
