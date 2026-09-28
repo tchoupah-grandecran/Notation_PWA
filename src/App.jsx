@@ -149,6 +149,8 @@ function App() {
   const [nextFilm,      setNextFilm]      = useState(null);
   const [pendingCount,  setPendingCount]  = useState(0);
   const [showNotation,  setShowNotation]  = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
 
   const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
   const [headerRight, setHeaderRight] = useState(null);
@@ -167,32 +169,43 @@ function App() {
   const handleScan = useCallback(async (token = userToken) => {
     if (!token) return false;
     let activeToken = token;
+    setIsScanning(true);
+    setScanError('');
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const found = await api.getFilmsANoter(activeToken, spreadsheetId);
-        setFilms(found || []);
-        setNextFilm(found?.[0] || null);
-        setPendingCount(found?.length || 0);
-        setShowNotation(Boolean(found?.length));
-        return true;
-      } catch (err) {
-        console.error('Erreur scan:', err);
-        if (err.status !== 401) return false;
-
-        if (attempt === 0) {
-          const renewedToken = await refreshSession({ force: true });
-          if (renewedToken) {
-            activeToken = renewedToken;
-            continue;
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const found = await api.getFilmsANoter(activeToken, spreadsheetId);
+          setFilms(found || []);
+          setNextFilm(found?.[0] || null);
+          setPendingCount(found?.length || 0);
+          setShowNotation(Boolean(found?.length));
+          return true;
+        } catch (err) {
+          console.error('Erreur scan:', err);
+          if (err.status !== 401) {
+            setScanError(err.status === 403
+              ? 'Google a refusé l’accès aux séances. Vérifie les autorisations Gmail et Sheets.'
+              : 'La recherche des séances a échoué. Vérifie ta connexion puis réessaie.');
+            return false;
           }
-        }
 
-        authLogout();
-        return false;
+          if (attempt === 0) {
+            const renewedToken = await refreshSession({ force: true });
+            if (renewedToken) {
+              activeToken = renewedToken;
+              continue;
+            }
+          }
+
+          authLogout();
+          return false;
+        }
       }
+      return false;
+    } finally {
+      setIsScanning(false);
     }
-    return false;
   }, [userToken, spreadsheetId, authLogout, refreshSession]);
 
   useEffect(() => {
@@ -212,7 +225,15 @@ function App() {
   const tokens   = THEME_TOKENS(themeKey, prefs.accentPalette, prefs.prideAccentEnabled);
   const appBackground = tokens['--theme-bg'];
 
-  const { historyData, loadHistory, loadStats, invalidate } = useHistory(userToken, spreadsheetId);
+  const {
+    historyData,
+    historyStatus,
+    historyError,
+    isLoadingHistory,
+    loadHistory,
+    loadStats,
+    invalidate,
+  } = useHistory(userToken, spreadsheetId);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-bg', appBackground);
@@ -308,6 +329,14 @@ function App() {
         {activeTab === 'home' && !showNotation && (
           <Dashboard
             historyData={historyData}
+            pricing={prefs.pricing}
+            historyStatus={historyStatus}
+            historyError={historyError}
+            isLoadingHistory={isLoadingHistory}
+            onRetryHistory={loadHistory}
+            isScanning={isScanning}
+            scanError={scanError}
+            onRetryScan={() => handleScan()}
             setSelectedFilm={setSelectedFilm}
             scrollY={scrollY}
             onHeaderRight={handleSetHeaderRight}
@@ -316,6 +345,13 @@ function App() {
         {activeTab === 'history' && (
           <History
             historyData={historyData}
+            historyStatus={historyStatus}
+            historyError={historyError}
+            isLoadingHistory={isLoadingHistory}
+            onRetryHistory={loadHistory}
+            isScanning={isScanning}
+            scanError={scanError}
+            onRetryScan={() => handleScan()}
             setSelectedFilm={setSelectedFilm}
             displayCount={displayCount}
             scrollY={scrollY}

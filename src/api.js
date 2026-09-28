@@ -3,6 +3,19 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const FILMS_RANGE = "DB!A:P";
 const FILMS_APPEND_RANGE = "DB!A:P";
 
+const readGoogleApiResponse = async (response, fallbackMessage) => {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const apiMessage = typeof payload.error === 'string'
+      ? payload.error
+      : payload.error?.message;
+    const error = new Error(apiMessage || fallbackMessage);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+};
+
 const GMAIL_SCAN_QUERIES = [
   'subject:"Confirmation de commande les cinémas Pathé" is:unread newer_than:180d',
   '(from:ticketcine.fr OR subject:"Vos places pour") is:unread newer_than:180d',
@@ -419,7 +432,7 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
       const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json();
+      const data = await readGoogleApiResponse(res, 'Impossible de rechercher les e-mails de séances.');
       (data.messages || []).forEach((msg) => messageMap.set(msg.id, msg));
     }));
     const messages = [...messageMap.values()];
@@ -427,11 +440,12 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
 
     // On prépare la liste des promesses pour traiter les messages en parallèle
     const filmsPromises = messages.map(async (msg) => {
+      const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const mData = await readGoogleApiResponse(mRes, 'Impossible de lire un e-mail de séance.');
+
       try {
-        const mRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const mData = await mRes.json();
         const meta = {
           from: extractHeader(mData.payload, "From"),
           subject: extractHeader(mData.payload, "Subject"),
@@ -521,7 +535,7 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
     return films;
   } catch (e) { 
     console.error("Erreur globale Fetch API:", e); 
-    return []; 
+    throw e;
   }
 };
 
@@ -549,21 +563,15 @@ export const getHistory = async (token, spreadsheetId) => {
 
 const getExistingFilmFingerprints = async (token, spreadsheetId) => {
   if (!token || !spreadsheetId) return new Set();
-  try {
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) return new Set();
-    const data = await res.json();
-    return new Set((data.values || []).slice(1).map((row) => getMessageFingerprint({
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await readGoogleApiResponse(res, 'Impossible de vérifier les séances déjà enregistrées.');
+  return new Set((data.values || []).slice(1).map((row) => getMessageFingerprint({
       titre: row[1],
       date: row[2],
       heure: row[3],
-    })));
-  } catch (e) {
-    console.error("Erreur lecture anti-doublons", e);
-    return new Set();
-  }
+  })));
 };
 
 const markMessageAsProcessed = async (token, messageId) => {
@@ -637,7 +645,7 @@ export async function getStats(token, spreadsheetId) {
       }
     );
 
-    const data = await response.json();
+    const data = await readGoogleApiResponse(response, 'Impossible de charger le journal des séances.');
 
     if (data.error) {
       console.error("Erreur de l'API Google :", data.error.message);
@@ -690,7 +698,7 @@ export const getFullHistory = async (token, spreadsheetId) => {
       }
     );
 
-    const data = await response.json();
+    const data = await readGoogleApiResponse(response, 'Impossible de charger le journal des séances.');
 
     if (!data.values || data.values.length <= 1) {
       return [];
@@ -725,7 +733,7 @@ export const getFullHistory = async (token, spreadsheetId) => {
 
   } catch (error) {
     console.error("Erreur lors de la récupération de l'historique :", error);
-    return [];
+    throw error;
   }
 };
 

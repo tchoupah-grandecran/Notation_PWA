@@ -148,9 +148,66 @@ export function usePreferences(userToken, spreadsheetId) {
     localStorage.setItem('grandecran_rating_scale', String(s));
   }, []);
 
-  const updatePricing = useCallback((p) => {
-    setPricing(p);
-    localStorage.setItem('grandecran_pricing', JSON.stringify(p));
+  const updatePricing = useCallback((p, change = null) => {
+    const previous = pricingRef.current || {};
+    const history = (Array.isArray(p?.priceHistory) ? p.priceHistory : []).flatMap((entry) => {
+      if (entry.type && entry.effectiveFrom) return [entry];
+      if (!/^\d{4}-\d{2}$/.test(String(entry.period || ''))) return [];
+      const effectiveFrom = `${entry.period}-01`;
+      return [
+        ...(Number(entry.ticketPrice) > 0 ? [{ type: 'ticket', amount: Number(entry.ticketPrice), effectiveFrom, precision: 'month' }] : []),
+        ...(Number(entry.monthlySub) > 0 ? [{ type: 'subscription', amount: Number(entry.monthlySub), effectiveFrom, precision: 'month' }] : []),
+      ];
+    });
+
+    const changedKeys = ['monthlySub', 'ticketPrice'].filter((key) =>
+      String(previous[key] ?? '') !== String(p?.[key] ?? '')
+    );
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const changeEntries = change ? [change] : changedKeys.map((key) => ({
+      type: key === 'ticketPrice' ? 'ticket' : 'subscription',
+      amount: p[key],
+      effectiveFrom: today,
+    }));
+
+    changeEntries.forEach((item) => {
+      if (!['ticket', 'subscription'].includes(item.type) || !/^\d{4}-\d{2}-\d{2}$/.test(item.effectiveFrom || '')) return;
+      const flatKey = item.type === 'ticket' ? 'ticketPrice' : 'monthlySub';
+      const amount = Number(String(item.amount ?? '').replace(',', '.'));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        const previousAmount = Number(String(previous[flatKey] ?? '').replace(',', '.'));
+        if (!history.some((entry) => entry.type === item.type) && Number.isFinite(previousAmount) && previousAmount > 0) {
+          history.push({ type: item.type, amount: previousAmount, effectiveFrom: '0000-01-01', precision: 'baseline', baseline: true });
+        }
+        return;
+      }
+      const replaceDate = item.previousEffectiveFrom || item.effectiveFrom;
+      const retained = history.filter((entry) => !(entry.type === item.type && entry.effectiveFrom === replaceDate));
+      const withoutSameDate = retained.filter((entry) => !(entry.type === item.type && entry.effectiveFrom === item.effectiveFrom));
+      const previousAmount = Number(String(previous[flatKey] ?? '').replace(',', '.'));
+      const hasRateHistory = withoutSameDate.some((entry) => entry.type === item.type);
+      if (!hasRateHistory && Number.isFinite(previousAmount) && previousAmount > 0 && previousAmount !== amount) {
+        withoutSameDate.push({ type: item.type, amount: previousAmount, effectiveFrom: '0000-01-01', precision: 'baseline', baseline: true });
+      }
+      const priorRate = withoutSameDate
+        .filter((entry) => entry.type === item.type && entry.effectiveFrom < item.effectiveFrom)
+        .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+        .at(-1);
+      if (!priorRate || Number(priorRate.amount) !== amount) {
+        withoutSameDate.push({ type: item.type, amount, effectiveFrom: item.effectiveFrom, precision: 'day' });
+      }
+      history.splice(0, history.length, ...withoutSameDate);
+    });
+
+    const nextPricing = {
+      ...p,
+      priceHistory: history.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)),
+    };
+
+    pricingRef.current = nextPricing;
+    setPricing(nextPricing);
+    localStorage.setItem('grandecran_pricing', JSON.stringify(nextPricing));
   }, []);
 
   return {

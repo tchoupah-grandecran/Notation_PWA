@@ -6,6 +6,40 @@ import {
   Database, Edit2, Sun, Moon, Sparkles, CreditCard, Ticket, X 
 } from 'lucide-react';
 
+const getCurrentTariffStartDate = (pricing, type) => {
+  const amountKey = type === 'ticket' ? 'ticketPrice' : 'monthlySub';
+  const currentAmount = Number(String(pricing?.[amountKey] ?? '').replace(',', '.'));
+  if (!Number.isFinite(currentAmount) || currentAmount <= 0) return '';
+  const events = [];
+
+  (Array.isArray(pricing?.priceHistory) ? pricing.priceHistory : []).forEach((entry) => {
+    if (entry.type === type && entry.effectiveFrom) {
+      const amount = Number(String(entry.amount ?? '').replace(',', '.'));
+      if (Number.isFinite(amount)) events.push({ date: entry.effectiveFrom, amount });
+      return;
+    }
+    if (/^\d{4}-\d{2}$/.test(String(entry.period || ''))) {
+      const raw = type === 'ticket' ? entry.ticketPrice : entry.monthlySub;
+      const amount = Number(String(raw ?? '').replace(',', '.'));
+      if (Number.isFinite(amount)) events.push({ date: `${entry.period}-01`, amount });
+    }
+  });
+
+  Object.entries(pricing || {}).forEach(([year, values]) => {
+    if (!/^\d{4}$/.test(year) || !values || typeof values !== 'object') return;
+    const raw = type === 'ticket'
+      ? (values.ticketPrice ?? values.ticket)
+      : (values.monthlySub ?? values.sub);
+    const amount = Number(String(raw ?? '').replace(',', '.'));
+    if (Number.isFinite(amount)) events.push({ date: `${year}-01-01`, amount });
+  });
+
+  const matchingEvents = events
+    .filter((event) => Math.abs(event.amount - currentAmount) < 0.001)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return matchingEvents.at(-1)?.date || '';
+};
+
 export function Profile({
   handleScan, userName, userAvatar, themeMode, toggleDarkMode,
   accentPalette, updateAccentPalette, prideAccentEnabled, updatePrideAccentEnabled,
@@ -18,10 +52,24 @@ export function Profile({
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
   const [syncStatus, setSyncStatus] = useState('idle');
+  const [priceEffectiveDates, setPriceEffectiveDates] = useState(() => {
+    return {
+      ticket: getCurrentTariffStartDate(pricing, 'ticket'),
+      subscription: getCurrentTariffStartDate(pricing, 'subscription'),
+    };
+  });
+  const priceDateTouchedRef = useRef({ ticket: false, subscription: false });
   const saveStatusTimer = useRef(null);
   const sheetDialogRef = useRef(null);
   const sheetInputRef = useRef(null);
   const sheetTriggerRef = useRef(null);
+
+  useEffect(() => {
+    setPriceEffectiveDates((current) => ({
+      ticket: priceDateTouchedRef.current.ticket ? current.ticket : getCurrentTariffStartDate(pricing, 'ticket'),
+      subscription: priceDateTouchedRef.current.subscription ? current.subscription : getCurrentTariffStartDate(pricing, 'subscription'),
+    }));
+  }, [pricing]);
 
   const handleChange = (updateFn, ...args) => {
     updateFn(...args);
@@ -48,7 +96,28 @@ export function Profile({
   const handlePriceChange = (key, value) => {
     const dataValue = value.replace(',', '.');
     if (/^\d*[.,]?\d{0,2}$/.test(value.replace('.', ',')) || value === '') {
-      handleChange(updatePricing, { ...pricing, [key]: dataValue });
+      const type = key === 'ticketPrice' ? 'ticket' : 'subscription';
+      priceDateTouchedRef.current[type] = true;
+      handleChange(
+        updatePricing,
+        { ...pricing, [key]: dataValue },
+        { type, amount: dataValue, effectiveFrom: priceEffectiveDates[type] }
+      );
+    }
+  };
+
+  const handlePriceEffectiveDateChange = (type, value) => {
+    const previousEffectiveFrom = priceEffectiveDates[type];
+    priceDateTouchedRef.current[type] = true;
+    setPriceEffectiveDates((dates) => ({ ...dates, [type]: value }));
+    const key = type === 'ticket' ? 'ticketPrice' : 'monthlySub';
+    if (pricing?.[key] !== '' && pricing?.[key] !== undefined) {
+      handleChange(updatePricing, { ...pricing }, {
+        type,
+        amount: pricing[key],
+        effectiveFrom: value,
+        previousEffectiveFrom,
+      });
     }
   };
 
@@ -140,20 +209,20 @@ export function Profile({
     </h3>
   );
 
-  const Row = ({ icon: Icon, label, sublabel, children, onClick, ariaLabel, disabled = false }) => {
+  const Row = ({ icon: Icon, label, sublabel, children, onClick, ariaLabel, disabled = false, compact = false }) => {
     const content = (
       <>
-        <div className="flex min-w-0 items-center gap-4">
-          {Icon && <Icon size={20} className="flex-shrink-0 opacity-40" />}
+        <div className={`flex min-w-0 items-center ${compact ? 'gap-3' : 'gap-4'}`}>
+          {Icon && <Icon size={compact ? 18 : 20} className="flex-shrink-0 opacity-40" />}
           <div className="flex min-w-0 flex-col text-left">
-            <span className="font-outfit text-[14px] font-bold text-[var(--theme-text)]">{label}</span>
-            {sublabel && <span className="truncate font-outfit text-[11px] leading-tight opacity-40">{sublabel}</span>}
+            <span className={`font-outfit font-bold text-[var(--theme-text)] ${compact ? 'text-[13px]' : 'text-[14px]'}`}>{label}</span>
+            {sublabel && <span className={`truncate font-outfit leading-tight opacity-40 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>{sublabel}</span>}
           </div>
         </div>
-        <div className="ml-4 flex-shrink-0">{children}</div>
+        <div className={`${compact ? 'ml-2' : 'ml-4'} flex-shrink-0`}>{children}</div>
       </>
     );
-    const className = `flex w-full items-center justify-between min-h-[56px] px-5 py-3 text-left transition-colors ${onClick ? 'active:bg-[var(--theme-text)]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] disabled:opacity-50' : ''}`;
+    const className = `flex w-full items-center justify-between text-left transition-colors ${compact ? 'min-h-[82px] px-4 py-2' : 'min-h-[56px] px-5 py-3'} ${onClick ? 'active:bg-[var(--theme-text)]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] disabled:opacity-50' : ''}`;
     return onClick ? (
       <button type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel} className={className}>
         {content}
@@ -411,36 +480,35 @@ export function Profile({
         {/* SECTION 4: TARIFS */}
         <div>
           <SectionLabel>Tarifs & Forfaits</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]">
-            <Row icon={CreditCard} label="Cinepass" sublabel="Mensualité abonnement">
-              <div className="flex items-center gap-1">
-                <label htmlFor="cinepass-price" className="sr-only">Mensualité Cinepass en euros</label>
-                <input
-                  id="cinepass-price"
-                  type="text"
-                  inputMode="decimal"
-                  value={pricing?.monthlySub?.toString().replace('.', ',') || ''}
-                  onChange={(e) => handlePriceChange('monthlySub', e.target.value)}
-                  className="min-h-11 w-[72px] rounded-md bg-transparent text-right font-bold text-sm text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-                />
-                <span aria-hidden="true" className="text-[11px] font-black opacity-30">€</span>
+          <div className="bg-[color-mix(in_srgb,var(--theme-surface)_72%,transparent)] border border-[color-mix(in_srgb,var(--theme-border)_70%,transparent)] rounded-[18px] overflow-hidden divide-y divide-[color-mix(in_srgb,var(--theme-border)_55%,transparent)]">
+            <Row compact icon={CreditCard} label="Cinepass" sublabel="Abonnement mensuel">
+              <div className="flex w-[132px] flex-col items-end gap-0.5">
+                <div className="flex h-8 items-center gap-1">
+                  <label htmlFor="cinepass-price" className="sr-only">Mensualité Cinepass en euros</label>
+                  <input id="cinepass-price" type="text" inputMode="decimal" value={pricing?.monthlySub?.toString().replace('.', ',') || ''} onChange={(e) => handlePriceChange('monthlySub', e.target.value)} className="h-8 w-[72px] rounded-md bg-transparent text-right font-bold text-sm text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]" />
+                  <span aria-hidden="true" className="text-[11px] font-black opacity-30">€</span>
+                </div>
+                <div className="flex h-7 w-full items-center justify-end gap-1.5">
+                  <label htmlFor="subscription-effective-date" className="whitespace-nowrap font-outfit text-[8px] opacity-40">Depuis</label>
+                  <input id="subscription-effective-date" type="date" value={priceEffectiveDates.subscription} onChange={(e) => handlePriceEffectiveDateChange('subscription', e.target.value)} aria-label="Date du premier prélèvement au nouveau tarif d’abonnement" className="h-7 min-w-0 w-[104px] rounded-md bg-transparent px-0 font-outfit text-[9px] text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]" />
+                </div>
               </div>
             </Row>
-            <Row icon={Ticket} label="Ticket" sublabel="Prix moyen hors-forfait">
-              <div className="flex items-center gap-1">
-                <label htmlFor="ticket-price" className="sr-only">Prix moyen d’un ticket en euros</label>
-                <input
-                  id="ticket-price"
-                  type="text"
-                  inputMode="decimal"
-                  value={pricing?.ticketPrice?.toString().replace('.', ',') || ''}
-                  onChange={(e) => handlePriceChange('ticketPrice', e.target.value)}
-                  className="min-h-11 w-[72px] rounded-md bg-transparent text-right font-bold text-sm text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-                />
-                <span aria-hidden="true" className="text-[11px] font-black opacity-30">€</span>
+            <Row compact icon={Ticket} label="Ticket" sublabel="Prix moyen hors-forfait">
+              <div className="flex w-[132px] flex-col items-end gap-0.5">
+                <div className="flex h-8 items-center gap-1">
+                  <label htmlFor="ticket-price" className="sr-only">Prix moyen d’un ticket en euros</label>
+                  <input id="ticket-price" type="text" inputMode="decimal" value={pricing?.ticketPrice?.toString().replace('.', ',') || ''} onChange={(e) => handlePriceChange('ticketPrice', e.target.value)} className="h-8 w-[72px] rounded-md bg-transparent text-right font-bold text-sm text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]" />
+                  <span aria-hidden="true" className="text-[11px] font-black opacity-30">€</span>
+                </div>
+                <div className="flex h-7 w-full items-center justify-end gap-1.5">
+                  <label htmlFor="ticket-effective-date" className="whitespace-nowrap font-outfit text-[8px] opacity-40">Depuis</label>
+                  <input id="ticket-effective-date" type="date" value={priceEffectiveDates.ticket} onChange={(e) => handlePriceEffectiveDateChange('ticket', e.target.value)} aria-label="Date d’effet du prix du ticket" className="h-7 min-w-0 w-[104px] rounded-md bg-transparent px-0 font-outfit text-[9px] text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]" />
+                </div>
               </div>
             </Row>
           </div>
+          <p className="px-5 pt-2 font-outfit text-[9px] leading-relaxed opacity-40">La date choisie est conservée avec chaque changement de tarif.</p>
         </div>
 
         {/* SECTION 5: DATABASE & SYNC */}

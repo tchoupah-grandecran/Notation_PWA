@@ -3,6 +3,7 @@ import { GENRE_COLORS } from '../constants';
 import { SmartPoster } from '../components/SmartPoster';
 import { SlidersHorizontal, X, Ticket } from 'lucide-react';
 import { ImaxTag } from '../components/ImaxTag';
+import { DataStateNotice } from '../components/DataStateNotice';
 
 /* ── Custom assets ─────────────────────────────────────────────────── */
 
@@ -706,6 +707,13 @@ function HistoryHeaderRight({ isSearchOpen, searchQuery, setSearchQuery, totalAc
 
 export function History({
   historyData = [],
+  historyStatus = 'idle',
+  historyError = '',
+  isLoadingHistory = false,
+  onRetryHistory,
+  isScanning = false,
+  scanError = '',
+  onRetryScan,
   setSelectedFilm,
   displayCount,
   scrollY = 0,
@@ -860,6 +868,41 @@ export function History({
   /* ── Render ── */
   return (
     <div className="bg-transparent text-[var(--theme-text)] font-outfit min-h-full overflow-x-hidden">
+      {(isLoadingHistory || historyStatus === 'loading') && historyData.length > 0 && (
+        <div className="pt-[calc(var(--header-total-height,96px)+0.75rem)]">
+          <DataStateNotice compact kind="loading" title="Actualisation du journal" message="Tes séances déjà chargées restent visibles." />
+        </div>
+      )}
+      {historyStatus === 'error' && (
+        <div className="pt-[calc(var(--header-total-height,96px)+0.75rem)]">
+          <DataStateNotice compact kind="error" title="Impossible d’actualiser le journal" message={historyError || 'Vérifie ta connexion Google puis réessaie.'} actionLabel="Réessayer" onAction={onRetryHistory} />
+        </div>
+      )}
+      {scanError && (
+        <div className="pt-[calc(var(--header-total-height,96px)+0.75rem)]">
+          <DataStateNotice compact kind="error" title="Lecture des séances impossible" message={scanError} actionLabel="Réessayer" onAction={onRetryScan} />
+        </div>
+      )}
+      {isScanning && !scanError && (
+        <div className="pt-[calc(var(--header-total-height,96px)+0.75rem)]">
+          <DataStateNotice compact kind="loading" title="Recherche des séances en cours" message="Je vérifie les confirmations dans Gmail." />
+        </div>
+      )}
+      {historyData.length === 0 && historyStatus === 'loading' && (
+        <div className="pt-[calc(var(--header-total-height,96px)+1.5rem)]">
+          <DataStateNotice kind="loading" title="Chargement de ton journal" message="Tes séances vont apparaître ici." />
+        </div>
+      )}
+      {historyData.length === 0 && historyStatus === 'error' && (
+        <div className="pt-[calc(var(--header-total-height,96px)+1.5rem)]">
+          <DataStateNotice kind="error" title="Ton journal est indisponible" message={historyError || 'Vérifie ta connexion Google puis réessaie.'} actionLabel="Réessayer" onAction={onRetryHistory} />
+        </div>
+      )}
+      {historyData.length === 0 && historyStatus === 'success' && !hasActiveCriteria && (
+        <div className="pt-[calc(var(--header-total-height,96px)+1.5rem)]">
+          <DataStateNotice kind="empty" title="Ton histoire cinéma commence ici" message="Les séances enregistrées apparaîtront dans cette timeline." />
+        </div>
+      )}
       {hasActiveCriteria && (
         <section
           aria-label="Résultats de recherche et filtres actifs"
@@ -910,11 +953,11 @@ export function History({
         </section>
       )}
 
-      {groupedByMonth.length === 0 ? (
+      {groupedByMonth.length === 0 && hasActiveCriteria ? (
         <div className="flex flex-col items-center justify-center opacity-20" style={{ paddingTop: 'var(--header-total-height, 96px)', minHeight: '60vh' }}>
           <Ticket size={48} className="mb-2" />
           <p className="font-galinoy text-4xl capitalize italic">
-            {hasActiveCriteria ? 'Aucun résultat' : 'Vide'}
+            Aucun résultat
           </p>
         </div>
       ) : (

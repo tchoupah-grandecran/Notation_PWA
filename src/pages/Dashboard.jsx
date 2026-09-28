@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { SmartPoster } from '../components/SmartPoster';
+import { DataStateNotice } from '../components/DataStateNotice';
 
 // ─────────────────────────────────────────────
 // TMDB POSTER FETCH (fallback by title)
@@ -86,6 +87,78 @@ const formatPeriodLabel = (view, value) => {
   return 'Bilan Global';
 };
 
+const toIsoPricingDate = (value) => {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value);
+  const match = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` : '';
+};
+
+const getPricingEvents = (pricing, type) => {
+  const amountKeys = type === 'ticket' ? ['ticketPrice', 'ticket'] : ['monthlySub', 'sub'];
+  const events = [];
+  (Array.isArray(pricing?.priceHistory) ? pricing.priceHistory : []).forEach((entry) => {
+    if (entry.type) {
+      if (entry.type !== type) return;
+      const effectiveFrom = toIsoPricingDate(entry.effectiveFrom);
+      const amount = Number(entry.amount);
+      if (effectiveFrom && Number.isFinite(amount) && amount > 0) {
+        events.push({
+          effectiveFrom,
+          amount,
+          approximate: Boolean(entry.approximate) || (!entry.baseline && entry.precision !== 'day'),
+          baseline: Boolean(entry.baseline),
+        });
+      }
+      return;
+    }
+
+    // Compatibilité avec les instantanés mensuels précédemment enregistrés.
+    const period = String(entry.period || '');
+    const amount = Number(String(entry[type === 'ticket' ? 'ticketPrice' : 'monthlySub'] ?? '').replace(',', '.'));
+    if (/^\d{4}-\d{2}$/.test(period) && Number.isFinite(amount) && amount > 0) {
+      events.push({ effectiveFrom: `${period}-01`, amount, approximate: true });
+    }
+  });
+  Object.entries(pricing || {}).forEach(([year, values]) => {
+    if (!/^\d{4}$/.test(year) || !values || typeof values !== 'object') return;
+    const rawAmount = amountKeys.map((key) => values[key]).find((value) => value !== undefined);
+    const amount = Number(String(rawAmount ?? '').replace(',', '.'));
+    if (Number.isFinite(amount) && amount > 0) events.push({ effectiveFrom: `${year}-01-01`, amount, approximate: true });
+  });
+  return events.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || Number(b.approximate) - Number(a.approximate));
+};
+
+const getPricingRateForDate = (pricing, type, dateValue) => {
+  const date = toIsoPricingDate(dateValue);
+  const year = date.slice(0, 4);
+  const applicableEvents = getPricingEvents(pricing, type).filter((event) => event.effectiveFrom <= date);
+  if (applicableEvents.length) return applicableEvents[applicableEvents.length - 1].amount;
+
+  const yearly = pricing?.[year];
+  const yearKeys = type === 'ticket' ? ['ticketPrice', 'ticket'] : ['monthlySub', 'sub'];
+  const yearValue = yearKeys.map((key) => yearly?.[key]).find((value) => value !== undefined);
+  if (yearValue !== undefined) return Number.parseFloat(String(yearValue).replace(',', '.')) || 0;
+
+  const defaults = type === 'ticket'
+    ? [pricing?.default?.ticketPrice, pricing?.default?.ticket, pricing?.ticketPrice]
+    : [pricing?.default?.monthlySub, pricing?.default?.sub, pricing?.monthlySub];
+  const value = defaults.find((item) => item !== undefined && item !== '');
+  return value === undefined ? (type === 'ticket' ? 13 : 21.90) : Number.parseFloat(String(value).replace(',', '.')) || 0;
+};
+
+const getSubscriptionCostForMonths = (pricing, year, monthCount) => {
+  const firstPreciseChange = getPricingEvents(pricing, 'subscription').find((event) => !event.approximate && !event.baseline);
+  const billingDay = firstPreciseChange ? Number(firstPreciseChange.effectiveFrom.slice(-2)) : 1;
+  let total = 0;
+  for (let month = 1; month <= monthCount; month += 1) {
+    const lastDay = new Date(Number(year), month, 0).getDate();
+    const chargeDate = `${year}-${String(month).padStart(2, '0')}-${String(Math.min(billingDay, lastDay)).padStart(2, '0')}`;
+    total += getPricingRateForDate(pricing, 'subscription', chargeDate);
+  }
+  return total;
+};
+
 const computeMetrics = (periodView, periodValue, historyData, pricing) => {
   const now = new Date();
   const currentYear = now.getFullYear().toString();
@@ -98,18 +171,6 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
         .filter(Boolean)
     ),
   ].sort((a, b) => b - a);
-
-  const getPrice = (year, type) => {
-    let p =
-      pricing?.default?.[type] ||
-      (type === 'sub' ? 21.90 : 13.00);
-
-    if (pricing?.[year]?.[type] !== undefined) {
-      p = pricing[year][type];
-    }
-
-    return parseFloat(p) || 0;
-  };
 
   const getMonthsToCharge = (year) =>
     year === currentYear ? currentMonthIndex + 1 : 12;
@@ -183,8 +244,7 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
   }).length;
 
   const totalStandardValue = dashData.reduce(
-    (acc, film) =>
-      acc + getPrice(film.date?.split('/')[2] || currentYear, 'ticket'),
+    (acc, film) => acc + getPricingRateForDate(pricing, 'ticket', film.date),
     0
   );
 
@@ -192,12 +252,12 @@ const computeMetrics = (periodView, periodValue, historyData, pricing) => {
 
   if (periodView === 'month') {
     const year = periodValue.split('-')[0];
-    totalSubCost = getPrice(year, 'sub');
+    totalSubCost = getSubscriptionCostForMonths(pricing, year, 1);
   } else if (periodView === 'year') {
-    totalSubCost = getMonthsToCharge(periodValue) * getPrice(periodValue, 'sub');
+    totalSubCost = getSubscriptionCostForMonths(pricing, periodValue, getMonthsToCharge(periodValue));
   } else {
     availableYears.forEach((year) => {
-      totalSubCost += getMonthsToCharge(year) * getPrice(year, 'sub');
+      totalSubCost += getSubscriptionCostForMonths(pricing, year, getMonthsToCharge(year));
     });
   }
 
@@ -2092,6 +2152,54 @@ function DetailedStatsView({ historyData, pricing, onClose }) {
   const seatDist = computeDistribution(films, 'siege');
   const genreDist = computeDistribution(films, 'genre', true);
 
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const priceEvents = [
+    ...getPricingEvents(pricing, 'ticket').filter((event) => !event.baseline).map((event) => ({ ...event, type: 'ticket' })),
+    ...getPricingEvents(pricing, 'subscription').filter((event) => !event.baseline).map((event) => ({ ...event, type: 'subscription' })),
+  ];
+  [
+    { type: 'ticket', amount: pricing?.ticketPrice ?? pricing?.default?.ticket },
+    { type: 'subscription', amount: pricing?.monthlySub ?? pricing?.default?.sub },
+  ].forEach(({ type, amount }) => {
+    const value = Number(String(amount ?? '').replace(',', '.'));
+    const datedRates = priceEvents.filter((event) => event.type === type).sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    const latestRate = datedRates[datedRates.length - 1];
+    if (Number.isFinite(value) && value > 0 && (!latestRate || latestRate.amount !== value)) {
+      priceEvents.push({ type, amount: value, effectiveFrom: today, current: true });
+    }
+  });
+  priceEvents.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || Number(b.approximate) - Number(a.approximate));
+  const priceTimeline = [...new Set(priceEvents.map((event) => event.effectiveFrom))];
+  const chartTimeline = [...new Set([...priceTimeline, today])].sort((a, b) => a.localeCompare(b));
+  const formatPrice = (value) => value === null ? '—' : `${value.toFixed(2).replace('.', ',')} €`;
+  const getRateAtDate = (type, date) => {
+    const available = priceEvents.filter((event) => event.type === type && event.effectiveFrom <= date);
+    return available.length ? available[available.length - 1].amount : null;
+  };
+  const priceMax = Math.max(...priceEvents.map((event) => event.amount), 1);
+  const chartPoints = (type) => chartTimeline.map((date, index) => {
+    const time = new Date(`${date}T12:00:00`).getTime();
+    const startTime = new Date(`${chartTimeline[0]}T12:00:00`).getTime();
+    const endTime = new Date(`${chartTimeline[chartTimeline.length - 1]}T12:00:00`).getTime();
+    const x = endTime === startTime ? 320 : 48 + ((time - startTime) / (endTime - startTime)) * 544;
+    const value = getRateAtDate(type, date);
+    return { date, x, y: value === null ? null : 150 - (value / priceMax) * 116, value, index };
+  });
+  const ticketPoints = chartPoints('ticket');
+  const subscriptionPoints = chartPoints('subscription');
+  const makeStepPath = (points) => {
+    const validPoints = points.filter((point) => point.value !== null);
+    if (validPoints.length < 2) return '';
+    return validPoints.slice(1).reduce((path, point, index) => {
+      const previous = validPoints[index];
+      return `${path} H ${point.x} V ${point.y}`;
+    }, `M ${validPoints[0].x} ${validPoints[0].y}`);
+  };
+  const labelIndexes = new Set(chartTimeline.length <= 7
+    ? chartTimeline.map((_, index) => index)
+    : [0, ...Array.from({ length: 5 }, (_, index) => Math.round((index + 1) * (chartTimeline.length - 1) / 6)), chartTimeline.length - 1]);
+
   const maxMonthCount = Math.max(...metric.filmsByMonth.map((m) => m.count), 1);
   const recentFilms = films.slice().reverse();
   const expandableButtonClass = 'mt-3 font-outfit text-[11px] font-semibold uppercase tracking-wider';
@@ -2183,6 +2291,65 @@ function DetailedStatsView({ historyData, pricing, onClose }) {
           </div>
         </section>
 
+        {/* Évolution des tarifs enregistrés dans Config!E2 */}
+        <section>
+          <h3 className="font-galinoy italic text-[24px] mb-2">Évolution des tarifs</h3>
+          <p className="font-outfit text-[11px] leading-relaxed mb-5" style={{ opacity: .5 }}>
+            Chaque point marque la date d’effet enregistrée dans le profil. Les tarifs restent constants jusqu’au changement suivant.
+          </p>
+          {priceEvents.length > 0 ? (
+            <div className="rounded-2xl border p-4 sm:p-5" style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 45%, transparent)', background: 'color-mix(in srgb, var(--theme-surface) 65%, transparent)' }}>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 mb-4 font-outfit text-[10px]">
+                <span className="inline-flex items-center gap-2"><i className="h-0.5 w-5 rounded-full" style={{ background: 'var(--theme-accent)' }} /> Prix d’une place</span>
+                <span className="inline-flex items-center gap-2"><i className="h-0.5 w-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--theme-accent) 35%, var(--theme-text))' }} /> Abonnement mensuel</span>
+              </div>
+              {priceTimeline.length > 0 && (
+                <svg viewBox="0 0 640 200" role="img" aria-label="Évolution datée du prix d’une place et de l’abonnement" className="block w-full overflow-visible">
+                  {[38, 75, 112, 150].map((y) => <line key={y} x1="40" x2="600" y1={y} y2={y} stroke="var(--theme-border)" strokeOpacity=".45" strokeDasharray="3 5" />)}
+                  {[
+                    { type: 'ticket', points: ticketPoints, color: 'var(--theme-accent)' },
+                    { type: 'subscription', points: subscriptionPoints, color: 'color-mix(in srgb, var(--theme-accent) 35%, var(--theme-text))' },
+                  ].map((series, seriesIndex) => (
+                    <g key={seriesIndex}>
+                      {makeStepPath(series.points) && <path d={makeStepPath(series.points)} fill="none" stroke={series.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+                      {series.points.filter((point) => point.value !== null && priceEvents.some((event) => event.type === series.type && event.effectiveFrom === point.date)).map((point) => (
+                        <circle key={point.date} cx={point.x} cy={point.y} r="4" fill="var(--theme-bg)" stroke={series.color} strokeWidth="2.5">
+                          <title>{point.date.split('-').reverse().join('/')} : {formatPrice(point.value)}{priceEvents.some((event) => event.type === series.type && event.effectiveFrom === point.date && event.approximate) ? ' (date estimée)' : ''}</title>
+                        </circle>
+                      ))}
+                    </g>
+                  ))}
+                  {[...new Set([...labelIndexes, chartTimeline.length - 1])].map((index) => {
+                    const point = ticketPoints[index] || subscriptionPoints[index];
+                    if (!point) return null;
+                    const [year, month, day] = point.date.split('-');
+                    const label = point.date === today ? 'Aujourd’hui' : `${day}/${month}/${year.slice(2)}`;
+                    return <text key={point.date} x={point.x} y="181" textAnchor="middle" fill="var(--theme-text)" fillOpacity=".55" fontSize="9" fontFamily="inherit">{label}</text>;
+                  })}
+                </svg>
+              )}
+              <div className="mt-3 divide-y" style={{ borderColor: 'color-mix(in srgb, var(--theme-border) 35%, transparent)' }}>
+                {priceTimeline.map((date) => {
+                  const ticketEvent = priceEvents.filter((event) => event.type === 'ticket' && event.effectiveFrom === date).at(-1);
+                  const subscriptionEvent = priceEvents.filter((event) => event.type === 'subscription' && event.effectiveFrom === date).at(-1);
+                  return (
+                  <div key={date} className="grid grid-cols-[72px_1fr_1fr] items-center gap-2 py-2.5 font-outfit text-[10px]">
+                    <span className="font-semibold">{date.split('-').reverse().join('/')}</span>
+                    <span><span className="block text-[9px] opacity-45">Place</span>{ticketEvent ? `${ticketEvent.approximate ? '≈ ' : ''}${formatPrice(ticketEvent.amount)}` : formatPrice(getRateAtDate('ticket', date))}</span>
+                    <span><span className="block text-[9px] opacity-45">Abonnement / mois</span>{subscriptionEvent ? `${subscriptionEvent.approximate ? '≈ ' : ''}${formatPrice(subscriptionEvent.amount)}` : formatPrice(getRateAtDate('subscription', date))}</span>
+                  </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 font-outfit text-[9px] leading-relaxed opacity-40">Les anciens tarifs annuels ou mensuels sont placés au début de leur période (≈). Les nouveaux changements utilisent la date choisie. Pour l’abonnement, le calcul suit la date de prélèvement récurrente déduite du premier changement daté (le 1er du mois par défaut).</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border p-4 font-outfit text-xs leading-relaxed opacity-60" style={{ borderColor: 'var(--theme-border)' }}>
+              Aucun tarif n’est encore disponible dans la configuration. Les tarifs actuels et les prochaines modifications apparaîtront ici avec leur date d’effet.
+            </div>
+          )}
+        </section>
+
         {/* Historique exhaustif, consultable par défilement horizontal sur mobile */}
         <section>
           <h3 className="font-galinoy italic text-[24px] mb-2">Toutes les séances</h3>
@@ -2267,6 +2434,13 @@ function SectionDivider() {
 export function Dashboard({
   historyData,
   pricing,
+  historyStatus = 'idle',
+  historyError = '',
+  isLoadingHistory = false,
+  onRetryHistory,
+  isScanning = false,
+  scanError = '',
+  onRetryScan,
   userName,
   userAvatar,
   setSelectedFilm,
@@ -2357,18 +2531,13 @@ export function Dashboard({
     ? Object.keys(timeCounts).reduce((a, b) => (timeCounts[a] > timeCounts[b] ? a : b))
     : '--';
 
-  const getPrice = (year, type) => {
-    let p = pricing?.default?.[type] || (type === 'sub' ? 21.90 : 13.00);
-    if (pricing?.[year]?.[type] !== undefined) p = pricing[year][type];
-    return parseFloat(p) || 0;
-  };
   const getMonthsToCharge = (y) => (y === currentYear ? currentMonthIndex + 1 : 12);
-  const totalStandardValue = dashData.reduce((acc, film) => acc + getPrice(film.date?.split('/')[2] || currentYear, 'ticket'), 0);
+  const totalStandardValue = dashData.reduce((acc, film) => acc + getPricingRateForDate(pricing, 'ticket', film.date), 0);
 
   let totalSubCost = 0;
-  if (dashView === 'month') { const year = activeMonth.split('-')[0]; totalSubCost = getPrice(year, 'sub'); }
-  else if (dashView === 'year') { totalSubCost = getMonthsToCharge(activeYear) * getPrice(activeYear, 'sub'); }
-  else { availableYears.forEach((y) => { totalSubCost += getMonthsToCharge(y) * getPrice(y, 'sub'); }); }
+  if (dashView === 'month') { const year = activeMonth.split('-')[0]; totalSubCost = getSubscriptionCostForMonths(pricing, year, 1); }
+  else if (dashView === 'year') { totalSubCost = getSubscriptionCostForMonths(pricing, activeYear, getMonthsToCharge(activeYear)); }
+  else { availableYears.forEach((y) => { totalSubCost += getSubscriptionCostForMonths(pricing, y, getMonthsToCharge(y)); }); }
 
   const savings = totalStandardValue - totalSubCost;
   const costPerFilm = totalFilms > 0 ? totalSubCost / totalFilms : 0;
@@ -2516,9 +2685,63 @@ export function Dashboard({
     );
   }, [dashView, onHeaderRight]);
 
+  if (!historyData.length) {
+    const historyKind = isLoadingHistory || historyStatus === 'loading'
+      ? 'loading'
+      : historyStatus === 'error'
+        ? 'error'
+        : historyStatus === 'success'
+          ? 'empty'
+          : 'loading';
+    const historyTitle = historyKind === 'loading'
+      ? 'Chargement de ton journal'
+      : historyKind === 'error'
+        ? 'Ton journal est indisponible'
+        : 'Ton histoire cinéma commence ici';
+    const historyMessage = historyKind === 'error'
+      ? historyError || 'Impossible de charger les séances enregistrées.'
+      : historyKind === 'empty'
+        ? 'Les statistiques et les affiches apparaîtront dès que tes premières séances seront enregistrées.'
+        : 'Les séances enregistrées et leurs statistiques apparaîtront ici.';
+
+    return (
+      <main className="min-h-[70dvh] bg-[var(--theme-bg)] pt-[calc(var(--header-total-height,96px)+1.5rem)] pb-12">
+        <div className="mx-auto max-w-xl space-y-3">
+          <DataStateNotice
+            kind={historyKind}
+            title={historyTitle}
+            message={historyMessage}
+            actionLabel={historyKind === 'error' ? 'Réessayer' : undefined}
+            onAction={historyKind === 'error' ? onRetryHistory : undefined}
+          />
+          {(isScanning || scanError) && (
+            <DataStateNotice
+              compact
+              kind={scanError ? 'error' : 'loading'}
+              title={scanError ? 'Lecture des séances impossible' : 'Recherche des séances en cours'}
+              message={scanError || 'Je vérifie les confirmations de séance dans Gmail.'}
+              actionLabel={scanError ? 'Réessayer' : undefined}
+              onAction={scanError ? onRetryScan : undefined}
+            />
+          )}
+        </div>
+      </main>
+    );
+  }
+
 return (
   <>
     <div className="bg-[var(--theme-bg)] text-[var(--theme-text)] pb-12 relative w-full overflow-x-clip">
+      {historyStatus === 'error' && (
+        <div className="pt-[calc(var(--header-total-height,96px)+0.75rem)]">
+          <DataStateNotice compact kind="error" title="Journal partiellement indisponible" message={historyError} actionLabel="Réessayer" onAction={onRetryHistory} />
+        </div>
+      )}
+      {scanError && (
+        <div className={historyStatus === 'error' ? 'pt-3' : 'pt-[calc(var(--header-total-height,96px)+0.75rem)]'}>
+          <DataStateNotice compact kind="error" title="Lecture des séances impossible" message={scanError} actionLabel="Réessayer" onAction={onRetryScan} />
+        </div>
+      )}
 
       {/* ================================================================
           FILTER DRAWER (version v2, plus complète)
