@@ -240,9 +240,9 @@ const parsePatheEmail = (htmlBody, plainBody) => {
     }
   }
 
-  // ── Salle & siège (Version assouplie) ──────────────────────────────────
+// ── Salle & siège (Version assouplie) ──────────────────────────────────
   // 1. Extraction de la Salle
-  let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i) || plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i);
+  let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i) \vert{}\vert{} plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]\vert{}\n\vert{}$)/i);
   if (salleMatch) {
     // AJOUT : On préfixe par "Salle "
     data.salle = "Salle " + salleMatch[1].trim(); 
@@ -263,6 +263,9 @@ const parsePatheEmail = (htmlBody, plainBody) => {
   } else if (placeMatch) {
     // S'il n'y a que le siège
     data.siege = placeMatch[1].trim();
+  } else {
+    // Si aucune information de place/fauteuil n'a été trouvée
+    data.siege = "Libre";
   }
 
   // ── Langue (Version assouplie & VF -> FRA) ──────────────────────────────
