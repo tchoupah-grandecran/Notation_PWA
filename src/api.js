@@ -255,7 +255,7 @@ const parsePatheEmail = (htmlBody, plainBody) => {
 
   // 2. Extraction du Siège (Prend en compte Rang, Fauteuil, Place, Siège...)
   let rangMatch = html.match(/Rang\s+([A-Z0-9]+)/i) || plain.match(/Rang\s+([A-Z0-9]+)/i);
-  let placeMatch = html.match(/(?:Place|Si[èe]ge|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i) || plain.match(/(?:Place|Si[èe]ge|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i);
+  let placeMatch = html.match(/(?:Place|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i) || plain.match(/(?:Place|Si[èe]ge|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i);
   
   if (rangMatch && placeMatch) {
     // S'il y a un rang ET un siège (ex: "K / 14")
