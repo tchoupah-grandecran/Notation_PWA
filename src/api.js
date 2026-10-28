@@ -719,7 +719,9 @@ export const getFullHistory = async (token, spreadsheetId) => {
         duree: row[4] || "",
         langue: row[5] || "",
         salle: row[6] || "",
-        siege: row[7] || "Libre",
+        // Une cellule vide signifie que le siège n'a pas été renseigné.
+        // « Libre » ne doit être compté que si cette valeur est présente dans la feuille.
+        siege: row[7] || "",
         note: row[8] || "",
         coupDeCoeur: row[9] !== undefined && String(row[9]).trim() === "1",
         genre: row[10] || "Cinéma",
