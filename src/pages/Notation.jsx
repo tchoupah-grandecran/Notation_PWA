@@ -324,9 +324,16 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
     const titleForSave = displayTitle.trim() || movieTitle;
     const titleChanged = titleForSave !== movieTitle;
-    const posterForSave = customPoster || (titleChanged
-      ? await getMissingPosterFromTMDB(titleForSave)
-      : film.affiche);
+    let posterForSave = customPoster || film.affiche;
+    if (!customPoster && titleChanged) {
+      try {
+        // La recherche d'affiche ne doit pas bloquer l'enregistrement de la note.
+        posterForSave = await getMissingPosterFromTMDB(titleForSave);
+      } catch (error) {
+        console.warn('Recherche d’affiche TMDB échouée, enregistrement sans nouvelle affiche.', error);
+        posterForSave = null;
+      }
+    }
 
     const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
       ? 'FRA'
