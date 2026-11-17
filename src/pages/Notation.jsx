@@ -2,7 +2,7 @@ import { createElement, useState, useEffect, useRef, useId } from 'react';
 // ESLint's no-unused-vars does not detect Framer Motion's JSX namespace usage.
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
+import { saveFilmToSheet, getProchainNumeroSeance, getMissingPosterFromTMDB } from '../api';
 
 // ─── ICONES SVG (COMPLETS) ───────────────────────────────────────────────────
 const CalendarIcon = () => (
@@ -322,14 +322,21 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
     setSaveError('');
     setLoading(true);
 
+    const titleForSave = displayTitle.trim() || movieTitle;
+    const titleChanged = titleForSave !== movieTitle;
+    const posterForSave = customPoster || (titleChanged
+      ? await getMissingPosterFromTMDB(titleForSave)
+      : film.affiche);
+
     const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
       ? 'FRA'
       : (selectedLang === 'Autre' ? (customLang.toUpperCase() || 'ENG') : selectedLang);
 
     const success = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
-      titre: displayTitle,
-      affiche: customPoster || film.affiche,
+      titre: titleForSave,
+      siege: film.siege?.trim() || 'Libre',
+      affiche: posterForSave,
       numeroSeance,
       note: rating,
       commentaire: comment,
@@ -658,7 +665,7 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
               { Icon: TimerIcon,    val: film.duree && film.duree !== '--h--' ? film.duree : '—' },
               { Icon: GlobeIcon,    val: film.langue && film.langue !== '?' ? film.langue : '—' },
               { Icon: TheaterIcon,  val: film.salle || '—' },
-              { Icon: SeatIcon,     val: film.siege || '—' },
+              { Icon: SeatIcon,     val: film.siege?.trim() || 'Libre' },
             ].map(({ Icon, val }, idx) => (
               <div
                 key={idx}

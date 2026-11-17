@@ -242,7 +242,8 @@ const parsePatheEmail = (htmlBody, plainBody) => {
 
 // ── Salle & siège (Version assouplie) ──────────────────────────────────
   // 1. Extraction de la Salle
-  let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i) \vert{}\vert{} plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]\vert{}\n\vert{}$)/i);
+  let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i)
+    || plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i);
   if (salleMatch) {
     // AJOUT : On préfixe par "Salle "
     data.salle = "Salle " + salleMatch[1].trim(); 
@@ -613,7 +614,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
 
     const row = [
       data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
-      data.salle, data.siege, data.note, data.coupDeCoeur, data.genre, 
+      data.salle, data.siege?.trim() || 'Libre', data.note, data.coupDeCoeur, data.genre, 
       data.depense, data.capucine, data.commentaire, data.affiche, data.tmdbId
     ];
 
