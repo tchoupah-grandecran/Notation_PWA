@@ -138,6 +138,7 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const editedTitleRef = useRef('');
   const titleInputRef = useRef(null);
   const starsRef = useRef(null);
 
@@ -232,18 +233,22 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
   // ─── HANDLERS TITRE ───────────────────────────────────────────────────────
   const handleTitleEditStart = () => {
+    editedTitleRef.current = displayTitle;
     setEditedTitle(displayTitle);
     setIsEditingTitle(true);
   };
 
   const handleTitleEditConfirm = () => {
-    if (!editedTitle.trim()) setEditedTitle(movieTitle);
+    const nextTitle = editedTitleRef.current.trim() || movieTitle;
+    editedTitleRef.current = nextTitle;
+    setEditedTitle(nextTitle);
     setIsEditingTitle(false);
   };
 
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') handleTitleEditConfirm();
     if (e.key === 'Escape') {
+      editedTitleRef.current = movieTitle;
       setEditedTitle(movieTitle);
       setIsEditingTitle(false);
     }
@@ -322,7 +327,7 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
     setSaveError('');
     setLoading(true);
 
-    const titleForSave = displayTitle.trim() || movieTitle;
+    const titleForSave = (isEditingTitle ? editedTitleRef.current : editedTitle).trim() || movieTitle;
     const titleChanged = titleForSave !== movieTitle;
     let posterForSave = customPoster || film.affiche;
     if (!customPoster && titleChanged) {
@@ -575,7 +580,10 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
                     ref={titleInputRef}
                     type="text"
                     value={editedTitle}
-                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onChange={(e) => {
+                      editedTitleRef.current = e.target.value;
+                      setEditedTitle(e.target.value);
+                    }}
                     onBlur={handleTitleEditConfirm}
                     onKeyDown={handleTitleKeyDown}
                     initial={{ opacity: 0 }}
