@@ -609,7 +609,7 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
     const incomingFingerprint = getMessageFingerprint(data);
     if (incomingFingerprint && existing.has(incomingFingerprint)) {
       await markMessageAsProcessed(token, data.messageId);
-      return true;
+      return { success: true };
     }
 
     const row = [
@@ -625,15 +625,22 @@ export const saveFilmToSheet = async (token, spreadsheetId, data) => {
       body: JSON.stringify({ values: [row] })
     });
 
-    if (!res.ok) throw new Error("Erreur écriture Sheets");
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      const message = payload.error?.message || `Google Sheets a refusé l’écriture (${res.status}).`;
+      throw new Error(message);
+    }
 
     // AJOUT : Sécurité. On ne marque l'e-mail comme lu QUE s'il y a un messageId (scan d'e-mail)
     await markMessageAsProcessed(token, data.messageId);
 
-    return true;
+    return { success: true };
   } catch (e) { 
     console.error("Erreur de sauvegarde:", e); 
-    return false; 
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Erreur inconnue pendant la sauvegarde.',
+    };
   }
 };
 

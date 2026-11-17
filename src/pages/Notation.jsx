@@ -2,7 +2,7 @@ import { createElement, useState, useEffect, useRef, useId } from 'react';
 // ESLint's no-unused-vars does not detect Framer Motion's JSX namespace usage.
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { saveFilmToSheet, getProchainNumeroSeance, getMissingPosterFromTMDB } from '../api';
+import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
 
 // ─── ICONES SVG (COMPLETS) ───────────────────────────────────────────────────
 const CalendarIcon = () => (
@@ -328,27 +328,16 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
     setLoading(true);
 
     const titleForSave = (isEditingTitle ? editedTitleRef.current : editedTitle).trim() || movieTitle;
-    const titleChanged = titleForSave !== movieTitle;
-    let posterForSave = customPoster || film.affiche;
-    if (!customPoster && titleChanged) {
-      try {
-        // La recherche d'affiche ne doit pas bloquer l'enregistrement de la note.
-        posterForSave = await getMissingPosterFromTMDB(titleForSave);
-      } catch (error) {
-        console.warn('Recherche d’affiche TMDB échouée, enregistrement sans nouvelle affiche.', error);
-        posterForSave = null;
-      }
-    }
 
     const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
       ? 'FRA'
       : (selectedLang === 'Autre' ? (customLang.toUpperCase() || 'ENG') : selectedLang);
 
-    const success = await saveFilmToSheet(token, spreadsheetId, {
+    const saveResult = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
       titre: titleForSave,
       siege: film.siege?.trim() || 'Libre',
-      affiche: posterForSave,
+      affiche: customPoster || film.affiche,
       numeroSeance,
       note: rating,
       commentaire: comment,
@@ -358,11 +347,11 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
       langue: finalLang,
     });
 
-    if (success) {
+    if (saveResult.success) {
       setSaved(true);
       saveTimerRef.current = setTimeout(() => onSaved?.(film), 700);
     } else {
-      setSaveError('La sauvegarde a échoué. Vérifie ta connexion puis réessaie.');
+      setSaveError(saveResult.error || 'La sauvegarde a échoué. Vérifie ta connexion puis réessaie.');
       setLoading(false);
     }
   };
