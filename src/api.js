@@ -745,39 +745,41 @@ export const getFullHistory = async (token, spreadsheetId) => {
 
 // Fonction pour récupérer l'affiche d'un ancien film
 export const getMissingPosterFromTMDB = async (titre) => {
-  // Remplace par la façon dont tu récupères ta clé (ex: import.meta.env.VITE_TMDB_API_KEY)
   const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY; 
-  if (!titre || !TMDB_KEY) return null;
+  const searchTitle = String(titre || '').trim();
+  if (!searchTitle || !TMDB_KEY) return null;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
+    const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(searchTitle)}&language=fr-FR`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
     const json = await res.json();
-    
-    if (json.results && json.results.length > 0) {
-      // 1. Filtrer pour avoir le titre exact (insensible à la casse)
-      const exactMatches = json.results.filter(
-        m => m.title.toLowerCase() === titre.toLowerCase() || m.original_title.toLowerCase() === titre.toLowerCase()
+    const results = Array.isArray(json.results) ? json.results : [];
+
+    if (results.length > 0) {
+      const normalizedTitle = searchTitle.toLocaleLowerCase();
+      const exactMatches = results.filter((movie) =>
+        [movie.title, movie.original_title]
+          .some((candidate) => String(candidate || '').trim().toLocaleLowerCase() === normalizedTitle)
       );
 
-      // S'il y a des correspondances exactes, on les utilise. Sinon, par sécurité, on garde la liste globale.
-      let candidates = exactMatches.length > 0 ? exactMatches : json.results;
+      const candidates = (exactMatches.length > 0 ? exactMatches : results)
+        .filter((movie) => movie.poster_path)
+        .sort((a, b) => {
+          const dateA = a.release_date ? new Date(a.release_date).getTime() : 0;
+          const dateB = b.release_date ? new Date(b.release_date).getTime() : 0;
+          return dateB - dateA;
+        });
 
-      // 2. Trier du plus récent au plus ancien (selon la date de sortie)
-      candidates.sort((a, b) => {
-        const dateA = a.release_date ? new Date(a.release_date).getTime() : 0;
-        const dateB = b.release_date ? new Date(b.release_date).getTime() : 0;
-        return dateB - dateA; // Ordre décroissant
-      });
-
-      // 3. On prend le premier de la liste triée
-      const bestMatch = candidates[0];
-      
-      if (bestMatch && bestMatch.poster_path) {
-        return `https://image.tmdb.org/t/p/w500${bestMatch.poster_path}`;
-      }
+      if (candidates[0]) return `https://image.tmdb.org/t/p/w500${candidates[0].poster_path}`;
     }
   } catch (e) {
-    console.error("Erreur récupération TMDB pour :", titre, e);
+    console.warn('Recherche TMDB indisponible pour :', searchTitle, e);
+  } finally {
+    clearTimeout(timeoutId);
   }
   return null;
 };
