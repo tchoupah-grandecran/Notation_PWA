@@ -16,23 +16,31 @@ const readGoogleApiResponse = async (response, fallbackMessage) => {
   return payload;
 };
 
-// ─── E-mails déjà traités (filet de sécurité si "marquer comme lu" échoue) ───
+// ─── E-mails tout juste notés (garde-fou de 3 min le temps que Gmail passe le mail en "lu") ───
 const PROCESSED_KEY = 'grandecran_processed_messages';
+const PROCESSED_TTL_MS = 3 * 60 * 1000;
 
-const getProcessedMessageIds = () => {
+const readProcessedMessages = () => {
   try {
-    return new Set(JSON.parse(localStorage.getItem(PROCESSED_KEY) || '[]'));
+    const raw = JSON.parse(localStorage.getItem(PROCESSED_KEY) || '{}');
+    const now = Date.now();
+    // Les entrées expirées (et l'ancien format tableau) sont ignorées
+    return Object.fromEntries(
+      Object.entries(raw).filter(([, ts]) => now - Number(ts) < PROCESSED_TTL_MS)
+    );
   } catch {
-    return new Set();
+    return {};
   }
 };
+
+const getProcessedMessageIds = () => new Set(Object.keys(readProcessedMessages()));
 
 const rememberProcessedMessage = (messageId) => {
   if (!messageId) return;
   try {
-    const ids = getProcessedMessageIds();
-    ids.add(messageId);
-    localStorage.setItem(PROCESSED_KEY, JSON.stringify([...ids].slice(-300)));
+    const entries = readProcessedMessages();
+    entries[messageId] = Date.now();
+    localStorage.setItem(PROCESSED_KEY, JSON.stringify(entries));
   } catch {
     /* stockage indisponible : on ignore */
   }
@@ -233,42 +241,42 @@ const parsePatheEmail = (htmlBody, plainBody) => {
     }
   }
 
-// ── Durée — Stratégie de secours via Email ──────────────────────────────
-  // On ne garde ici que le calcul basé sur l'email. 
+  // ── Durée — Stratégie de secours via Email ──────────────────────────────
+  // On ne garde ici que le calcul basé sur l'email.
   // La durée officielle TMDB sera injectée plus tard dans getFilmsANoter.
-  
+
   if (data.heure) {
     // On cherche l'heure de fin dans le HTML ou le Plain Text
     const finMatch = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i)
                   || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i);
-    
+
     if (finMatch) {
       // Normalisation des formats (20h15 -> 20:15)
       const startParts = data.heure.replace('h', ':').split(':').map(Number);
       const endParts   = finMatch[1].replace('h', ':').split(':').map(Number);
-      
+
       const startMin = startParts[0] * 60 + startParts[1];
       let endMin     = endParts[0] * 60 + endParts[1];
-      
+
       // Gestion du passage à minuit (si fin < début)
-      if (endMin < startMin) endMin += 1440; 
-      
+      if (endMin < startMin) endMin += 1440;
+
       // Calcul : Durée totale - 15 minutes (publicités/bandes-annonces)
       const diff = endMin - startMin - 15;
-      
+
       if (diff >= 45) {
         data.duree = `${Math.floor(diff / 60)}h${String(diff % 60).padStart(2, '0')}`;
       }
     }
   }
 
-// ── Salle & siège (Version assouplie) ──────────────────────────────────
+  // ── Salle & siège (Version assouplie) ──────────────────────────────────
   // 1. Extraction de la Salle
   let salleMatch = html.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i)
     || plain.match(/Salle\s+([A-Z0-9\s]+?)(?=\s*[-–<,]|\n|$)/i);
   if (salleMatch) {
     // AJOUT : On préfixe par "Salle "
-    data.salle = "Salle " + salleMatch[1].trim(); 
+    data.salle = "Salle " + salleMatch[1].trim();
   } else {
     // Fallback si la 1ère méthode échoue
     let oldRoomMatch = html.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i) || plain.match(/Salle\s+([A-Z0-9][A-Z0-9 ]{0,18})/i);
@@ -279,7 +287,7 @@ const parsePatheEmail = (htmlBody, plainBody) => {
   // 2. Extraction du Siège (Prend en compte Rang, Fauteuil, Place, Siège...)
   let rangMatch = html.match(/Rang\s+([A-Z0-9]+)/i) || plain.match(/Rang\s+([A-Z0-9]+)/i);
   let placeMatch = html.match(/(?:Place|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i) || plain.match(/(?:Place|Fauteuil)\s*(?:n°|N°)?\s*([A-Z0-9]+)/i);
-  
+
   if (rangMatch && placeMatch) {
     // S'il y a un rang ET un siège (ex: "K / 14")
     data.siege = `${rangMatch[1].trim()} / ${placeMatch[1].trim()}`;
@@ -418,11 +426,11 @@ const getMovieDataFromTMDB = async (titre, annee) => {
   try {
     const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(titre)}&language=fr-FR`);
     const json = await res.json();
-    
+
     if (json.results && json.results.length > 0) {
       // On cherche en priorité le film dont la date de sortie (release_date) commence par notre année de séance (ex: "2026")
       let movie = json.results.find(m => m.release_date && m.release_date.startsWith(String(annee)));
-      
+
       // Sécurité : Si aucun film ne correspond à l'année exacte, on prend le premier résultat par défaut
       if (!movie) {
         movie = json.results[0];
@@ -430,18 +438,18 @@ const getMovieDataFromTMDB = async (titre, annee) => {
 
       const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=fr-FR`);
       const details = await detailRes.json();
-      
+
       return {
         affiche: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
         genre: details.genres?.[0]?.name || "Cinéma",
         tmdbId: movie.id,
-        tmdbDuree: details.runtime 
-          ? `${Math.floor(details.runtime / 60)}h${String(details.runtime % 60).padStart(2, '0')}` 
+        tmdbDuree: details.runtime
+          ? `${Math.floor(details.runtime / 60)}h${String(details.runtime % 60).padStart(2, '0')}`
           : null
       };
     }
-  } catch (e) { 
-    console.error("TMDB Error", e); 
+  } catch (e) {
+    console.error("TMDB Error", e);
   }
   return { affiche: null, genre: "Cinéma", tmdbDuree: null };
 };
@@ -496,11 +504,10 @@ export const searchMovieByTitle = async (titre, annee) => {
 };
 
 // LA FONCTION PRINCIPALE EXPORTÉE
-export const getFilmsANoter = async (token, spreadsheetId = "") => {
+// Règle : tout mail non lu est proposé à la notation (même si le film a déjà été noté par le passé).
+// Seule exception : un mail noté il y a moins de 3 min (Gmail n'a pas encore fini de le passer en "lu").
+export const getFilmsANoter = async (token) => {
   try {
-    const existingFingerprints = spreadsheetId
-      ? await getExistingFilmFingerprints(token, spreadsheetId)
-      : new Set();
     const messageMap = new Map();
     await Promise.all(GMAIL_SCAN_QUERIES.map(async (rawQuery) => {
       const query = encodeURIComponent(rawQuery);
@@ -521,13 +528,16 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
       });
       const mData = await readGoogleApiResponse(mRes, 'Impossible de lire un e-mail de séance.');
 
+      // Le message est lu directement par ID (pas d'index de recherche) : si UNREAD a disparu, il est déjà traité
+      if (!mData.labelIds?.includes('UNREAD')) return null;
+
       try {
         const meta = {
           from: extractHeader(mData.payload, "From"),
           subject: extractHeader(mData.payload, "Subject"),
           date: extractHeader(mData.payload, "Date"),
         };
-        
+
         const htmlParts = findAllEmailParts(mData.payload, 'text/html');
         const plainParts = findAllEmailParts(mData.payload, 'text/plain');
         const htmlData = htmlParts[0] || findEmailPart(mData.payload.parts, 'text/html');
@@ -535,29 +545,29 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
 
         const html = decodeEmailBody(htmlData);
         const plain = decodeEmailBody(plainData);
-        
+
         // 1. Parsing de base depuis l'email
         const parsed = parseCinemaEmail(html, plain, meta);
         if (!parsed) return null;
 
         // 2. Récupération simultanée des infos TMDB
         const tmdb = await getMovieDataFromTMDB(parsed.titre?.trim(), parsed.annee);
-        
+
         // 3. Gestion de la Durée (TMDB > Calcul Email > Défaut)
         let finalDuree = "--h--";
-        
+
         if (tmdb && tmdb.tmdbDuree) {
           finalDuree = tmdb.tmdbDuree;
         } else if (parsed.heure) {
           const finMatch = html.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i)
                         || plain.match(/Fin\s+pr[ée]vue\s+[àa]\s+(\d{1,2}[:h]\d{2})/i);
-          
+
           if (finMatch) {
             const startParts = parsed.heure.replace('h', ':').split(':').map(Number);
             const endParts   = finMatch[1].replace('h', ':').split(':').map(Number);
             const startMin   = startParts[0] * 60 + startParts[1];
             let endMin       = endParts[0] * 60 + endParts[1];
-            
+
             if (endMin < startMin) endMin += 1440;
             const diff = endMin - startMin - 15;
             if (diff >= 45) {
@@ -566,10 +576,10 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
           }
         }
 
-        return { 
-          ...parsed, 
-          ...tmdb, 
-          duree: finalDuree, 
+        return {
+          ...parsed,
+          ...tmdb,
+          duree: finalDuree,
           messageId: msg.id,
           emailSubject: meta.subject,
           emailFrom: meta.from,
@@ -583,15 +593,7 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
 
     // On attend que tous les mails soient traités
     const results = await Promise.all(filmsPromises);
-    const seen = new Set();
-    const films = results.filter((f) => {
-      if (!f) return false;
-      const fingerprint = f.fingerprint || getMessageFingerprint(f);
-      if (existingFingerprints.has(fingerprint)) return false;
-      if (seen.has(fingerprint)) return false;
-      seen.add(fingerprint);
-      return true;
-    });
+    const films = results.filter(Boolean);
 
     // === TRI CHRONOLOGIQUE ===
     films.sort((a, b) => {
@@ -609,8 +611,8 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
     });
 
     return films;
-  } catch (e) { 
-    console.error("Erreur globale Fetch API:", e); 
+  } catch (e) {
+    console.error("Erreur globale Fetch API:", e);
     throw e;
   }
 };
@@ -628,26 +630,13 @@ export const getHistory = async (token, spreadsheetId) => {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data.values) return [];
-    
+
     // On retourne juste l'historique nécessaire
     return data.values.slice(1).map(row => ({ date: row[2] }));
   } catch (e) {
     console.error("Erreur Historique", e);
     return [];
   }
-};
-
-const getExistingFilmFingerprints = async (token, spreadsheetId) => {
-  if (!token || !spreadsheetId) return new Set();
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_RANGE}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const data = await readGoogleApiResponse(res, 'Impossible de vérifier les séances déjà enregistrées.');
-  return new Set((data.values || []).slice(1).map((row) => getMessageFingerprint({
-      titre: row[1],
-      date: row[2],
-      heure: row[3],
-  })));
 };
 
 const markMessageAsProcessed = async (token, messageId) => {
@@ -679,21 +668,13 @@ export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
 
 export const saveFilmToSheet = async (token, spreadsheetId, data) => {
   try {
-    const existing = await getExistingFilmFingerprints(token, spreadsheetId);
-// On vérifie le titre édité ET le fingerprint d'origine de l'e-mail
-const incomingFingerprints = [getMessageFingerprint(data), data.fingerprint].filter(Boolean);
-if (incomingFingerprints.some((fp) => existing.has(fp))) {
-  await markMessageAsProcessed(token, data.messageId);
-  return { success: true };
-}
-
     const row = [
-      data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
-      data.salle, data.siege?.trim() || 'Libre', data.note, data.coupDeCoeur, data.genre, 
+      data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue,
+      data.salle, data.siege?.trim() || 'Libre', data.note, data.coupDeCoeur, data.genre,
       data.depense, data.capucine, data.commentaire, data.affiche, data.tmdbId
-    ];
+    ].map((value) => value ?? '');
 
-    // AJOUT : insertDataOption=INSERT_ROWS force l'insertion après la vraie dernière ligne de texte
+    // insertDataOption=INSERT_ROWS force l'insertion après la vraie dernière ligne de texte
     const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${FILMS_APPEND_RANGE}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -706,12 +687,12 @@ if (incomingFingerprints.some((fp) => existing.has(fp))) {
       throw new Error(message);
     }
 
-    // AJOUT : Sécurité. On ne marque l'e-mail comme lu QUE s'il y a un messageId (scan d'e-mail)
+    // On ne marque l'e-mail comme lu QUE s'il y a un messageId (scan d'e-mail)
     await markMessageAsProcessed(token, data.messageId);
 
     return { success: true };
-  } catch (e) { 
-    console.error("Erreur de sauvegarde:", e); 
+  } catch (e) {
+    console.error("Erreur de sauvegarde:", e);
     return {
       success: false,
       error: e instanceof Error ? e.message : 'Erreur inconnue pendant la sauvegarde.',
@@ -743,7 +724,7 @@ export async function getStats(token, spreadsheetId) {
     }
 
     const enTetes = data.values[0];
-    const lignes = data.values.slice(1); 
+    const lignes = data.values.slice(1);
 
     const indexCoupDeCoeur = enTetes.findIndex(
       (titre) => titre && (titre.toLowerCase().includes("coeur") || titre.toLowerCase().includes("cœur"))
@@ -763,7 +744,7 @@ export async function getStats(token, spreadsheetId) {
     }
 
     return { totalFilms, coupsDeCoeur };
-    
+
   } catch (error) {
     console.error("Erreur technique lors de la récupération des statistiques :", error);
     return { totalFilms: "--", coupsDeCoeur: "--" };
@@ -827,7 +808,7 @@ export const getFullHistory = async (token, spreadsheetId) => {
 
 // Fonction pour récupérer l'affiche d'un ancien film
 export const getMissingPosterFromTMDB = async (titre) => {
-  const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY; 
+  const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY;
   const searchTitle = String(titre || '').trim();
   if (!searchTitle || !TMDB_KEY) return null;
 
@@ -879,15 +860,15 @@ export const savePreferencesToSheet = async (token, spreadsheetId, prefs) => {
     // Préférences, thème de couleur et accent Fiertés (A2:G2)
     const range = "Config!A2:G2";
     const values = [[
-      prefs.userName || "", 
-      prefs.userAvatar || "", 
-      prefs.themeKey || "", 
-      prefs.ratingScale || "", 
+      prefs.userName || "",
+      prefs.userAvatar || "",
+      prefs.themeKey || "",
+      prefs.ratingScale || "",
       pricingString,
       prefs.accentPalette || 'classic',
       prefs.prideAccentEnabled ? 'true' : 'false'
     ]];
-    
+
     const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -935,9 +916,9 @@ export const getPreferencesFromSheet = async (token, spreadsheetId) => {
         prideAccentEnabled: row[6] === undefined ? null : String(row[6]).toLowerCase() === 'true',
       };
     }
-  } catch (e) { 
+  } catch (e) {
     console.error("Erreur lecture des préférences :", e);
-    return null; 
+    return null;
   }
 };
 
