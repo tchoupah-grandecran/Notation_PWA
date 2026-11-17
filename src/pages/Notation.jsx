@@ -1,8 +1,6 @@
 import { createElement, useState, useEffect, useRef, useId } from 'react';
-// ESLint's no-unused-vars does not detect Framer Motion's JSX namespace usage.
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { saveFilmToSheet, getProchainNumeroSeance } from '../api';
+import { saveFilmToSheet, getProchainNumeroSeance, searchMovieByTitle } from '../api';
 
 // ─── ICONES SVG (COMPLETS) ───────────────────────────────────────────────────
 const CalendarIcon = () => (
@@ -144,7 +142,12 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
   const [customPoster, setCustomPoster] = useState(null);
   const posterInputRef = useRef(null);
-
+  const [tmdbOverride, setTmdbOverride] = useState(null);
+  const [isSearchingPoster, setIsSearchingPoster] = useState(false);
+  const tmdbOverrideRef = useRef(null);
+  const pendingSearchRef = useRef(null);
+  const searchIdRef = useRef(0);
+  const searchedTitleRef = useRef((initialFilm.titre || initialFilm.title || '').trim());
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [ratingError, setRatingError] = useState('');
@@ -174,16 +177,12 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
-  useEffect(() => {
-    if (isEditingTitle && titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
-    }
-  }, [isEditingTitle]);
-
   // Fallbacks adaptatifs pour l'affichage (gère les clés FR et EN de TMDB)
-  const movieTitle = film.titre || film.title || '';
-  const moviePoster = film.affiche || film.poster_path || null;
+const movieTitle = film.titre || film.title || '';
+const movieGenre = tmdbOverride ? tmdbOverride.genre : film.genre;
+const moviePoster = tmdbOverride
+  ? tmdbOverride.affiche
+  : (film.affiche || film.poster_path || null);
 
   const tmdbPosterUrl = moviePoster
     ? (import.meta.env.DEV
@@ -197,6 +196,32 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
   const safeRatingScale = Number(ratingScale) || 5;
   const starSize = safeRatingScale > 5 ? 26 : 34;
   const gapSize = safeRatingScale > 5 ? "gap-[3px]" : "gap-[5px]";
+  // Nouvelle recherche TMDB après changement de titre. Ne bloque ni n'empêche jamais la sauvegarde.
+const runTmdbSearch = (title, dateStr) => {
+  const cleanTitle = String(title || '').trim();
+  if (!cleanTitle || cleanTitle === searchedTitleRef.current) return;
+  searchedTitleRef.current = cleanTitle;
+
+  const searchId = ++searchIdRef.current;
+  const year = String(dateStr || film.date || '').split('/')[2];
+  setIsSearchingPoster(true);
+
+  pendingSearchRef.current = (async () => {
+    try {
+      const found = await searchMovieByTitle(cleanTitle, year);
+      if (searchId !== searchIdRef.current) return; // résultat périmé
+      // Aucun résultat : on retire l'ancienne affiche (elle appartenait à un autre film)
+      const next = found || { affiche: null, genre: 'Cinéma', tmdbId: '', duree: null };
+      tmdbOverrideRef.current = next;
+      setTmdbOverride(next);
+    } catch (err) {
+      // Erreur réseau/API : on garde les données actuelles, la sauvegarde reste possible
+      console.warn('Recherche TMDB indisponible :', err);
+    } finally {
+      if (searchId === searchIdRef.current) setIsSearchingPoster(false);
+    }
+  })();
+};
 
   const handleValidationChange = (key, value) => {
     setValidationDraft((prev) => ({ ...(prev || {}), [key]: value }));
@@ -224,6 +249,7 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
     };
     setValidatedFilm(nextFilm);
     setEditedTitle(nextFilm.titre);
+    runTmdbSearch(nextFilm.titre, nextFilm.date);
     setPrice(nextFilm.depense || '0,00');
     if (nextFilm.langue && nextFilm.langue !== '?' && nextFilm.langue !== 'FRA') {
       setSelectedLang(nextFilm.langue);
@@ -238,12 +264,13 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
     setIsEditingTitle(true);
   };
 
-  const handleTitleEditConfirm = () => {
-    const nextTitle = editedTitleRef.current.trim() || movieTitle;
-    editedTitleRef.current = nextTitle;
-    setEditedTitle(nextTitle);
-    setIsEditingTitle(false);
-  };
+const handleTitleEditConfirm = () => {
+  const nextTitle = editedTitleRef.current.trim() || movieTitle;
+  editedTitleRef.current = nextTitle;
+  setEditedTitle(nextTitle);
+  setIsEditingTitle(false);
+  runTmdbSearch(nextTitle);
+};
 
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') handleTitleEditConfirm();
@@ -311,23 +338,30 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
   };
 
   // ─── SAVE ─────────────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (loading || saved) return;
-    if (rating <= 0) {
-      setRatingError('Choisis une note pour continuer.');
-      return;
-    }
-    const isVost = film.langue !== 'FRA' && film.langue !== 'VF';
-    const hasLang = selectedLang && (selectedLang !== 'Autre' || customLang.trim().length > 0);
-    if (isVost && !hasLang) {
-      setLangError(true);
-      return;
-    }
-    setLangError(false);
-    setSaveError('');
-    setLoading(true);
+const handleSave = async () => {
+  if (loading || saved) return;
+  if (isEditingTitle) handleTitleEditConfirm(); // l'utilisateur clique "Noter" sans valider le titre
 
-    const titleForSave = (isEditingTitle ? editedTitleRef.current : editedTitle).trim() || movieTitle;
+  if (rating <= 0) {
+    setRatingError('Choisis une note pour continuer.');
+    return;
+  }
+  const isVost = film.langue !== 'FRA' && film.langue !== 'VF';
+  const hasLang = selectedLang && (selectedLang !== 'Autre' || customLang.trim().length > 0);
+  if (isVost && !hasLang) {
+    setLangError(true);
+    return;
+  }
+  setLangError(false);
+  setSaveError('');
+  setLoading(true);
+
+  try {
+    // Si une recherche TMDB est en cours, on l'attend (elle ne rejette jamais)
+    await pendingSearchRef.current;
+    const tmdb = tmdbOverrideRef.current;
+
+    const titleForSave = editedTitleRef.current.trim() || editedTitle.trim() || movieTitle;
 
     const finalLang = (film.langue === 'VF' || film.langue === 'FRA')
       ? 'FRA'
@@ -335,9 +369,14 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
     const saveResult = await saveFilmToSheet(token, spreadsheetId, {
       ...film,
+      ...(tmdb ? {
+        genre: tmdb.genre,
+        tmdbId: tmdb.tmdbId,
+        duree: tmdb.duree || film.duree,
+      } : {}),
       titre: titleForSave,
       siege: film.siege?.trim() || 'Libre',
-      affiche: customPoster || film.affiche,
+      affiche: customPoster || (tmdb ? tmdb.affiche : film.affiche) || '',
       numeroSeance,
       note: rating,
       commentaire: comment,
@@ -354,7 +393,12 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
       setSaveError(saveResult.error || 'La sauvegarde a échoué. Vérifie ta connexion puis réessaie.');
       setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error('Erreur handleSave:', err);
+    setSaveError('La sauvegarde a échoué. Vérifie ta connexion puis réessaie.');
+    setLoading(false);
+  }
+};
 
   return (
     <div
@@ -565,10 +609,12 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
               <AnimatePresence mode="wait">
                 {isEditingTitle ? (
                   <motion.input
-                    key="input"
-                    ref={titleInputRef}
-                    type="text"
-                    value={editedTitle}
+  key="input"
+  ref={titleInputRef}
+  type="text"
+  autoFocus
+  onFocus={(e) => e.target.select()}
+  value={editedTitle}
                     onChange={(e) => {
                       editedTitleRef.current = e.target.value;
                       setEditedTitle(e.target.value);
@@ -610,8 +656,8 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
 
             <div className="absolute bottom-3 right-3 h-6 flex items-center px-3 rounded-full border border-white/20 bg-black/30 backdrop-blur-sm">
               <span className="text-white/90 text-[10px] font-semibold tracking-wide leading-none">
-                {film.genre || 'Genre à préciser'}
-              </span>
+  {isSearchingPoster ? 'Recherche…' : (movieGenre || 'Genre à préciser')}
+</span>
             </div>
           </div>
 

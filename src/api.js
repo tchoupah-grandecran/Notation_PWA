@@ -16,6 +16,28 @@ const readGoogleApiResponse = async (response, fallbackMessage) => {
   return payload;
 };
 
+// ─── E-mails déjà traités (filet de sécurité si "marquer comme lu" échoue) ───
+const PROCESSED_KEY = 'grandecran_processed_messages';
+
+const getProcessedMessageIds = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(PROCESSED_KEY) || '[]'));
+  } catch {
+    return new Set();
+  }
+};
+
+const rememberProcessedMessage = (messageId) => {
+  if (!messageId) return;
+  try {
+    const ids = getProcessedMessageIds();
+    ids.add(messageId);
+    localStorage.setItem(PROCESSED_KEY, JSON.stringify([...ids].slice(-300)));
+  } catch {
+    /* stockage indisponible : on ignore */
+  }
+};
+
 const GMAIL_SCAN_QUERIES = [
   'subject:"Confirmation de commande les cinémas Pathé" is:unread newer_than:180d',
   '(from:ticketcine.fr OR subject:"Vos places pour") is:unread newer_than:180d',
@@ -424,6 +446,55 @@ const getMovieDataFromTMDB = async (titre, annee) => {
   return { affiche: null, genre: "Cinéma", tmdbDuree: null };
 };
 
+// Recherche TMDB après modification manuelle du titre.
+// Retourne null si aucun résultat, lève une erreur si le réseau/l'API échoue.
+export const searchMovieByTitle = async (titre, annee) => {
+  const key = import.meta.env.VITE_TMDB_API_KEY;
+  const query = String(titre || '').trim();
+  if (!query || !key) return null;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/search/movie?api_key=${key}&query=${encodeURIComponent(query)}&language=fr-FR`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    const json = await res.json();
+    const results = Array.isArray(json.results) ? json.results : [];
+    if (results.length === 0) return null;
+
+    const lower = query.toLocaleLowerCase();
+    const movie =
+      results.find((m) => [m.title, m.original_title].some((t) => String(t || '').trim().toLocaleLowerCase() === lower))
+      || results.find((m) => annee && m.release_date?.startsWith(String(annee)))
+      || results[0];
+
+    let details = {};
+    try {
+      const detailRes = await fetch(
+        `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${key}&language=fr-FR`,
+        { signal: controller.signal }
+      );
+      if (detailRes.ok) details = await detailRes.json();
+    } catch {
+      /* les détails sont facultatifs */
+    }
+
+    return {
+      tmdbId: movie.id,
+      affiche: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+      genre: details.genres?.[0]?.name || 'Cinéma',
+      duree: details.runtime
+        ? `${Math.floor(details.runtime / 60)}h${String(details.runtime % 60).padStart(2, '0')}`
+        : null,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 // LA FONCTION PRINCIPALE EXPORTÉE
 export const getFilmsANoter = async (token, spreadsheetId = "") => {
   try {
@@ -439,7 +510,8 @@ export const getFilmsANoter = async (token, spreadsheetId = "") => {
       const data = await readGoogleApiResponse(res, 'Impossible de rechercher les e-mails de séances.');
       (data.messages || []).forEach((msg) => messageMap.set(msg.id, msg));
     }));
-    const messages = [...messageMap.values()];
+    const processedIds = getProcessedMessageIds();
+    const messages = [...messageMap.values()].filter((msg) => !processedIds.has(msg.id));
     if (!messages.length) return [];
 
     // On prépare la liste des promesses pour traiter les messages en parallèle
@@ -580,12 +652,14 @@ const getExistingFilmFingerprints = async (token, spreadsheetId) => {
 
 const markMessageAsProcessed = async (token, messageId) => {
   if (!token || !messageId) return;
+  rememberProcessedMessage(messageId);
   try {
-    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+    const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
     });
+    if (!res.ok) console.warn(`Impossible de marquer l'e-mail comme lu (${res.status}). Scope gmail.modify manquant ?`);
   } catch (e) {
     console.warn("Sauvegarde OK, mais impossible de marquer l'e-mail comme traité", e);
   }
@@ -606,11 +680,12 @@ export const getProchainNumeroSeance = async (token, spreadsheetId, annee) => {
 export const saveFilmToSheet = async (token, spreadsheetId, data) => {
   try {
     const existing = await getExistingFilmFingerprints(token, spreadsheetId);
-    const incomingFingerprint = getMessageFingerprint(data);
-    if (incomingFingerprint && existing.has(incomingFingerprint)) {
-      await markMessageAsProcessed(token, data.messageId);
-      return { success: true };
-    }
+// On vérifie le titre édité ET le fingerprint d'origine de l'e-mail
+const incomingFingerprints = [getMessageFingerprint(data), data.fingerprint].filter(Boolean);
+if (incomingFingerprints.some((fp) => existing.has(fp))) {
+  await markMessageAsProcessed(token, data.messageId);
+  return { success: true };
+}
 
     const row = [
       data.numeroSeance, data.titre, data.date, data.heure, data.duree, data.langue, 
