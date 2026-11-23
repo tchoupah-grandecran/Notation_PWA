@@ -118,8 +118,8 @@ const FEED_LIMIT = 30;
 
 const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
 
-// Seuls titre, note, échelle, genre, affiche, TMDB ID, coup de cœur et date sont partagés.
-// Commentaire, dépense, siège, « Capucines » restent privés.
+// Partagés : titre, note, échelle, genre, affiche, TMDB ID, coup de cœur, date et commentaire.
+// Dépense, siège, « Capucines » restent privés.
 function cleanActivityItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const title = text(raw.title, 200);
@@ -140,6 +140,7 @@ function cleanActivityItem(raw) {
     tmdbId: text(String(raw.tmdbId ?? ''), 20) || null,
     coupDeCoeur: raw.coupDeCoeur === true,
     watchedOn,
+    comment: text(raw.comment, 1000) || null,
   };
 }
 
@@ -159,10 +160,11 @@ async function activity(account, body, res) {
   await sql.transaction(
     items.map((it) => sql`
       INSERT INTO community_activity
-        (google_sub, session_key, movie_title, rating, rating_scale, genre, poster_url, tmdb_id, coup_de_coeur, watched_on)
+        (google_sub, session_key, movie_title, rating, rating_scale, genre, poster_url, tmdb_id, coup_de_coeur, watched_on, comment)
       VALUES
         (${account.google_sub}, ${it.sessionKey}, ${it.title}, ${it.rating}::numeric, ${it.ratingScale}::smallint,
-         ${it.genre}::text, ${it.poster}::text, ${it.tmdbId}::text, ${it.coupDeCoeur}::boolean, ${it.watchedOn}::date)
+         ${it.genre}::text, ${it.poster}::text, ${it.tmdbId}::text, ${it.coupDeCoeur}::boolean, ${it.watchedOn}::date,
+         ${it.comment}::text)
       ON CONFLICT (google_sub, session_key) DO UPDATE SET
         movie_title   = EXCLUDED.movie_title,
         rating        = EXCLUDED.rating,
@@ -171,7 +173,8 @@ async function activity(account, body, res) {
         poster_url    = EXCLUDED.poster_url,
         tmdb_id       = EXCLUDED.tmdb_id,
         coup_de_coeur = EXCLUDED.coup_de_coeur,
-        watched_on    = EXCLUDED.watched_on`)
+        watched_on    = EXCLUDED.watched_on,
+        comment       = EXCLUDED.comment`)
   );
 
   return res.status(200).json({ saved: items.length });
@@ -182,7 +185,7 @@ async function activity(account, body, res) {
 async function feed(account, _body, res) {
   const sql = db();
   const rows = await sql`
-    SELECT a.movie_title, a.rating, a.rating_scale, a.genre, a.poster_url, a.tmdb_id, a.coup_de_coeur,
+    SELECT a.movie_title, a.rating, a.rating_scale, a.genre, a.poster_url, a.tmdb_id, a.coup_de_coeur, a.comment,
            to_char(a.watched_on, 'YYYY-MM-DD') AS watched_on,
            p.friend_code, p.display_name, p.avatar_url
     FROM community_activity a
@@ -204,6 +207,7 @@ async function feed(account, _body, res) {
       tmdbId: row.tmdb_id || null,
       coupDeCoeur: row.coup_de_coeur,
       watchedOn: row.watched_on || null,
+      comment: row.comment || null,
     })),
   });
 }

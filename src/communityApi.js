@@ -75,6 +75,7 @@ const toActivityItem = (film, ratingScale) => {
     tmdbId: film.tmdbId ? String(film.tmdbId) : null,
     coupDeCoeur: Boolean(film.coupDeCoeur),
     watchedOn,
+    comment: String(film.commentaire || '').trim() || null,
   };
 };
 

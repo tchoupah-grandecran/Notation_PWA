@@ -55,6 +55,8 @@ export function ensureCommunitySchema() {
           created_at    timestamptz NOT NULL DEFAULT now(),
           UNIQUE (google_sub, session_key)
         )`;
+      // Commentaire de la séance (colonne N du Sheet), ajouté après coup
+      await sql`ALTER TABLE community_activity ADD COLUMN IF NOT EXISTS comment text`;
     })().catch((err) => {
       schemaReady = undefined;
       throw err;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, Film, Heart, Share2, Sparkles, Trophy, UserPlus, Users, X } from 'lucide-react';
+import { Check, Clock3, Copy, Film, Heart, Share2, Sparkles, Trophy, UserPlus, Users, X } from 'lucide-react';
 import { Avatar3D } from '../components/Avatar3D';
 import {
   addFriendByCode,
@@ -16,7 +16,7 @@ const ACTION_STYLE = {
   color: 'var(--theme-action-ink)',
 };
 
-const SKELETON_CSS = `
+const PAGE_CSS = `
   @keyframes ge-shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
@@ -31,10 +31,26 @@ const SKELETON_CSS = `
     background-size: 200% 100%;
     animation: ge-shimmer 1.5s ease-in-out infinite;
   }
+  @keyframes ge-slide-from-right {
+    from { opacity: 0; transform: translateX(32px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes ge-slide-from-left {
+    from { opacity: 0; transform: translateX(-32px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .ge-slide-from-right { animation: ge-slide-from-right 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .ge-slide-from-left  { animation: ge-slide-from-left 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
   @media (prefers-reduced-motion: reduce) {
-    .ge-skeleton { animation: none; }
+    .ge-skeleton, .ge-slide-from-right, .ge-slide-from-left { animation: none; }
   }
 `;
+
+const SUB_TABS = [
+  { id: 'activity', label: 'Activité' },
+  { id: 'compare', label: 'Comparer' },
+];
+const SWIPE_MIN_DISTANCE = 60;
 
 const SectionLabel = ({ children, className = 'ml-5' }) => (
   <h3 className={`font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-2 ${className}`}>
@@ -54,28 +70,46 @@ const formatWatched = (iso) => {
   if (days <= 0) return 'Aujourd’hui';
   if (days === 1) return 'Hier';
   if (days < 7) return `Il y a ${days} jours`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return `Il y a ${weeks} semaine${weeks > 1 ? 's' : ''}`;
+  }
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
 };
 
 /* ─── Skeletons ───────────────────────────────────────────────────── */
 const Skeleton = ({ className = '' }) => <div aria-hidden="true" className={`ge-skeleton ${className}`} />;
 
-function FeedSkeleton({ rows = 4 }) {
+function FeedSkeleton({ rows = 3 }) {
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">Chargement du fil d’actualité…</span>
       <ul className="divide-y divide-[var(--theme-border)] overflow-hidden rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)]">
         {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="flex items-center gap-3 px-4 py-3" aria-hidden="true">
-            <Skeleton className="h-[72px] w-12 shrink-0 rounded-md" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-3 w-1/3 rounded-full" />
-              <Skeleton className="h-4 w-3/4 rounded-full" />
-              <div className="flex gap-2 pt-0.5">
-                <Skeleton className="h-4 w-10 rounded-full" />
-                <Skeleton className="h-4 w-20 rounded-full" />
+          <li key={i} className="px-4 py-4" aria-hidden="true">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+              <Skeleton className="h-3 w-40 rounded-full" />
+            </div>
+            <div className="mt-3 flex gap-3">
+              <Skeleton className="h-[84px] w-14 shrink-0 rounded-md" />
+              <div className="flex-1 space-y-2 pt-1">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-4 w-1/2 rounded-full" />
+                <Skeleton className="h-4 w-24 rounded-full" />
               </div>
             </div>
+            {i % 2 === 0 && (
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-3 w-28 rounded-full" />
+                <Skeleton className="h-3 w-full rounded-full" />
+                <Skeleton className="h-3 w-2/3 rounded-full" />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -184,41 +218,70 @@ function EmptyState({ icon: Icon, title, text, action }) {
 
 function FeedItem({ item }) {
   const name = item.friend.displayName || 'Un ami';
+  const when = formatWatched(item.watchedOn);
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
-      {item.poster ? (
-        <img src={item.poster} alt="" loading="lazy" className="h-[72px] w-12 shrink-0 rounded-md object-cover" />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="h-[72px] w-12 shrink-0 rounded-md"
-          style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
-        />
-      )}
-      <div className="min-w-0 flex-1 text-left">
-        <div className="flex min-w-0 items-center gap-2">
-          <FriendAvatar name={item.friend.displayName} url={item.friend.avatarUrl} size={22} />
-          <p className="truncate font-outfit text-[12px] text-[var(--theme-text-secondary)]">
+    <li className="px-4 py-4">
+      {/* Qui a vu, et quand */}
+      <div className="flex items-center gap-2.5">
+        <FriendAvatar name={item.friend.displayName} url={item.friend.avatarUrl} size={30} />
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-outfit text-[12px] leading-tight text-[var(--theme-text-secondary)]">
+          <span>
             <span className="font-bold text-[var(--theme-text)]">{name}</span> a vu
-          </p>
-        </div>
-        <p className="mt-1 truncate font-outfit text-[14px] font-semibold leading-tight text-[var(--theme-text)]">
-          {item.title}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
-          <span
-            className="rounded-full border px-2 py-0.5 text-[10px] font-black"
-            style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
-          >
-            {formatRating(item.rating, item.ratingScale)}
           </span>
-          {item.coupDeCoeur && (
-            <Heart size={13} fill="currentColor" aria-label="Coup de cœur" style={{ color: 'var(--theme-accent)' }} />
+          {when && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1">
+                <Clock3 size={12} aria-hidden="true" />
+                {when}
+              </span>
+            </>
           )}
-          {item.genre && <span>{item.genre}</span>}
-          {item.watchedOn && <span>· {formatWatched(item.watchedOn)}</span>}
+        </p>
+      </div>
+
+      {/* Film */}
+      <div className="mt-3 flex gap-3">
+        {item.poster ? (
+          <img src={item.poster} alt="" loading="lazy" className="h-[84px] w-14 shrink-0 rounded-md object-cover" />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="h-[84px] w-14 shrink-0 rounded-md"
+            style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
+          />
+        )}
+        <div className="min-w-0 flex-1 text-left">
+          <p className="break-words font-outfit text-[14px] font-semibold leading-snug text-[var(--theme-text)]">
+            {item.title}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
+            <span
+              className="rounded-full border px-2 py-0.5 text-[10px] font-black"
+              style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
+            >
+              {formatRating(item.rating, item.ratingScale)}
+            </span>
+            {item.coupDeCoeur && (
+              <Heart size={13} fill="currentColor" aria-label="Coup de cœur" style={{ color: 'var(--theme-accent)' }} />
+            )}
+            {item.genre && <span>{item.genre}</span>}
+          </div>
         </div>
       </div>
+
+      {/* Avis */}
+      {item.comment && (
+        <div className="mt-3">
+          <p className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">et en a pensé ça :</p>
+          <blockquote
+            className="mt-1.5 whitespace-pre-line break-words border-l-2 pl-3 font-outfit text-[13px] leading-relaxed text-[var(--theme-text)]"
+            style={{ borderColor: 'var(--theme-accent)' }}
+          >
+            {item.comment}
+          </blockquote>
+        </div>
+      )}
     </li>
   );
 }
@@ -485,6 +548,8 @@ function ShareModal({
 /* ─── Page ────────────────────────────────────────────────────────── */
 export function Community({ userName, userAvatar, historyData, ratingScale, onHeaderRight }) {
   const [activeSubTab, setActiveSubTab] = useState('activity'); // activity | compare
+  const [slideDir, setSlideDir] = useState(null); // null | 'left' | 'right'
+  const swipeRef = useRef(null);
   const [showShare, setShowShare] = useState(false);
   const [me, setMe] = useState(null);
   const [friends, setFriends] = useState([]);
@@ -668,21 +733,68 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
     );
   };
 
-  const subTabs = [
-    { id: 'activity', label: 'Activité' },
-    { id: 'compare', label: 'Comparer' },
-  ];
+  /* ─── Navigation entre vues : onglets, clavier et balayage ─── */
+  const selectSubTab = (id, { focus = false } = {}) => {
+    if (id === activeSubTab) return;
+    const from = SUB_TABS.findIndex((tab) => tab.id === activeSubTab);
+    const to = SUB_TABS.findIndex((tab) => tab.id === id);
+    setSlideDir(to > from ? 'right' : 'left');
+    setActiveSubTab(id);
+    if (focus) requestAnimationFrame(() => document.getElementById(`community-tab-${id}`)?.focus());
+  };
+
+  const shiftSubTab = (step, options) => {
+    const index = SUB_TABS.findIndex((tab) => tab.id === activeSubTab);
+    const next = SUB_TABS[index + step];
+    if (next) selectSubTab(next.id, options);
+  };
+
+  const handleTabKeys = (event) => {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      shiftSubTab(1, { focus: true });
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      shiftSubTab(-1, { focus: true });
+    }
+  };
+
+  const handleTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      swipeRef.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event) => {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    // Geste franchement horizontal uniquement, pour ne pas gêner le défilement vertical
+    if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    shiftSubTab(dx < 0 ? 1 : -1);
+  };
 
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-12 relative">
-      <style>{SKELETON_CSS}</style>
+      <style>{PAGE_CSS}</style>
 
       <main
-        className="space-y-5 px-4"
+        className="space-y-4 px-4"
         style={{
           paddingTop: 'calc(var(--header-total-height, 96px) + 0.75rem)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
+          minHeight: '70dvh',
+          touchAction: 'pan-y',
         }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { swipeRef.current = null; }}
       >
         {/* Repli : si App.jsx ne fournit pas onHeaderRight, le bouton s'affiche ici */}
         {!onHeaderRight && (
@@ -691,13 +803,14 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
           </div>
         )}
 
-        {/* Onglets internes */}
+        {/* Onglets façon TikTok : texte seul, soulignement sur l'onglet actif */}
         <div
           role="tablist"
           aria-label="Sections de la communauté"
-          className="mx-auto flex w-full max-w-xs items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)] p-1"
+          onKeyDown={handleTabKeys}
+          className="flex items-center justify-center gap-8"
         >
-          {subTabs.map(({ id, label }) => {
+          {SUB_TABS.map(({ id, label }) => {
             const isActive = activeSubTab === id;
             return (
               <button
@@ -707,22 +820,31 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
                 role="tab"
                 aria-selected={isActive}
                 aria-controls={`community-panel-${id}`}
-                onClick={() => setActiveSubTab(id)}
-                className={`flex min-h-11 flex-1 items-center justify-center rounded-full border-2 border-transparent font-outfit text-[10px] font-black uppercase tracking-widest transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
-                  isActive ? '' : 'opacity-50'
-                }`}
-                style={isActive ? ACTION_STYLE : undefined}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => selectSubTab(id)}
+                className="relative min-h-11 px-1 pb-2 font-outfit text-[15px] font-bold tracking-wide text-[var(--theme-text)] transition-opacity duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded-md"
+                style={{ opacity: isActive ? 1 : 0.4 }}
               >
                 {label}
+                <span
+                  aria-hidden="true"
+                  className="absolute bottom-0.5 left-1/2 h-[2px] -translate-x-1/2 rounded-full transition-all duration-300"
+                  style={{
+                    width: isActive ? '100%' : '0%',
+                    background: 'var(--theme-accent-gradient, var(--theme-accent))',
+                  }}
+                />
               </button>
             );
           })}
         </div>
 
         <div
+          key={activeSubTab}
           role="tabpanel"
           id={`community-panel-${activeSubTab}`}
           aria-labelledby={`community-tab-${activeSubTab}`}
+          className={slideDir === 'right' ? 'ge-slide-from-right' : slideDir === 'left' ? 'ge-slide-from-left' : ''}
         >
           {activeSubTab === 'activity' ? renderActivity() : <ComingSoon />}
         </div>
