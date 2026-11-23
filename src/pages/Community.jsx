@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Share2, UserPlus, X } from 'lucide-react';
+import { Check, Copy, Heart, Share2, UserPlus, X } from 'lucide-react';
 import { Avatar3D } from '../components/Avatar3D';
 import {
   addFriendByCode,
+  getFeed,
   getMyCommunityProfile,
   listFriends,
   removeFriend,
+  syncActivity,
 } from '../communityApi';
 
 const ACTION_STYLE = {
@@ -19,19 +21,35 @@ const SectionLabel = ({ children }) => (
   </h3>
 );
 
-function FriendAvatar({ name, url }) {
+const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
+
+const formatWatched = (iso) => {
+  if (!iso) return '';
+  const date = new Date(`${iso}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today - date) / 86_400_000);
+  if (days <= 0) return 'Aujourd’hui';
+  if (days === 1) return 'Hier';
+  if (days < 7) return `Il y a ${days} jours`;
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+};
+
+function FriendAvatar({ name, url, size = 40 }) {
   if (url) {
     return (
       <div className="shrink-0">
-        <Avatar3D src={url} size={40} primary="transparent" borderWidth={0} />
+        <Avatar3D src={url} size={size} primary="transparent" borderWidth={0} />
       </div>
     );
   }
   return (
     <span
       aria-hidden="true"
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-galinoy text-lg italic"
+      className="flex shrink-0 items-center justify-center rounded-full font-galinoy text-lg italic"
       style={{
+        width: size,
+        height: size,
         background: 'color-mix(in srgb, var(--theme-accent) 18%, transparent)',
         color: 'var(--theme-accent)',
       }}
@@ -41,15 +59,77 @@ function FriendAvatar({ name, url }) {
   );
 }
 
-export function Community({ userName, userAvatar }) {
+function FeedItem({ item }) {
+  const name = item.friend.displayName || 'Un ami';
+  return (
+    <li className="flex items-center gap-3 px-4 py-3">
+      {item.poster ? (
+        <img
+          src={item.poster}
+          alt=""
+          loading="lazy"
+          className="h-[72px] w-12 shrink-0 rounded-md object-cover"
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="h-[72px] w-12 shrink-0 rounded-md"
+          style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
+        />
+      )}
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate font-outfit text-[12px] text-[var(--theme-text-secondary)]">
+          <span className="font-bold text-[var(--theme-text)]">{name}</span> a vu
+        </p>
+        <p className="truncate font-galinoy text-[19px] italic leading-tight text-[var(--theme-text)]">
+          {item.title}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
+          <span
+            className="rounded-full border px-2 py-0.5 text-[10px] font-black"
+            style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
+          >
+            {formatRating(item.rating, item.ratingScale)}
+          </span>
+          {item.coupDeCoeur && (
+            <Heart
+              size={13}
+              fill="currentColor"
+              aria-label="Coup de cœur"
+              style={{ color: 'var(--theme-accent)' }}
+            />
+          )}
+          {item.genre && <span>{item.genre}</span>}
+          {item.watchedOn && <span>· {formatWatched(item.watchedOn)}</span>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+export function Community({ userName, userAvatar, historyData, ratingScale }) {
   const [me, setMe] = useState(null);
   const [friends, setFriends] = useState([]);
+  const [feed, setFeed] = useState(null); // null = chargement
+  const [feedError, setFeedError] = useState(false);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [loadError, setLoadError] = useState('');
   const [codeInput, setCodeInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: 'ok' | 'error', text }
   const [copied, setCopied] = useState(false);
+
+  const loadFeed = useCallback(async () => {
+    setFeedError(false);
+    try {
+      const { items } = await getFeed();
+      setFeed(items);
+    } catch (err) {
+      console.error('Erreur fil d’actualité :', err);
+      setFeed([]);
+      setFeedError(true);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setStatus((current) => (current === 'ready' ? current : 'loading'));
@@ -76,6 +156,23 @@ export function Community({ userName, userAvatar }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Une fois le profil prêt : j'envoie mes dernières séances, puis je charge le fil
+  useEffect(() => {
+    if (status !== 'ready') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await syncActivity(historyData, ratingScale);
+      } catch (err) {
+        console.warn('Synchronisation des séances impossible :', err);
+      }
+      if (!cancelled) await loadFeed();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, historyData, ratingScale, loadFeed]);
 
   const copyCode = async () => {
     if (!me) return;
@@ -112,6 +209,7 @@ export function Community({ userName, userAvatar }) {
       setCodeInput('');
       const { friends: list } = await listFriends();
       setFriends(list);
+      void loadFeed();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Impossible d’ajouter cet ami.' });
     } finally {
@@ -124,6 +222,7 @@ export function Community({ userName, userAvatar }) {
     try {
       await removeFriend(friend.friendCode);
       setFriends((current) => current.filter((f) => f.friendCode !== friend.friendCode));
+      void loadFeed();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Impossible de retirer cet ami.' });
     }
@@ -162,6 +261,35 @@ export function Community({ userName, userAvatar }) {
 
         {status === 'ready' && me && (
           <>
+            {/* FIL D'ACTUALITÉ (seulement si j'ai des amis) */}
+            {friends.length > 0 && (
+              <div>
+                <SectionLabel>Fil d’actualité</SectionLabel>
+                {feed === null ? (
+                  <p className="py-6 text-center font-outfit text-[10px] font-black uppercase tracking-[0.24em] opacity-40">
+                    Chargement…
+                  </p>
+                ) : feed.length === 0 ? (
+                  <p
+                    role={feedError ? 'alert' : undefined}
+                    className={`rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)] p-5 text-center font-outfit text-[13px] ${
+                      feedError ? 'text-red-500' : 'text-[var(--theme-text-secondary)]'
+                    }`}
+                  >
+                    {feedError
+                      ? 'Impossible de charger le fil d’actualité.'
+                      : 'Pas encore d’activité. Les séances notées par tes amis apparaîtront ici.'}
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-[var(--theme-border)] overflow-hidden rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                    {feed.map((item) => (
+                      <FeedItem key={`${item.friend.friendCode}|${item.title}|${item.watchedOn}`} item={item} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             {/* MON CODE */}
             <div>
               <SectionLabel>Mon code ami</SectionLabel>

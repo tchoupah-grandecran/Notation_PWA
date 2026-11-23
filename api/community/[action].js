@@ -113,7 +113,102 @@ async function remove(account, body, res) {
   return res.status(200).json({ ok: true });
 }
 
-const ACTIONS = { me, add, list, remove };
+const MAX_ACTIVITY_ITEMS = 20;
+const FEED_LIMIT = 30;
+
+const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
+
+// Seuls titre, note, échelle, genre, affiche, TMDB ID, coup de cœur et date sont partagés.
+// Commentaire, dépense, siège, « Capucines » restent privés.
+function cleanActivityItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const title = text(raw.title, 200);
+  const sessionKey = text(raw.sessionKey, 300);
+  const rating = Number(raw.rating);
+  const ratingScale = Number(raw.ratingScale);
+  if (!title || !sessionKey || ![5, 10].includes(ratingScale)) return null;
+  if (!Number.isFinite(rating) || rating < 0 || rating > ratingScale) return null;
+
+  const watchedOn = /^\d{4}-\d{2}-\d{2}$/.test(raw.watchedOn || '') ? raw.watchedOn : null;
+  return {
+    title,
+    sessionKey,
+    rating,
+    ratingScale,
+    genre: text(raw.genre, 60) || null,
+    poster: typeof raw.poster === 'string' && raw.poster ? cleanAvatarUrl(raw.poster) : null,
+    tmdbId: text(String(raw.tmdbId ?? ''), 20) || null,
+    coupDeCoeur: raw.coupDeCoeur === true,
+    watchedOn,
+  };
+}
+
+/* POST /api/community/activity   Body : { items: [...] }
+   Enregistre (ou met à jour) mes dernières séances. Ignoré tant que je n'ai pas de profil communautaire. */
+async function activity(account, body, res) {
+  const sql = db();
+  const profile = await sql`SELECT 1 FROM community_profiles WHERE google_sub = ${account.google_sub}`;
+  if (!profile[0]) return res.status(200).json({ skipped: true });
+
+  const items = (Array.isArray(body.items) ? body.items : [])
+    .slice(0, MAX_ACTIVITY_ITEMS)
+    .map(cleanActivityItem)
+    .filter(Boolean);
+  if (items.length === 0) return res.status(200).json({ saved: 0 });
+
+  await sql.transaction(
+    items.map((it) => sql`
+      INSERT INTO community_activity
+        (google_sub, session_key, movie_title, rating, rating_scale, genre, poster_url, tmdb_id, coup_de_coeur, watched_on)
+      VALUES
+        (${account.google_sub}, ${it.sessionKey}, ${it.title}, ${it.rating}::numeric, ${it.ratingScale}::smallint,
+         ${it.genre}::text, ${it.poster}::text, ${it.tmdbId}::text, ${it.coupDeCoeur}::boolean, ${it.watchedOn}::date)
+      ON CONFLICT (google_sub, session_key) DO UPDATE SET
+        movie_title   = EXCLUDED.movie_title,
+        rating        = EXCLUDED.rating,
+        rating_scale  = EXCLUDED.rating_scale,
+        genre         = EXCLUDED.genre,
+        poster_url    = EXCLUDED.poster_url,
+        tmdb_id       = EXCLUDED.tmdb_id,
+        coup_de_coeur = EXCLUDED.coup_de_coeur,
+        watched_on    = EXCLUDED.watched_on`)
+  );
+
+  return res.status(200).json({ saved: items.length });
+}
+
+/* POST /api/community/feed
+   Dernières séances de mes amis (jamais les miennes). */
+async function feed(account, _body, res) {
+  const sql = db();
+  const rows = await sql`
+    SELECT a.movie_title, a.rating, a.rating_scale, a.genre, a.poster_url, a.tmdb_id, a.coup_de_coeur,
+           to_char(a.watched_on, 'YYYY-MM-DD') AS watched_on,
+           p.friend_code, p.display_name, p.avatar_url
+    FROM community_activity a
+    JOIN community_profiles p ON p.google_sub = a.google_sub
+    JOIN friendships f
+      ON (f.user_a = ${account.google_sub} AND f.user_b = a.google_sub)
+      OR (f.user_b = ${account.google_sub} AND f.user_a = a.google_sub)
+    ORDER BY COALESCE(a.watched_on, a.created_at::date) DESC, a.created_at DESC
+    LIMIT ${FEED_LIMIT}`;
+
+  return res.status(200).json({
+    items: rows.map((row) => ({
+      friend: toPublic(row),
+      title: row.movie_title,
+      rating: Number(row.rating),
+      ratingScale: Number(row.rating_scale),
+      genre: row.genre || null,
+      poster: row.poster_url || null,
+      tmdbId: row.tmdb_id || null,
+      coupDeCoeur: row.coup_de_coeur,
+      watchedOn: row.watched_on || null,
+    })),
+  });
+}
+
+const ACTIONS = { me, add, list, remove, activity, feed };
 
 export default async function handler(req, res) {
   addNoStoreHeaders(res);

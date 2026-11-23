@@ -5,6 +5,7 @@ import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
 import PendingRatingToast from './components/PendingRatingToast';
 import { Community } from './pages/Community';
+import { syncActivity } from './communityApi';
 
 import * as api from './api';
 
@@ -244,6 +245,19 @@ function App() {
   useEffect(() => { prefs.syncFromCloud(); },                                                     [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && historyData.length === 0) loadHistory(); }, [userToken, spreadsheetId]);
   useEffect(() => { if (userToken && spreadsheetId && activeTab === 'home') loadStats(); },        [userToken, spreadsheetId, activeTab]);
+
+  useEffect(() => {
+  if (!userToken || historyData.length === 0) return;
+  void syncActivity(historyData, prefs.ratingScale).catch(() => {});
+}, [userToken, historyData, prefs.ratingScale]);
+
+// Community props
+<Community
+  userName={prefs.userName}
+  userAvatar={prefs.userAvatar}
+  historyData={historyData}
+  ratingScale={prefs.ratingScale}
+/>
 
   /* ─── Reset on tab change ─────────────────────────────────────────── */
   useEffect(() => {

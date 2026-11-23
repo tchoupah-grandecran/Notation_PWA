@@ -38,6 +38,23 @@ export function ensureCommunitySchema() {
           CHECK (user_a < user_b)
         )`;
       await sql`CREATE INDEX IF NOT EXISTS friendships_user_b_idx ON friendships (user_b)`;
+      // Notes partagées avec les amis. session_key = « titre|date|heure » : une ligne par séance.
+      await sql`
+        CREATE TABLE IF NOT EXISTS community_activity (
+          id            bigserial PRIMARY KEY,
+          google_sub    text NOT NULL,
+          session_key   text NOT NULL,
+          movie_title   text NOT NULL,
+          rating        numeric(4,1) NOT NULL,
+          rating_scale  smallint NOT NULL,
+          genre         text,
+          poster_url    text,
+          tmdb_id       text,
+          coup_de_coeur boolean NOT NULL DEFAULT false,
+          watched_on    date,
+          created_at    timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (google_sub, session_key)
+        )`;
     })().catch((err) => {
       schemaReady = undefined;
       throw err;
