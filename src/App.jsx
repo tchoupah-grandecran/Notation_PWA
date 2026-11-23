@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { usePreferences } from './hooks/usePreferences';
 import { useHistory } from './hooks/useHistory';
 import PendingRatingToast from './components/PendingRatingToast';
+import { Community } from './pages/Community';
 
 import * as api from './api';
 
@@ -135,6 +136,7 @@ const DEFAULT_TITLES = {
   home:    'Ton cinéma',
   history: 'Journal',
   studio:  'Atelier',
+  community: 'Amis',
   profile: 'Profil',
 };
 
@@ -385,6 +387,9 @@ function App() {
             triggerCloudSave={prefs.triggerCloudSave}
           />
         )}
+        {activeTab === 'community' && (
+  <Community userName={prefs.userName} userAvatar={prefs.userAvatar} />
+)}
         {activeTab === 'studio' && (
           <Studio
             historyData={historyData}

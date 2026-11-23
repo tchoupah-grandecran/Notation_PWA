@@ -1,5 +1,5 @@
 import { createElement, useState, useEffect, useRef } from 'react';
-import { Clapperboard, Clock3, House, UserRound } from 'lucide-react';
+import { Clapperboard, Clock3, House, UserRound, Users } from 'lucide-react';
 
 const COLLAPSE_AT = 48;
 const REVEAL_PX = 24;
@@ -13,6 +13,7 @@ const TABS = [
   { id: 'home', label: 'Accueil', Icon: House },
   { id: 'history', label: 'Journal', Icon: Clock3 },
   { id: 'studio', label: 'Atelier', Icon: Clapperboard },
+  { id: 'community', label: 'Amis', Icon: Users },
   { id: 'profile', label: 'Profil', Icon: UserRound },
 ];
 
@@ -118,7 +119,7 @@ export function AppHeader({
         >
           <nav
             aria-label="Navigation principale"
-            className="relative mx-auto grid h-[60px] w-full max-w-[360px] grid-cols-4 overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
+            className="relative mx-auto grid h-[60px] w-full max-w-[400px] grid-cols-5 overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
             style={{
               background: 'color-mix(in srgb, var(--theme-surface, var(--theme-bg, #111)) 42%, transparent)',
               borderColor: 'color-mix(in srgb, var(--theme-text, #fff) 16%, transparent)',
