@@ -403,7 +403,13 @@ function App() {
           />
         )}
         {activeTab === 'community' && (
-  <Community userName={prefs.userName} userAvatar={prefs.userAvatar} />
+  <Community
+    userName={prefs.userName}
+    userAvatar={prefs.userAvatar}
+    historyData={historyData}
+    ratingScale={prefs.ratingScale}
+    onHeaderRight={handleSetHeaderRight}
+  />
 )}
         {activeTab === 'studio' && (
           <Studio

@@ -126,16 +126,40 @@ function FriendAvatar({ name, url, size = 40 }) {
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 items-center justify-center rounded-full font-galinoy text-lg italic"
+      className="flex shrink-0 items-center justify-center rounded-full font-galinoy italic"
       style={{
         width: size,
         height: size,
+        fontSize: Math.round(size * 0.5),
         background: 'color-mix(in srgb, var(--theme-accent) 18%, transparent)',
         color: 'var(--theme-accent)',
       }}
     >
       {(name || '?').trim().charAt(0).toUpperCase()}
     </span>
+  );
+}
+
+function ProfileButton({ name, url, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Mes amis et mon code de partage"
+      aria-haspopup="dialog"
+      className="relative flex h-11 w-11 items-center justify-center rounded-full active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+    >
+      <span className="rounded-full ring-2 ring-[var(--theme-accent)]">
+        <FriendAvatar name={name} url={url} size={34} />
+      </span>
+      <span
+        aria-hidden="true"
+        className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full"
+        style={{ background: 'var(--theme-accent)', color: 'var(--theme-bg)' }}
+      >
+        <UserPlus size={10} strokeWidth={2.5} />
+      </span>
+    </button>
   );
 }
 
@@ -172,10 +196,15 @@ function FeedItem({ item }) {
         />
       )}
       <div className="min-w-0 flex-1 text-left">
-        <p className="truncate font-outfit text-[12px] text-[var(--theme-text-secondary)]">
-          <span className="font-bold text-[var(--theme-text)]">{name}</span> a vu
+        <div className="flex min-w-0 items-center gap-2">
+          <FriendAvatar name={item.friend.displayName} url={item.friend.avatarUrl} size={22} />
+          <p className="truncate font-outfit text-[12px] text-[var(--theme-text-secondary)]">
+            <span className="font-bold text-[var(--theme-text)]">{name}</span> a vu
+          </p>
+        </div>
+        <p className="mt-1 truncate font-outfit text-[14px] font-semibold leading-tight text-[var(--theme-text)]">
+          {item.title}
         </p>
-        <p className="truncate font-galinoy text-[19px] italic leading-tight text-[var(--theme-text)]">{item.title}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
           <span
             className="rounded-full border px-2 py-0.5 text-[10px] font-black"
@@ -469,31 +498,17 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
 
   const closeShare = useCallback(() => setShowShare(false), []);
 
+  const openShare = useCallback(() => {
+    setFeedback(null);
+    setShowShare(true);
+  }, []);
+
   /* Bouton de profil dans l'en-tête, en haut à droite */
   useEffect(() => {
     if (!onHeaderRight) return undefined;
-    onHeaderRight(
-      <button
-        type="button"
-        onClick={() => setShowShare(true)}
-        aria-label="Mes amis et mon code de partage"
-        aria-haspopup="dialog"
-        className="relative flex h-11 w-11 items-center justify-center rounded-full active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-      >
-        <span className="rounded-full ring-2 ring-[var(--theme-accent)]">
-          <FriendAvatar name={userName} url={userAvatar} size={34} />
-        </span>
-        <span
-          aria-hidden="true"
-          className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full"
-          style={{ background: 'var(--theme-accent)', color: 'var(--theme-bg)' }}
-        >
-          <UserPlus size={10} strokeWidth={2.5} />
-        </span>
-      </button>
-    );
+    onHeaderRight(<ProfileButton name={userName} url={userAvatar} onClick={openShare} />);
     return () => onHeaderRight(null);
-  }, [onHeaderRight, userName, userAvatar]);
+  }, [onHeaderRight, userName, userAvatar, openShare]);
 
   const loadFeed = useCallback(async () => {
     setFeedError(false);
@@ -584,11 +599,6 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
     }
   };
 
-  const openShare = () => {
-    setFeedback(null);
-    setShowShare(true);
-  };
-
   /* ─── Contenu de l'onglet « Activité » ─── */
   const renderActivity = () => {
     if (status === 'loading') return <FeedSkeleton />;
@@ -674,6 +684,13 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
         }}
       >
+        {/* Repli : si App.jsx ne fournit pas onHeaderRight, le bouton s'affiche ici */}
+        {!onHeaderRight && (
+          <div className="flex justify-end">
+            <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
+          </div>
+        )}
+
         {/* Onglets internes */}
         <div
           role="tablist"
