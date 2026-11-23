@@ -257,6 +257,7 @@ function App() {
   userAvatar={prefs.userAvatar}
   historyData={historyData}
   ratingScale={prefs.ratingScale}
+  onHeaderRight={handleSetHeaderRight}
 />
 
   /* ─── Reset on tab change ─────────────────────────────────────────── */
