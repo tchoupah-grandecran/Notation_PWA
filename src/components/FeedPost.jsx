@@ -129,6 +129,14 @@ function RatingBadge({ entry }) {
 }
 
 /* Pile d'avatars qui se chevauchent */
+const CUT = 'var(--theme-surface)';
+const CUTOUT_FILTER = [
+  `drop-shadow(2px 0 0 ${CUT})`,
+  `drop-shadow(-2px 0 0 ${CUT})`,
+  `drop-shadow(0 2px 0 ${CUT})`,
+  `drop-shadow(0 -2px 0 ${CUT})`,
+].join(' ');
+
 function AvatarStack({ people, size }) {
   const overlap = size >= 32 ? '-ml-3' : '-ml-2';
   return (
@@ -136,8 +144,13 @@ function AvatarStack({ people, size }) {
       {people.slice(0, MAX_AVATARS).map((person, index) => (
         <span
           key={person.key}
-          className={`relative flex rounded-full ring-[3px] ring-[var(--theme-surface)] ${index > 0 ? overlap : ''}`}
-          style={{ lineHeight: 0, zIndex: index + 1 }}
+          className={`relative flex rounded-full ${index > 0 ? overlap : ''}`}
+          style={{
+            lineHeight: 0,
+            zIndex: index + 1,
+            background: 'var(--theme-surface)', // opaque base: hides the avatar underneath
+            filter: CUTOUT_FILTER,              // outlines the real silhouette, head included
+          }}
         >
           <FriendAvatar name={person.name} url={person.url} size={size} />
         </span>
