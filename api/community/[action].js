@@ -206,43 +206,47 @@ async function feed(account, _body, res) {
       ON (f.user_a = ${me} AND f.user_b = a.google_sub)
       OR (f.user_b = ${me} AND f.user_a = a.google_sub)
     ORDER BY COALESCE(a.watched_on, a.created_at::date) DESC, a.created_at DESC
-    LIMIT ${FEED_LIMIT}`;
+    LIMIT 30`;
 
-  // Réactions sur ces séances. On ne montre que moi et mes amis : jamais un inconnu.
+  // Réactions : secondaires, une erreur ici ne doit pas casser le fil
   const reactionsById = new Map();
-  if (rows.length > 0) {
-    const ids = JSON.stringify(rows.map((row) => String(row.id)));
-    const reactionRows = await sql`
-      SELECT r.activity_id, r.kind, (r.reactor_sub = ${me}) AS is_me,
-             p.friend_code, p.display_name, p.avatar_url
-      FROM community_reactions r
+  let myRows = [];
+  try {
+    if (rows.length > 0) {
+      const ids = JSON.stringify(rows.map((row) => String(row.id)));
+      const reactionRows = await sql`
+        SELECT r.activity_id, r.kind, (r.reactor_sub = ${me}) AS is_me,
+               p.friend_code, p.display_name, p.avatar_url
+        FROM community_reactions r
+        JOIN community_profiles p ON p.google_sub = r.reactor_sub
+        WHERE r.activity_id IN (SELECT value::bigint FROM jsonb_array_elements_text(${ids}::jsonb))
+          AND (r.reactor_sub = ${me} OR EXISTS (
+            SELECT 1 FROM friendships f
+            WHERE (f.user_a = ${me} AND f.user_b = r.reactor_sub)
+               OR (f.user_b = ${me} AND f.user_a = r.reactor_sub)))
+        ORDER BY r.created_at`;
+      for (const row of reactionRows) {
+        const key = String(row.activity_id);
+        if (!reactionsById.has(key)) reactionsById.set(key, emptyReactions());
+        reactionsById.get(key)[row.kind]?.push(reactorFrom(row, row.is_me));
+      }
+    }
+
+    myRows = await sql`
+      SELECT a.session_key, r.kind, p.friend_code, p.display_name, p.avatar_url
+      FROM community_activity a
+      JOIN community_reactions r ON r.activity_id = a.id
       JOIN community_profiles p ON p.google_sub = r.reactor_sub
-      WHERE r.activity_id IN (SELECT value::bigint FROM jsonb_array_elements_text(${ids}::jsonb))
-        AND (r.reactor_sub = ${me} OR EXISTS (
+      WHERE a.google_sub = ${me}
+        AND EXISTS (
           SELECT 1 FROM friendships f
           WHERE (f.user_a = ${me} AND f.user_b = r.reactor_sub)
-             OR (f.user_b = ${me} AND f.user_a = r.reactor_sub)))
-      ORDER BY r.created_at`;
-    for (const row of reactionRows) {
-      const key = String(row.activity_id);
-      if (!reactionsById.has(key)) reactionsById.set(key, emptyReactions());
-      reactionsById.get(key)[row.kind]?.push(reactorFrom(row, row.is_me));
-    }
+             OR (f.user_b = ${me} AND f.user_a = r.reactor_sub))
+      ORDER BY r.created_at DESC
+      LIMIT 300`;
+  } catch (error) {
+    console.error('Réactions indisponibles (table manquante ?) :', error.message);
   }
-
-  // Réactions reçues sur mes propres séances (par mes amis actuels)
-  const myRows = await sql`
-    SELECT a.session_key, r.kind, p.friend_code, p.display_name, p.avatar_url
-    FROM community_activity a
-    JOIN community_reactions r ON r.activity_id = a.id
-    JOIN community_profiles p ON p.google_sub = r.reactor_sub
-    WHERE a.google_sub = ${me}
-      AND EXISTS (
-        SELECT 1 FROM friendships f
-        WHERE (f.user_a = ${me} AND f.user_b = r.reactor_sub)
-           OR (f.user_b = ${me} AND f.user_a = r.reactor_sub))
-    ORDER BY r.created_at DESC
-    LIMIT 300`;
 
   return res.status(200).json({
     items: rows.map((row) => ({
