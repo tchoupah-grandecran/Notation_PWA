@@ -626,7 +626,7 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
       <main
         className="space-y-4 px-4"
         style={{
-          paddingTop: 'calc(var(--header-total-height, 66px) - 8px)',
+          paddingTop: 'calc(var(--header-total-height, 66px) - 48px)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
           minHeight: '70dvh',
           touchAction: 'pan-y',
