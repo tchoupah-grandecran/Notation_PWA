@@ -55,6 +55,12 @@ const SUB_TABS = [
   { id: 'compare', label: 'Comparer' },
 ];
 const SWIPE_MIN_DISTANCE = 60;
+const TOP_OFFSET = 'var(--header-opaque-height, env(safe-area-inset-top, 0px))';
+const TABS_ROW_HEIGHT = 44;
+const BAR_FADE =
+  'linear-gradient(to bottom, color-mix(in srgb, var(--theme-bg, #111) 70%, transparent) 0%, color-mix(in srgb, var(--theme-bg, #111) 38%, transparent) 55%, transparent 100%)';
+const BAR_MASK =
+  'linear-gradient(to bottom, rgba(0,0,0,.7) 0%, rgba(0,0,0,.42) 55%, transparent 100%)';
 
 const SectionLabel = ({ children, className = 'ml-5' }) => (
   <h3 className={`font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-2 ${className}`}>
@@ -614,23 +620,67 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-12 relative">
       <style>{PAGE_CSS}</style>
-            <div
-        className="fixed right-4 z-[90] rounded-full"
-        style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-          background: 'color-mix(in srgb, var(--theme-bg) 70%, transparent)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
-      >
-        <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
+      <h1 className="sr-only">Amis</h1>
+
+      {/* Barre d'onglets fixe façon TikTok : texte seul, fond fondu, bouton de partage à droite */}
+      <div className="fixed inset-x-0 top-0 z-[90] pb-2" style={{ paddingTop: TOP_OFFSET }}>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: BAR_FADE }} />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backdropFilter: 'blur(22px) saturate(145%)',
+            WebkitBackdropFilter: 'blur(22px) saturate(145%)',
+            maskImage: BAR_MASK,
+            WebkitMaskImage: BAR_MASK,
+          }}
+        />
+        <div className="relative flex items-center justify-center" style={{ height: TABS_ROW_HEIGHT }}>
+          <div
+            role="tablist"
+            aria-label="Sections de la communauté"
+            onKeyDown={handleTabKeys}
+            className="flex items-center gap-8"
+          >
+            {SUB_TABS.map(({ id, label }) => {
+              const isActive = activeSubTab === id;
+              return (
+                <button
+                  key={id}
+                  id={`community-tab-${id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`community-panel-${id}`}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => selectSubTab(id)}
+                  className="relative flex min-h-11 items-center rounded-md px-1 font-outfit text-[15px] font-bold tracking-wide text-[var(--theme-text)] transition-opacity duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                  style={{ opacity: isActive ? 1 : 0.5 }}
+                >
+                  {label}
+                  <span
+                    aria-hidden="true"
+                    className="absolute bottom-2.5 left-1/2 h-[2px] -translate-x-1/2 rounded-full transition-all duration-300"
+                    style={{
+                      width: isActive ? '100%' : '0%',
+                      background: 'var(--theme-accent-gradient, var(--theme-accent))',
+                    }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+          <div className="absolute right-2 top-0">
+            <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
+          </div>
+        </div>
       </div>
 
       <main
-        className="space-y-4 px-4"
+        className="px-4"
         style={{
-          paddingTop: 'calc(var(--header-total-height, 0px) + 8px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
+          paddingTop: `calc(${TOP_OFFSET} + ${TABS_ROW_HEIGHT}px)`,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
           minHeight: '70dvh',
           touchAction: 'pan-y',
         }}
@@ -638,43 +688,6 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { swipeRef.current = null; }}
       >
-
-        {/* Onglets façon TikTok : texte seul, soulignement sur l'onglet actif */}
-        <div
-          role="tablist"
-          aria-label="Sections de la communauté"
-          onKeyDown={handleTabKeys}
-          className="flex items-center justify-center gap-8"
-        >
-          {SUB_TABS.map(({ id, label }) => {
-            const isActive = activeSubTab === id;
-            return (
-              <button
-                key={id}
-                id={`community-tab-${id}`}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`community-panel-${id}`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => selectSubTab(id)}
-                className="relative min-h-11 px-1 pb-2 font-outfit text-[15px] font-bold tracking-wide text-[var(--theme-text)] transition-opacity duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded-md"
-                style={{ opacity: isActive ? 1 : 0.4 }}
-              >
-                {label}
-                <span
-                  aria-hidden="true"
-                  className="absolute bottom-0.5 left-1/2 h-[2px] -translate-x-1/2 rounded-full transition-all duration-300"
-                  style={{
-                    width: isActive ? '100%' : '0%',
-                    background: 'var(--theme-accent-gradient, var(--theme-accent))',
-                  }}
-                />
-              </button>
-            );
-          })}
-        </div>
-
         <div
           key={activeSubTab}
           role="tabpanel"
