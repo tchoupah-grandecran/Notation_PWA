@@ -137,7 +137,7 @@ const DEFAULT_TITLES = {
   home:    'Ton cinéma',
   history: 'Journal',
   studio:  'Atelier',
-  community: 'Amis',
+  community: '',
   profile: 'Profil',
 };
 

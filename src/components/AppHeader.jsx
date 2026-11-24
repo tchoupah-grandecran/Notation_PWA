@@ -104,9 +104,13 @@ export function AppHeader({
             }}
           />
           <div className="relative z-[1] flex h-16 items-center gap-3 px-5">
-            <h1 className="font-galinoy italic min-w-0 flex-1 truncate text-[26px] leading-none">
-              {headerTitle}
-            </h1>
+            {headerTitle ? (
+              <h1 className="font-galinoy italic min-w-0 flex-1 truncate text-[26px] leading-none">
+                {headerTitle}
+              </h1>
+            ) : (
+              <div className="flex-1" aria-hidden="true" />
+            )}
             {headerRight && (
               <div className="flex shrink-0 items-center gap-2">{headerRight}</div>
             )}
@@ -228,9 +232,13 @@ export function AppHeader({
           </div>
 
           <div className="flex items-center gap-3 overflow-visible px-8" style={{ height: `${TITLE_ROW_H}px` }}>
-            <h1 className="font-galinoy italic min-w-0 flex-1 truncate text-[32px] leading-[1.15] tracking-[-0.01em]" style={{ color: textPrimary, margin: 0 }}>
-              {headerTitle}
-            </h1>
+            {headerTitle ? (
+              <h1 className="font-galinoy italic min-w-0 flex-1 truncate text-[32px] leading-[1.15] tracking-[-0.01em]" style={{ color: textPrimary, margin: 0 }}>
+                {headerTitle}
+              </h1>
+            ) : (
+              <div className="flex-1" aria-hidden="true" />
+            )}
             {headerRight && <div className="flex shrink-0 items-center gap-2">{headerRight}</div>}
           </div>
         </div>
