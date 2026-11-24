@@ -234,7 +234,7 @@ function ShareModal({
               <SectionLabel className="ml-1">Mon code ami</SectionLabel>
               <div className="rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-bg)] p-5">
                 <p
-                  className="select-all text-center font-galinoy text-[32px] italic tracking-[0.12em]"
+                  className="select-all text-center font-Outfit text-[22px] tracking-[0.12em]"
                   style={{ color: 'var(--theme-accent)' }}
                 >
                   {me.friendCode}
