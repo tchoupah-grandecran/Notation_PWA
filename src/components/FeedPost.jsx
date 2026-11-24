@@ -324,7 +324,7 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
           </p>
           <p className="font-outfit text-[12px] text-[var(--theme-text-secondary)]">
             {isMe ? '' : 'a vu un film'}
-            {when && ` · ${when}`}
+            {when && (isMe ? when : ` · ${when}`)}
           </p>
         </div>
       </div>
