@@ -138,26 +138,26 @@ const CUTOUT_FILTER = [
 ].join(' ');
 
 function AvatarStack({ people, size }) {
-  const headroom = Math.round(size * 0.35); // space for the head sticking out
+  const top = Math.round(size * 0.6); // room for the head sticking out
+  const pad = 4;                      // room for the outline on the other sides
   const overlap = size >= 32 ? 12 : 8;
   return (
-    <div
-      className="flex shrink-0 items-center"
-      style={{ paddingTop: headroom, marginTop: -headroom }}
-    >
+    <div className="flex shrink-0 items-center">
       {people.slice(0, MAX_AVATARS).map((person, index) => (
         <span
           key={person.key}
-          className="relative flex rounded-full"
+          className="relative flex"
           style={{
             lineHeight: 0,
             zIndex: index + 1,
-            marginLeft: index > 0 ? -overlap : 0,
-            background: 'var(--theme-surface)',
+            padding: `${top}px ${pad}px ${pad}px`,
+            margin: `-${top}px ${-pad}px ${-pad}px ${index > 0 ? -(overlap + pad) : -pad}px`,
             filter: CUTOUT_FILTER,
           }}
         >
-          <FriendAvatar name={person.name} url={person.url} size={size} />
+          <span className="flex rounded-full" style={{ background: 'var(--theme-surface)' }}>
+            <FriendAvatar name={person.name} url={person.url} size={size} />
+          </span>
         </span>
       ))}
     </div>
