@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Film, Heart, Popcorn, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Film, Heart, PopcornIcon, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { fetchTmdbPoster } from '../communityApi';
 import { formatScore } from '../communityStats';
 import { FriendAvatar, Skeleton } from './communityUi';
@@ -12,7 +12,7 @@ const MAX_NAMES = 3;
 const REACTIONS = [
   { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
   { kind: 'dislike', Icon: ThumbsDown, fillable: true, label: 'Je n’aime pas', short: '' },
-  { kind: 'watch', Icon: Popcorn, fillable: false, label: 'À voir', short: 'À voir' },
+  { kind: 'watch', Icon: PopcornIcon, fillable: false, label: 'À voir', short: 'À voir' },
 ];
 
 const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
