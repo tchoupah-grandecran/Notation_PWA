@@ -151,7 +151,8 @@ export function buildFilmIndex(historyData, ratingScale) {
 /* ─── Fil d'actualité façon discussion : un bloc par film ─────────────
    - vu uniquement par un/des ami(s) seul(s) → kind « friend » (à gauche)
    - vu uniquement par moi                  → kind « mine »   (à droite)
-   - vu par 2 personnes ou plus (moi inclus) → kind « shared » (une seule carte, toutes les notes) */
+   - vu par 2 personnes ou plus (moi inclus) → kind « shared » (une seule carte, toutes les notes)
+   Pour chaque film, on réunit TOUTES les affiches connues (moi + amis) : `posters`. */
 export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 }) {
   const index = buildFilmIndex(historyData, ratingScale);
   const groups = [];
@@ -164,13 +165,16 @@ export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 
   const addEntry = (film, entry) => {
     let group = findGroup(film.tmdbId, film.title);
     if (!group) {
-      group = { film: { ...film }, entries: [] };
+      group = { film: { title: film.title, genre: null, tmdbId: null }, posters: [], entries: [] };
       groups.push(group);
     }
-    if (film.tmdbId) byTmdb.set(String(film.tmdbId), group);
+    if (film.tmdbId) {
+      byTmdb.set(String(film.tmdbId), group);
+      if (!group.film.tmdbId) group.film.tmdbId = String(film.tmdbId);
+    }
     byName.set(normalizeTitle(film.title), group);
-    if (!group.film.poster && film.poster) group.film.poster = film.poster;
     if (!group.film.genre && film.genre) group.film.genre = film.genre;
+    if (film.poster && !group.posters.includes(film.poster)) group.posters.push(film.poster);
 
     // Une même personne ne compte qu'une fois par film (séance la plus récente)
     const at = group.entries.findIndex((existing) => existing.id === entry.id);
@@ -206,10 +210,20 @@ export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 
     );
   }
 
-  // 2. Si j'ai vu le même film (même ancien), ma note rejoint le même bloc
+  // 2. Si j'ai vu le même film (même ancien), ma note rejoint le même bloc, avec mon affiche et mon TMDB ID
   for (const group of [...groups]) {
     const mine = index.find(group.film.tmdbId, group.film.title);
-    if (mine) addEntry(group.film, meEntry(mine));
+    if (mine) {
+      addEntry(
+        {
+          title: group.film.title,
+          tmdbId: group.film.tmdbId || mine.tmdbId,
+          poster: mine.poster,
+          genre: mine.genre,
+        },
+        meEntry(mine)
+      );
+    }
   }
 
   // 3. Mes derniers films, vus seulement par moi
@@ -230,6 +244,7 @@ export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 
       return {
         key: group.film.tmdbId ? `t${group.film.tmdbId}` : `n${normalizeTitle(group.film.title)}`,
         film: group.film,
+        posters: group.posters,
         entries,
         latest,
         kind: entries.length >= 2 ? 'shared' : entries[0].who === 'me' ? 'mine' : 'friend',

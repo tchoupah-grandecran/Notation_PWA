@@ -5,6 +5,7 @@ import { buildFeedGroups } from '../communityStats';
 import { EmptyState, FriendAvatar, Skeleton } from '../components/communityUi';
 import {
   addFriendByCode,
+  fetchTmdbPoster,
   getFeed,
   getMyCommunityProfile,
   listFriends,
@@ -196,18 +197,51 @@ function RatingBadge({ entry }) {
   );
 }
 
-function FilmBlock({ film }) {
+/* Affiche : essaie chaque lien connu (moi + amis), puis TMDB via l'identifiant, puis un cadre neutre. */
+function Poster({ posters, tmdbId }) {
+  const [attempt, setAttempt] = useState(0);
+  const [fetched, setFetched] = useState(null); // null = pas encore essayé · '' = rien trouvé
+
+  useEffect(() => {
+    if (attempt < posters.length || fetched !== null || !tmdbId) return undefined;
+    let cancelled = false;
+    fetchTmdbPoster(tmdbId).then((url) => {
+      if (!cancelled) setFetched(url || '');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt, posters, fetched, tmdbId]);
+
+  const candidates = fetched && !posters.includes(fetched) ? [...posters, fetched] : posters;
+  const src = candidates[attempt];
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        onError={() => setAttempt((current) => current + 1)}
+        className="h-[84px] w-14 shrink-0 rounded-md object-cover"
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded-md"
+      style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
+    >
+      <Film size={18} className="opacity-25" />
+    </div>
+  );
+}
+
+function FilmBlock({ film, posters }) {
   return (
     <div className="flex gap-3">
-      {film.poster ? (
-        <img src={film.poster} alt="" loading="lazy" className="h-[84px] w-14 shrink-0 rounded-md object-cover" />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="h-[84px] w-14 shrink-0 rounded-md"
-          style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
-        />
-      )}
+      <Poster key={posters.join('|')} posters={posters} tmdbId={film.tmdbId} />
       <div className="min-w-0 flex-1 text-left">
         <p className="break-words font-outfit text-[14px] font-semibold leading-snug text-[var(--theme-text)]">
           {film.title}
@@ -276,7 +310,7 @@ function SingleBubble({ group, userName, userAvatar }) {
         </div>
 
         <div className="mt-3">
-          <FilmBlock film={group.film} />
+          <FilmBlock film={group.film} posters={group.posters} />
         </div>
         <div className="mt-3">
           <RatingBadge entry={entry} />
@@ -306,7 +340,7 @@ function SharedCard({ group, userName, userAvatar }) {
           Vu par {group.entries.length} personnes
         </p>
 
-        <FilmBlock film={group.film} />
+        <FilmBlock film={group.film} posters={group.posters} />
 
         <ul className="mt-4 space-y-2.5">
           {group.entries.map((entry) => {

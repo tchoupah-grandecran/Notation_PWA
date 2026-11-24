@@ -53,6 +53,28 @@ export const getFeed = () => call('feed');
 /** Stats d'un ami + films en commun. → { friend, stats | null, updatedAt, common: [...] } */
 export const compareWithFriend = (friendCode) => call('compare', { friendCode });
 
+// ─── Affiche d'un film à partir de son TMDB ID (repli quand aucun lien direct ne fonctionne) ───
+const posterCache = new Map(); // tmdbId → Promise<string | null>
+
+export function fetchTmdbPoster(tmdbId) {
+  const id = String(tmdbId || '').trim();
+  const apiKey = import.meta.env.VITE_TMDB_API_KEY;
+  if (!/^\d+$/.test(id) || !apiKey) return Promise.resolve(null);
+
+  if (!posterCache.has(id)) {
+    const request = fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${apiKey}&language=fr-FR`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json) => (json?.poster_path ? `https://image.tmdb.org/t/p/w500${json.poster_path}` : null))
+      .catch(() => null)
+      .then((url) => {
+        if (!url) posterCache.delete(id); // on pourra réessayer plus tard
+        return url;
+      });
+    posterCache.set(id, request);
+  }
+  return posterCache.get(id);
+}
+
 // ─── Synchronisation de mes séances ──────────────────────────────────
 const toActivityItem = (film, ratingScale) => {
   const rating = parseNote(film?.note);
@@ -102,6 +124,16 @@ async function pushActivity(historyData, ratingScale) {
     .sort((a, b) => b.watchedOn.localeCompare(a.watchedOn))
     .slice(0, SYNC_LIMIT);
   if (items.length === 0) return { skipped: true };
+
+  // Remédiation à la source : un film avec TMDB ID mais sans affiche en reçoit une avant l'envoi,
+  // pour que mes amis la voient aussi.
+  await Promise.all(
+    items
+      .filter((item) => !item.poster && item.tmdbId)
+      .map(async (item) => {
+        item.poster = (await fetchTmdbPoster(item.tmdbId)) || null;
+      })
+  );
 
   const signature = JSON.stringify(items);
   if (readStorage(SIGNATURE_KEY) === signature) return { unchanged: true };

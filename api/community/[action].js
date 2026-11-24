@@ -170,8 +170,8 @@ async function activity(account, body, res) {
         rating        = EXCLUDED.rating,
         rating_scale  = EXCLUDED.rating_scale,
         genre         = EXCLUDED.genre,
-        poster_url    = EXCLUDED.poster_url,
-        tmdb_id       = EXCLUDED.tmdb_id,
+        poster_url    = COALESCE(EXCLUDED.poster_url, community_activity.poster_url),
+        tmdb_id       = COALESCE(EXCLUDED.tmdb_id, community_activity.tmdb_id),
         coup_de_coeur = EXCLUDED.coup_de_coeur,
         watched_on    = EXCLUDED.watched_on,
         comment       = EXCLUDED.comment`)
