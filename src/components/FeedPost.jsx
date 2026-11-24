@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Film, Heart } from 'lucide-react';
+import { Film, Heart, Popcorn, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { fetchTmdbPoster } from '../communityApi';
 import { formatScore } from '../communityStats';
 import { FriendAvatar, Skeleton } from './communityUi';
@@ -10,9 +10,9 @@ const POST = 'border-b-8 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4
 const MAX_NAMES = 3;
 
 const REACTIONS = [
-  { kind: 'like', emoji: '👍', label: 'J’aime', short: '' },
-  { kind: 'dislike', emoji: '👎', label: 'Je n’aime pas', short: '' },
-  { kind: 'watch', emoji: '🍿', label: 'À voir', short: 'À voir' },
+  { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
+  { kind: 'dislike', Icon: ThumbsDown, fillable: true, label: 'Je n’aime pas', short: '' },
+  { kind: 'watch', Icon: Popcorn, fillable: false, label: 'À voir', short: 'À voir' },
 ];
 
 const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
@@ -163,12 +163,12 @@ function ReactionSummary({ entry }) {
   if (lines.length === 0) return null;
   return (
     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-left font-outfit text-[12px] text-[var(--theme-text-secondary)]">
-      {lines.map(({ kind, emoji, label, list }) => {
+      {lines.map(({ kind, Icon, label, list }) => {
         const all = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami'));
         const shown = all.length > MAX_NAMES ? [...all.slice(0, 2), `${all.length - 2} autres`] : all;
         return (
           <span key={kind} className="inline-flex items-center gap-1" aria-label={`${label} : ${all.join(', ')}`}>
-            <span aria-hidden="true">{emoji}</span>
+            <Icon size={13} aria-hidden="true" />
             <span>{shown.join(', ')}</span>
           </span>
         );
@@ -186,7 +186,7 @@ function ReactionBar({ entry, onReact, flush = false }) {
       aria-label="Réagir"
       className={flush ? 'mt-1 flex' : '-mx-4 mt-3 flex border-t border-[var(--theme-border)] px-2'}
     >
-      {REACTIONS.map(({ kind, emoji, label, short }) => {
+      {REACTIONS.map(({ kind, Icon, label, short }) => {
         const list = entry.reactions?.[kind] || [];
         const mine = list.some((reactor) => reactor.mine);
         const names = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami')).join(', ');
@@ -201,7 +201,12 @@ function ReactionBar({ entry, onReact, flush = false }) {
             className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
             style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
           >
-            <span aria-hidden="true" style={{ opacity: mine ? 1 : 0.7 }}>{emoji}</span>
+            <Icon
+  size={18}
+  strokeWidth={mine ? 2.5 : 2}
+  fill={mine && fillable ? 'currentColor' : 'none'}
+  aria-hidden="true"
+/>
             {list.length > 0 && <span>{list.length}</span>}
             {short && <span>{short}</span>}
           </button>
