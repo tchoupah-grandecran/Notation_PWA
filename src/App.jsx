@@ -6,7 +6,7 @@ import { useHistory } from './hooks/useHistory';
 import PendingRatingToast from './components/PendingRatingToast';
 import { Community } from './pages/Community';
 import { syncActivity } from './communityApi';
-import { OWNER_UID } from './config';
+import { OWNER_EMAIL } from './config';
 import * as api from './api';
 
 import { AppHeader } from './components/AppHeader';
@@ -154,7 +154,7 @@ function App() {
   const [showNotation,  setShowNotation]  = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState('');
-  const [googleId, setGoogleId] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
   const [headerRight, setHeaderRight] = useState(null);
 
@@ -310,22 +310,17 @@ function App() {
       window.location.reload();
     }
   };
-  useEffect(() => {
-  if (!userToken) { setGoogleId(''); return; }
-  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+useEffect(() => {
+  if (!userToken) { setUserEmail(''); return; }
+  fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
     headers: { Authorization: `Bearer ${userToken}` },
   })
     .then((r) => (r.ok ? r.json() : null))
-    .then((d) => {
-      if (d?.sub) {
-        console.log('My Google ID:', d.sub); // temporary, remove after step 3
-        setGoogleId(d.sub);
-      }
-    })
+    .then((d) => setUserEmail((d?.emailAddress || '').toLowerCase()))
     .catch(() => {});
 }, [userToken]);
 
-const isOwner = googleId !== '' && googleId === OWNER_UID;
+const isOwner = userEmail !== '' && userEmail === OWNER_EMAIL.toLowerCase();
 const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
 
   if (isAuthLoading) {
