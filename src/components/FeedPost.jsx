@@ -10,9 +10,9 @@ const POST = 'border-b-8 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4
 const MAX_NAMES = 3;
 
 const REACTIONS = [
-  { kind: 'like', Icon: ThumbsUp, label: 'J’aime', short: '' },
-  { kind: 'dislike', Icon: ThumbsDown, label: 'Je n’aime pas', short: '' },
-  { kind: 'watch', Icon: PopcornIcon, label: 'À voir', short: 'À voir' },
+  { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
+  { kind: 'dislike', Icon: ThumbsDown, fillable: true, label: 'Je n’aime pas', short: '' },
+  { kind: 'watch', Icon: PopcornIcon, fillable: false, label: 'À voir', short: 'À voir' },
 ];
 
 const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
@@ -186,32 +186,32 @@ function ReactionBar({ entry, onReact, flush = false }) {
       aria-label="Réagir"
       className={flush ? 'mt-1 flex' : '-mx-4 mt-3 flex border-t border-[var(--theme-border)] px-2'}
     >
-      {REACTIONS.map(({ kind, Icon, label, short }) => {
-        const list = entry.reactions?.[kind] || [];
-        const mine = list.some((reactor) => reactor.mine);
-        const names = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami')).join(', ');
-        return (
-          <button
-            key={kind}
-            type="button"
-            aria-pressed={mine}
-            aria-label={names ? `${label} (${names})` : label}
-            title={names || label}
-            onClick={() => onReact(entry.activityId, kind, !mine)}
-            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-            style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
-          >
-            <Icon
-  size={18}
-  strokeWidth={mine ? 2.5 : 2}
-  fill={mine && fillable ? 'currentColor' : 'none'}
-  aria-hidden="true"
-/>
-            {list.length > 0 && <span>{list.length}</span>}
-            {short && <span>{short}</span>}
-          </button>
-        );
-      })}
+      {REACTIONS.map(({ kind, Icon, fillable, label, short }) => {
+  const list = entry.reactions?.[kind] || [];
+  const mine = list.some((reactor) => reactor.mine);
+  const names = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami')).join(', ');
+  return (
+    <button
+      key={kind}
+      type="button"
+      aria-pressed={mine}
+      aria-label={names ? `${label} (${names})` : label}
+      title={names || label}
+      onClick={() => onReact(entry.activityId, kind, !mine)}
+      className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+      style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
+    >
+      <Icon
+        size={18}
+        strokeWidth={mine ? 2.5 : 2}
+        fill={mine && fillable ? 'currentColor' : 'none'}
+        aria-hidden="true"
+      />
+      {list.length > 0 && <span>{list.length}</span>}
+      {short && <span>{short}</span>}
+    </button>
+  );
+})}
     </div>
   );
 }
