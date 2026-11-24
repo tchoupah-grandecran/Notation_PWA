@@ -10,9 +10,9 @@ const POST = 'border-b-8 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4
 const MAX_NAMES = 3;
 
 const REACTIONS = [
-  { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
-  { kind: 'dislike', Icon: ThumbsDown, fillable: true, label: 'Je n’aime pas', short: '' },
-  { kind: 'watch', Icon: PopcornIcon, fillable: false, label: 'À voir', short: 'À voir' },
+  { kind: 'like', Icon: ThumbsUp, label: 'J’aime', short: '' },
+  { kind: 'dislike', Icon: ThumbsDown, label: 'Je n’aime pas', short: '' },
+  { kind: 'watch', Icon: PopcornIcon, label: 'À voir', short: 'À voir' },
 ];
 
 const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
