@@ -1,0 +1,1 @@
+export const OWNER_UID = ''; // paste your Google ID here (step 3)

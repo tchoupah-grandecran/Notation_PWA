@@ -6,7 +6,7 @@ import { useHistory } from './hooks/useHistory';
 import PendingRatingToast from './components/PendingRatingToast';
 import { Community } from './pages/Community';
 import { syncActivity } from './communityApi';
-
+import { OWNER_UID } from './config';
 import * as api from './api';
 
 import { AppHeader } from './components/AppHeader';
@@ -154,7 +154,7 @@ function App() {
   const [showNotation,  setShowNotation]  = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState('');
-
+  const [googleId, setGoogleId] = useState('');
   const [headerTitle, setHeaderTitle] = useState(DEFAULT_TITLES['home']);
   const [headerRight, setHeaderRight] = useState(null);
 
@@ -310,6 +310,23 @@ function App() {
       window.location.reload();
     }
   };
+  useEffect(() => {
+  if (!userToken) { setGoogleId(''); return; }
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${userToken}` },
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (d?.sub) {
+        console.log('My Google ID:', d.sub); // temporary, remove after step 3
+        setGoogleId(d.sub);
+      }
+    })
+    .catch(() => {});
+}, [userToken]);
+
+const isOwner = googleId !== '' && googleId === OWNER_UID;
+const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
 
   if (isAuthLoading) {
     return (
@@ -401,7 +418,7 @@ function App() {
     ratingScale={prefs.ratingScale}
   />
 )}
-        {activeTab === 'studio' && (
+        {safeTab === 'studio' && (
           <Studio
             historyData={historyData}
             pendingFilm={nextFilm}
@@ -414,7 +431,8 @@ function App() {
       {!showNotation && (
         <div className="relative z-40">
           <AppHeader
-            activeTab={activeTab}
+            activeTab={safeTab}
+            isOwner={isOwner}
             setActiveTab={handleTabChange}
             scrollY={scrollY}
             headerTitle={headerTitle}

@@ -12,7 +12,7 @@ const TAIL_H = 24;
 const TABS = [
   { id: 'home', label: 'Accueil', Icon: House },
   { id: 'history', label: 'Journal', Icon: Clock3 },
-  { id: 'studio', label: 'Atelier', Icon: Clapperboard },
+  { id: 'studio', label: 'Atelier', Icon: Clapperboard, ownerOnly: true },
   { id: 'community', label: 'Amis', Icon: Users },
   { id: 'profile', label: 'Profil', Icon: UserRound },
 ];
@@ -24,8 +24,10 @@ export function AppHeader({
   headerTitle,
   headerRight,
   hideTopBar = false,
+  isOwner = false,
   accentColor = 'var(--theme-accent, #E8B200)',
 }) {
+  const tabs = TABS.filter((tab) => !tab.ownerOnly || isOwner);
   const [expanded, setExpanded] = useState(true);
   const prevScrollY = useRef(0);
   const upAccum = useRef(0);
@@ -127,12 +129,13 @@ export function AppHeader({
         >
           <nav
             aria-label="Navigation principale"
-            className="relative mx-auto grid h-[60px] w-full max-w-[400px] grid-cols-5 overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
+            className="relative mx-auto grid h-[60px] w-full max-w-[400px] overflow-hidden rounded-full border px-2 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.22)] pointer-events-auto"
             style={{
               background: 'color-mix(in srgb, var(--theme-surface, var(--theme-bg, #111)) 42%, transparent)',
               borderColor: 'color-mix(in srgb, var(--theme-text, #fff) 16%, transparent)',
               backdropFilter: 'blur(28px) saturate(180%)',
               WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+              gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
             }}
           >
             <div
@@ -142,7 +145,7 @@ export function AppHeader({
                 background: 'linear-gradient(145deg, rgba(255,255,255,.16), transparent 42%, rgba(255,255,255,.035))',
               }}
             />
-            {TABS.map(({ id, label, Icon }) => {
+            {tabs.map(({ id, label, Icon }) => {
               const isActive = activeTab === id;
               return (
                 <button
@@ -210,7 +213,7 @@ export function AppHeader({
               </p>
 
               <nav aria-label="Navigation principale" className="absolute left-1/2 flex -translate-x-1/2 items-center gap-4">
-                {TABS.map(({ id, label }) => {
+                {tabs.map(({ id, label }) => {
                   const isActive = activeTab === id;
                   return (
                     <button
