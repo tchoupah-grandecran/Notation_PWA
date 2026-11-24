@@ -138,18 +138,23 @@ const CUTOUT_FILTER = [
 ].join(' ');
 
 function AvatarStack({ people, size }) {
-  const overlap = size >= 32 ? '-ml-3' : '-ml-2';
+  const headroom = Math.round(size * 0.35); // space for the head sticking out
+  const overlap = size >= 32 ? 12 : 8;
   return (
-    <div className="flex shrink-0 items-center">
+    <div
+      className="flex shrink-0 items-center"
+      style={{ paddingTop: headroom, marginTop: -headroom }}
+    >
       {people.slice(0, MAX_AVATARS).map((person, index) => (
         <span
           key={person.key}
-          className={`relative flex rounded-full ${index > 0 ? overlap : ''}`}
+          className="relative flex rounded-full"
           style={{
             lineHeight: 0,
             zIndex: index + 1,
-            background: 'var(--theme-surface)', // opaque base: hides the avatar underneath
-            filter: CUTOUT_FILTER,              // outlines the real silhouette, head included
+            marginLeft: index > 0 ? -overlap : 0,
+            background: 'var(--theme-surface)',
+            filter: CUTOUT_FILTER,
           }}
         >
           <FriendAvatar name={person.name} url={person.url} size={size} />
