@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Clock3, Copy, Film, Heart, Share2, UserPlus, Users, X } from 'lucide-react';
 import { CompareView } from '../components/CompareView';
+import { buildFeedGroups } from '../communityStats';
 import { EmptyState, FriendAvatar, Skeleton } from '../components/communityUi';
 import {
   addFriendByCode,
@@ -87,28 +88,23 @@ function FeedSkeleton({ rows = 3 }) {
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">Chargement du fil d’actualité…</span>
-      <ul className="divide-y divide-[var(--theme-border)] overflow-hidden rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+      <ul className="space-y-3">
         {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="px-4 py-4" aria-hidden="true">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-              <Skeleton className="h-3 w-40 rounded-full" />
-            </div>
-            <div className="mt-3 flex gap-3">
-              <Skeleton className="h-[84px] w-14 shrink-0 rounded-md" />
-              <div className="flex-1 space-y-2 pt-1">
-                <Skeleton className="h-4 w-3/4 rounded-full" />
-                <Skeleton className="h-4 w-1/2 rounded-full" />
-                <Skeleton className="h-4 w-24 rounded-full" />
+          <li key={i} aria-hidden="true" className={`flex ${i % 2 === 1 ? 'justify-end' : 'justify-start'}`}>
+            <div className="w-full max-w-[88%] rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)] p-4">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+                <Skeleton className="h-3 w-32 rounded-full" />
+              </div>
+              <div className="mt-3 flex gap-3">
+                <Skeleton className="h-[84px] w-14 shrink-0 rounded-md" />
+                <div className="flex-1 space-y-2 pt-1">
+                  <Skeleton className="h-4 w-3/4 rounded-full" />
+                  <Skeleton className="h-3 w-1/3 rounded-full" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
               </div>
             </div>
-            {i % 2 === 0 && (
-              <div className="mt-3 space-y-2">
-                <Skeleton className="h-3 w-28 rounded-full" />
-                <Skeleton className="h-3 w-full rounded-full" />
-                <Skeleton className="h-3 w-2/3 rounded-full" />
-              </div>
-            )}
           </li>
         ))}
       </ul>
@@ -171,74 +167,188 @@ function ProfileButton({ name, url, onClick }) {
   );
 }
 
-function FeedItem({ item }) {
-  const name = item.friend.displayName || 'Un ami';
-  const when = formatWatched(item.watchedOn);
+const MINE_TINT = 'color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface))';
+const MINE_BORDER = 'color-mix(in srgb, var(--theme-accent) 35%, var(--theme-border))';
+
+function WhenLabel({ iso }) {
+  const when = formatWatched(iso);
+  if (!when) return null;
   return (
-    <li className="px-4 py-4">
-      {/* Qui a vu, et quand */}
-      <div className="flex items-center gap-2.5">
-        <FriendAvatar name={item.friend.displayName} url={item.friend.avatarUrl} size={30} />
-        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-outfit text-[12px] leading-tight text-[var(--theme-text-secondary)]">
-          <span>
-            <span className="font-bold text-[var(--theme-text)]">{name}</span> a vu
-          </span>
-          {when && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock3 size={12} aria-hidden="true" />
-                {when}
-              </span>
-            </>
-          )}
-        </p>
-      </div>
+    <span className="inline-flex items-center gap-1">
+      <Clock3 size={12} aria-hidden="true" />
+      {when}
+    </span>
+  );
+}
 
-      {/* Film */}
-      <div className="mt-3 flex gap-3">
-        {item.poster ? (
-          <img src={item.poster} alt="" loading="lazy" className="h-[84px] w-14 shrink-0 rounded-md object-cover" />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="h-[84px] w-14 shrink-0 rounded-md"
-            style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
-          />
-        )}
-        <div className="min-w-0 flex-1 text-left">
-          <p className="break-words font-outfit text-[14px] font-semibold leading-snug text-[var(--theme-text)]">
-            {item.title}
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
-            <span
-              className="rounded-full border px-2 py-0.5 text-[10px] font-black"
-              style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
-            >
-              {formatRating(item.rating, item.ratingScale)}
-            </span>
-            {item.coupDeCoeur && (
-              <Heart size={13} fill="currentColor" aria-label="Coup de cœur" style={{ color: 'var(--theme-accent)' }} />
-            )}
-            {item.genre && <span>{item.genre}</span>}
-          </div>
-        </div>
-      </div>
+function RatingBadge({ entry }) {
+  if (entry.rating === null || entry.rating === undefined) {
+    return <span className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">vu, sans note</span>;
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-outfit text-[10px] font-black"
+      style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
+    >
+      {formatRating(entry.rating, entry.scale)}
+      {entry.heart && <Heart size={11} fill="currentColor" aria-label="Coup de cœur" />}
+    </span>
+  );
+}
 
-      {/* Avis */}
-      {item.comment && (
-        <div className="mt-3">
-          <p className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">et en a pensé ça :</p>
-          <blockquote
-            className="mt-1.5 whitespace-pre-line break-words border-l-2 pl-3 font-outfit text-[13px] leading-relaxed text-[var(--theme-text)]"
-            style={{ borderColor: 'var(--theme-accent)' }}
-          >
-            {item.comment}
-          </blockquote>
-        </div>
+function FilmBlock({ film }) {
+  return (
+    <div className="flex gap-3">
+      {film.poster ? (
+        <img src={film.poster} alt="" loading="lazy" className="h-[84px] w-14 shrink-0 rounded-md object-cover" />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="h-[84px] w-14 shrink-0 rounded-md"
+          style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
+        />
       )}
+      <div className="min-w-0 flex-1 text-left">
+        <p className="break-words font-outfit text-[14px] font-semibold leading-snug text-[var(--theme-text)]">
+          {film.title}
+        </p>
+        {film.genre && (
+          <p className="mt-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">{film.genre}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommentBlock({ entry }) {
+  if (!entry.comment) return null;
+  return (
+    <div className="mt-3">
+      <p className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">
+        {entry.who === 'me' ? 'et en as pensé ça :' : 'et en a pensé ça :'}
+      </p>
+      <blockquote
+        className="mt-1.5 whitespace-pre-line break-words border-l-2 pl-3 font-outfit text-[13px] leading-relaxed text-[var(--theme-text)]"
+        style={{ borderColor: 'var(--theme-accent)' }}
+      >
+        {entry.comment}
+      </blockquote>
+    </div>
+  );
+}
+
+/* Un seul spectateur : bulle à gauche (ami) ou à droite (moi) */
+function SingleBubble({ group, userName, userAvatar }) {
+  const entry = group.entries[0];
+  const isMe = entry.who === 'me';
+  return (
+    <li className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`w-full max-w-[88%] rounded-[20px] border p-4 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
+        style={{
+          background: isMe ? MINE_TINT : 'var(--theme-surface)',
+          borderColor: isMe ? MINE_BORDER : 'var(--theme-border)',
+        }}
+      >
+        <div className="flex items-center gap-2.5">
+          <FriendAvatar
+            name={isMe ? userName : entry.name}
+            url={isMe ? userAvatar : entry.avatarUrl}
+            size={30}
+          />
+          <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-outfit text-[12px] leading-tight text-[var(--theme-text-secondary)]">
+            <span>
+              {isMe ? (
+                <span className="font-bold text-[var(--theme-text)]">Tu as vu</span>
+              ) : (
+                <>
+                  <span className="font-bold text-[var(--theme-text)]">{entry.name}</span> a vu
+                </>
+              )}
+            </span>
+            {entry.watchedOn && (
+              <>
+                <span aria-hidden="true">·</span>
+                <WhenLabel iso={entry.watchedOn} />
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="mt-3">
+          <FilmBlock film={group.film} />
+        </div>
+        <div className="mt-3">
+          <RatingBadge entry={entry} />
+        </div>
+        <CommentBlock entry={entry} />
+      </div>
     </li>
   );
+}
+
+/* Deux spectateurs ou plus : une seule carte mise en avant, avec toutes les notes en discussion */
+function SharedCard({ group, userName, userAvatar }) {
+  return (
+    <li>
+      <div
+        className="rounded-[20px] border-2 p-4"
+        style={{
+          borderColor: 'var(--theme-accent)',
+          background: 'color-mix(in srgb, var(--theme-accent) 6%, var(--theme-surface))',
+        }}
+      >
+        <p
+          className="mb-3 flex items-center gap-1.5 font-outfit text-[10px] font-black uppercase tracking-[0.18em]"
+          style={{ color: 'var(--theme-accent)' }}
+        >
+          <Users size={12} aria-hidden="true" />
+          Vu par {group.entries.length} personnes
+        </p>
+
+        <FilmBlock film={group.film} />
+
+        <ul className="mt-4 space-y-2.5">
+          {group.entries.map((entry) => {
+            const isMe = entry.who === 'me';
+            return (
+              <li key={entry.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[94%] rounded-2xl border px-3 py-2.5 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
+                  style={{
+                    background: isMe ? MINE_TINT : 'var(--theme-bg)',
+                    borderColor: isMe ? MINE_BORDER : 'var(--theme-border)',
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <FriendAvatar
+                      name={isMe ? userName : entry.name}
+                      url={isMe ? userAvatar : entry.avatarUrl}
+                      size={22}
+                    />
+                    <span className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">
+                      {isMe ? 'Toi' : entry.name}
+                    </span>
+                    <RatingBadge entry={entry} />
+                    <span className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">
+                      <WhenLabel iso={entry.watchedOn} />
+                    </span>
+                  </div>
+                  <CommentBlock entry={entry} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </li>
+  );
+}
+
+function FeedGroup({ group, userName, userAvatar }) {
+  return group.kind === 'shared'
+    ? <SharedCard group={group} userName={userName} userAvatar={userAvatar} />
+    : <SingleBubble group={group} userName={userName} userAvatar={userAvatar} />;
 }
 
 /* ─── Pop-up de partage : mon code, ajout, liste d'amis ───────────── */
@@ -481,6 +591,10 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
   const [feedback, setFeedback] = useState(null); // { type: 'ok' | 'error', text }
 
   const closeShare = useCallback(() => setShowShare(false), []);
+  const groups = useMemo(
+    () => buildFeedGroups({ items: feed || [], historyData, ratingScale }),
+    [feed, historyData, ratingScale]
+  );
 
   const openShare = useCallback(() => {
     setFeedback(null);
@@ -626,7 +740,7 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
 
     if (feed === null) return <FeedSkeleton />;
 
-    if (feed.length === 0) {
+    if (groups.length === 0) {
       return feedError ? (
         <p
           role="alert"
@@ -638,17 +752,24 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
         <EmptyState
           icon={Film}
           title="Rien pour l’instant"
-          text="Les séances notées par tes amis apparaîtront ici."
+          text="Les séances notées par toi et tes amis apparaîtront ici."
         />
       );
     }
 
     return (
-      <ul className="divide-y divide-[var(--theme-border)] overflow-hidden rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-        {feed.map((item, index) => (
-          <FeedItem key={`${item.friend.friendCode}|${item.title}|${item.watchedOn}|${index}`} item={item} />
-        ))}
-      </ul>
+      <>
+        {feedError && (
+          <p role="alert" className="mb-3 rounded-2xl bg-red-500/10 px-4 py-3 text-center font-outfit text-[12px] text-red-500">
+            Impossible de charger l’activité de tes amis.
+          </p>
+        )}
+        <ul className="space-y-3">
+          {groups.map((group) => (
+            <FeedGroup key={group.key} group={group} userName={userName} userAvatar={userAvatar} />
+          ))}
+        </ul>
+      </>
     );
   };
 

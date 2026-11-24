@@ -99,6 +99,145 @@ export function computeStats(historyData, ratingScale) {
   };
 }
 
+/* ─── Index de MES films (avec toutes les infos utiles au fil d'actualité) ─── */
+export function buildFilmIndex(historyData, ratingScale) {
+  const byKey = new Map();
+  const byName = new Map();
+
+  for (const film of Array.isArray(historyData) ? historyData : []) {
+    const name = normalizeTitle(film?.titre);
+    if (!name) continue;
+
+    const iso = toIsoDate(film.date) || '';
+    const rating = parseNote(film.note);
+    const valid = rating !== null && rating >= 0 && rating <= ratingScale;
+    const entry = {
+      iso,
+      rating: valid ? rating : null,
+      ratio: valid ? rating / ratingScale : null,
+      heart: Boolean(film.coupDeCoeur),
+      comment: String(film.commentaire || '').trim() || null,
+      title: String(film.titre),
+      poster: film.affiche || null,
+      genre: film.genre || null,
+      tmdbId: film.tmdbId ? String(film.tmdbId) : null,
+    };
+
+    // Un film vu plusieurs fois : on préfère une séance notée, puis la plus récente
+    const keep = (map, key) => {
+      const previous = map.get(key);
+      const sameKind = (entry.ratio !== null) === (previous?.ratio !== null);
+      if (!previous || (entry.ratio !== null && previous.ratio === null) || (sameKind && iso >= previous.iso)) {
+        map.set(key, entry);
+      }
+    };
+    if (film.tmdbId) keep(byKey, `t${film.tmdbId}`);
+    keep(byName, name);
+  }
+
+  return {
+    /** → mon entrée { iso, rating, ratio, heart, comment, ... } ou null si je n'ai pas vu le film */
+    find: (tmdbId, title) =>
+      (tmdbId && byKey.get(`t${tmdbId}`)) || byName.get(normalizeTitle(title)) || null,
+    /** Mes `limit` derniers films notés (un par film). */
+    recent: (limit) =>
+      [...byName.values()]
+        .filter((entry) => entry.ratio !== null)
+        .sort((a, b) => b.iso.localeCompare(a.iso))
+        .slice(0, limit),
+  };
+}
+
+/* ─── Fil d'actualité façon discussion : un bloc par film ─────────────
+   - vu uniquement par un/des ami(s) seul(s) → kind « friend » (à gauche)
+   - vu uniquement par moi                  → kind « mine »   (à droite)
+   - vu par 2 personnes ou plus (moi inclus) → kind « shared » (une seule carte, toutes les notes) */
+export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 }) {
+  const index = buildFilmIndex(historyData, ratingScale);
+  const groups = [];
+  const byTmdb = new Map();
+  const byName = new Map();
+
+  const findGroup = (tmdbId, title) =>
+    (tmdbId && byTmdb.get(String(tmdbId))) || byName.get(normalizeTitle(title)) || null;
+
+  const addEntry = (film, entry) => {
+    let group = findGroup(film.tmdbId, film.title);
+    if (!group) {
+      group = { film: { ...film }, entries: [] };
+      groups.push(group);
+    }
+    if (film.tmdbId) byTmdb.set(String(film.tmdbId), group);
+    byName.set(normalizeTitle(film.title), group);
+    if (!group.film.poster && film.poster) group.film.poster = film.poster;
+    if (!group.film.genre && film.genre) group.film.genre = film.genre;
+
+    // Une même personne ne compte qu'une fois par film (séance la plus récente)
+    const at = group.entries.findIndex((existing) => existing.id === entry.id);
+    if (at === -1) group.entries.push(entry);
+    else if ((entry.watchedOn || '') >= (group.entries[at].watchedOn || '')) group.entries[at] = entry;
+  };
+
+  const meEntry = (mine) => ({
+    who: 'me',
+    id: 'me',
+    rating: mine.rating,
+    scale: ratingScale,
+    heart: mine.heart,
+    comment: mine.comment,
+    watchedOn: mine.iso || null,
+  });
+
+  // 1. Séances de mes amis
+  for (const item of items || []) {
+    addEntry(
+      { title: item.title, poster: item.poster, genre: item.genre, tmdbId: item.tmdbId },
+      {
+        who: 'friend',
+        id: `f:${item.friend.friendCode}`,
+        name: item.friend.displayName || 'Un ami',
+        avatarUrl: item.friend.avatarUrl,
+        rating: item.rating,
+        scale: item.ratingScale,
+        heart: item.coupDeCoeur,
+        comment: item.comment,
+        watchedOn: item.watchedOn,
+      }
+    );
+  }
+
+  // 2. Si j'ai vu le même film (même ancien), ma note rejoint le même bloc
+  for (const group of [...groups]) {
+    const mine = index.find(group.film.tmdbId, group.film.title);
+    if (mine) addEntry(group.film, meEntry(mine));
+  }
+
+  // 3. Mes derniers films, vus seulement par moi
+  for (const mine of index.recent(myLimit)) {
+    if (findGroup(mine.tmdbId, mine.title)) continue;
+    addEntry(
+      { title: mine.title, poster: mine.poster, genre: mine.genre, tmdbId: mine.tmdbId },
+      meEntry(mine)
+    );
+  }
+
+  return groups
+    .map((group) => {
+      const entries = [...group.entries].sort(
+        (a, b) => (a.watchedOn || '9999').localeCompare(b.watchedOn || '9999')
+      );
+      const latest = entries.reduce((max, entry) => ((entry.watchedOn || '') > max ? entry.watchedOn : max), '');
+      return {
+        key: group.film.tmdbId ? `t${group.film.tmdbId}` : `n${normalizeTitle(group.film.title)}`,
+        film: group.film,
+        entries,
+        latest,
+        kind: entries.length >= 2 ? 'shared' : entries[0].who === 'me' ? 'mine' : 'friend',
+      };
+    })
+    .sort((a, b) => b.latest.localeCompare(a.latest));
+}
+
 /* ─── Comparaison ─────────────────────────────────────────────────── */
 const shares = (genres) => {
   const entries = Object.entries(genres || {});
