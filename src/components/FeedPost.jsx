@@ -130,13 +130,16 @@ function RatingBadge({ entry }) {
 
 /* Pile d'avatars qui se chevauchent */
 function AvatarStack({ people, size }) {
+  const overlap = size >= 32 ? '-ml-3' : '-ml-2';
   return (
-    <div className="flex shrink-0">
+    <div className="flex shrink-0 items-center">
       {people.slice(0, MAX_AVATARS).map((person, index) => (
-        <span key={person.key} className={index > 0 ? (size >= 32 ? '-ml-3' : '-ml-1.5') : ''}>
-          <span className="block rounded-full ring-2 ring-[var(--theme-surface)]">
-            <FriendAvatar name={person.name} url={person.url} size={size} />
-          </span>
+        <span
+          key={person.key}
+          className={`flex rounded-full ring-[3px] ring-[var(--theme-surface)] ${index > 0 ? overlap : ''}`}
+          style={{ lineHeight: 0 }}
+        >
+          <FriendAvatar name={person.name} url={person.url} size={size} />
         </span>
       ))}
     </div>
