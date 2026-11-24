@@ -23,6 +23,7 @@ export function AppHeader({
   scrollY,
   headerTitle,
   headerRight,
+  hideTopBar = false,
   accentColor = 'var(--theme-accent, #E8B200)',
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -52,13 +53,13 @@ export function AppHeader({
     return () => cancelAnimationFrame(frame);
   }, [scrollY]);
 
-  const desktopContentHeight = (expanded ? LOGO_ROW_H : 0) + TITLE_ROW_H;
+  const desktopContentHeight = (expanded ? LOGO_ROW_H : 0) + (hideTopBar ? 0 : TITLE_ROW_H);
   const desktopTotalHeight = desktopContentHeight + TAIL_H;
   const cssVars = `
-    :root {
-      --header-opaque-height: calc(env(safe-area-inset-top, 0px) + ${desktopContentHeight}px);
-      --header-total-height: calc(env(safe-area-inset-top, 0px) + ${desktopTotalHeight}px);
-    }
+      :root {
+        --header-opaque-height: calc(env(safe-area-inset-top, 0px) + ${hideTopBar ? 0 : 64}px);
+        --header-total-height: calc(env(safe-area-inset-top, 0px) + ${hideTopBar ? 0 : 76}px);
+      }
     @media (max-width: 767px) {
       :root {
         --header-opaque-height: calc(env(safe-area-inset-top, 0px) + 64px);
@@ -79,6 +80,7 @@ export function AppHeader({
 
       {/* Mobile: quiet page title above a persistent bottom tab bar. */}
       <>
+        {!hideTopBar && (
         <header
           className="fixed inset-x-0 top-0 z-[100] overflow-visible md:hidden"
           style={{
@@ -116,7 +118,7 @@ export function AppHeader({
             )}
           </div>
         </header>
-
+)}
         <div
           className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] px-4 md:hidden"
           style={{ bottom: 'calc(0px + env(safe-area-inset-bottom, 0px))' }}
@@ -230,7 +232,8 @@ export function AppHeader({
               </nav>
             </div>
           </div>
-
+          
+                    {!hideTopBar && (
           <div className="flex items-center gap-3 overflow-visible px-8" style={{ height: `${TITLE_ROW_H}px` }}>
             {headerTitle ? (
               <h1 className="font-galinoy italic min-w-0 flex-1 truncate text-[32px] leading-[1.15] tracking-[-0.01em]" style={{ color: textPrimary, margin: 0 }}>
@@ -241,6 +244,7 @@ export function AppHeader({
             )}
             {headerRight && <div className="flex shrink-0 items-center gap-2">{headerRight}</div>}
           </div>
+          )}
         </div>
       </div>
     </>

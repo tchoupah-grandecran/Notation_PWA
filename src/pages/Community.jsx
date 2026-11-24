@@ -341,7 +341,7 @@ function ShareModal({
 }
 
 /* ─── Page ────────────────────────────────────────────────────────── */
-export function Community({ userName, userAvatar, historyData, ratingScale, onHeaderRight }) {
+export function Community({ userName, userAvatar, historyData, ratingScale }) {
   const [activeSubTab, setActiveSubTab] = useState('activity'); // activity | compare
   const [slideDir, setSlideDir] = useState(null); // null | 'left' | 'right'
   const swipeRef = useRef(null);
@@ -367,13 +367,6 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
     setFeedback(null);
     setShowShare(true);
   }, []);
-
-  /* Bouton de profil dans l'en-tête, en haut à droite */
-  useEffect(() => {
-    if (!onHeaderRight) return undefined;
-    onHeaderRight(<ProfileButton name={userName} url={userAvatar} onClick={openShare} />);
-    return () => onHeaderRight(null);
-  }, [onHeaderRight, userName, userAvatar, openShare]);
 
   const loadFeed = useCallback(async () => {
     setFeedError(false);
@@ -621,12 +614,22 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
   return (
     <div className="min-h-screen bg-[var(--theme-bg)] font-outfit pb-12 relative">
       <style>{PAGE_CSS}</style>
-      <h1 className="sr-only">Amis</h1>
+            <div
+        className="fixed right-4 z-[90] rounded-full"
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          background: 'color-mix(in srgb, var(--theme-bg) 70%, transparent)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
+        <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
+      </div>
 
       <main
         className="space-y-4 px-4"
         style={{
-          paddingTop: 'calc(var(--header-total-height, 66px) - 58px)',
+          paddingTop: 'calc(var(--header-total-height, 0px) + 8px)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
           minHeight: '70dvh',
           touchAction: 'pan-y',
@@ -635,12 +638,6 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { swipeRef.current = null; }}
       >
-        {/* Repli : si App.jsx ne fournit pas onHeaderRight, le bouton s'affiche ici */}
-        {!onHeaderRight && (
-          <div className="flex justify-end">
-            <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
-          </div>
-        )}
 
         {/* Onglets façon TikTok : texte seul, soulignement sur l'onglet actif */}
         <div
