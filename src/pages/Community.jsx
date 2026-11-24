@@ -70,7 +70,8 @@ const SUB_TABS = [
 const SWIPE_MIN_DISTANCE = 60;
 const TABS_ROW_HEIGHT = 44;
 const FADE_HEIGHT = 8;
-const BAR_BG = `linear-gradient(to bottom, var(--theme-bg) calc(100% - ${FADE_HEIGHT}px), transparent 100%)`;
+const BAR_BG = 'color-mix(in srgb, var(--theme-bg) 1%, transparent)';
+const BAR_MASK = `linear-gradient(to bottom, #000 calc(100% - ${FADE_HEIGHT}px), transparent 100%)`;
 
 const SectionLabel = ({ children, className = 'ml-5' }) => (
   <h3 className={`font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-2 ${className}`}>
@@ -634,7 +635,17 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
 
       {/* Barre d'onglets fixe façon TikTok : texte seul, même fond que la page, bouton de partage à droite */}
       <div className="ge-community-bar fixed inset-x-0 top-0 z-30">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: BAR_BG }} />
+        <div
+  aria-hidden="true"
+  className="pointer-events-none absolute inset-0"
+  style={{
+    background: BAR_BG,
+    backdropFilter: 'blur(16px) saturate(145%)',
+    WebkitBackdropFilter: 'blur(16px) saturate(145%)',
+    maskImage: BAR_MASK,
+    WebkitMaskImage: BAR_MASK,
+  }}
+/>
         <div className="relative flex items-center justify-center" style={{ height: TABS_ROW_HEIGHT }}>
           <div
             role="tablist"
