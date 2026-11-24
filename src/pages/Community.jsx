@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Clock3, Copy, Film, Heart, Share2, UserPlus, Users, X } from 'lucide-react';
+import { Check, Copy, Film, Share2, UserPlus, Users, X } from 'lucide-react';
 import { CompareView } from '../components/CompareView';
+import { FeedGroup, FeedSkeleton } from '../components/FeedPost';
 import { buildFeedGroups, withReaction } from '../communityStats';
 import { EmptyState, FriendAvatar, Skeleton } from '../components/communityUi';
 import {
   addFriendByCode,
-  fetchTmdbPoster,
   getFeed,
   getMyCommunityProfile,
   listFriends,
@@ -62,58 +62,6 @@ const SectionLabel = ({ children, className = 'ml-5' }) => (
   </h3>
 );
 
-/* ─── Formats ─────────────────────────────────────────────────────── */
-const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
-
-const formatWatched = (iso) => {
-  if (!iso) return '';
-  const date = new Date(`${iso}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.round((today - date) / 86_400_000);
-  if (days <= 0) return 'Aujourd’hui';
-  if (days === 1) return 'Hier';
-  if (days < 7) return `Il y a ${days} jours`;
-  if (days < 30) {
-    const weeks = Math.floor(days / 7);
-    return `Il y a ${weeks} semaine${weeks > 1 ? 's' : ''}`;
-  }
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-  });
-};
-
-/* ─── Skeletons ───────────────────────────────────────────────────── */
-function FeedSkeleton({ rows = 3 }) {
-  return (
-    <div role="status" aria-live="polite">
-      <span className="sr-only">Chargement du fil d’actualité…</span>
-      <ul className="space-y-3">
-        {Array.from({ length: rows }, (_, i) => (
-          <li key={i} aria-hidden="true" className={`flex ${i % 2 === 1 ? 'justify-end' : 'justify-start'}`}>
-            <div className="w-full max-w-[88%] rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)] p-4">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-                <Skeleton className="h-3 w-32 rounded-full" />
-              </div>
-              <div className="mt-3 flex gap-3">
-                <Skeleton className="h-[84px] w-14 shrink-0 rounded-md" />
-                <div className="flex-1 space-y-2 pt-1">
-                  <Skeleton className="h-4 w-3/4 rounded-full" />
-                  <Skeleton className="h-3 w-1/3 rounded-full" />
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function ShareSkeleton() {
   return (
     <div role="status" aria-live="polite" className="space-y-6">
@@ -167,285 +115,6 @@ function ProfileButton({ name, url, onClick }) {
       </span>
     </button>
   );
-}
-
-const MINE_TINT = 'color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface))';
-const MINE_BORDER = 'color-mix(in srgb, var(--theme-accent) 35%, var(--theme-border))';
-
-function WhenLabel({ iso }) {
-  const when = formatWatched(iso);
-  if (!when) return null;
-  return (
-    <span className="inline-flex items-center gap-1">
-      <Clock3 size={12} aria-hidden="true" />
-      {when}
-    </span>
-  );
-}
-
-function RatingBadge({ entry }) {
-  if (entry.rating === null || entry.rating === undefined) {
-    return <span className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">vu, sans note</span>;
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-outfit text-[10px] font-black"
-      style={{ borderColor: 'var(--theme-accent)', color: 'var(--theme-accent)' }}
-    >
-      {formatRating(entry.rating, entry.scale)}
-      {entry.heart && <Heart size={11} fill="currentColor" aria-label="Coup de cœur" />}
-    </span>
-  );
-}
-
-/* Affiche : essaie chaque lien connu (moi + amis), puis TMDB via l'identifiant, puis un cadre neutre. */
-function Poster({ posters, tmdbId }) {
-  const [attempt, setAttempt] = useState(0);
-  const [fetched, setFetched] = useState(null); // null = pas encore essayé · '' = rien trouvé
-
-  useEffect(() => {
-    if (attempt < posters.length || fetched !== null || !tmdbId) return undefined;
-    let cancelled = false;
-    fetchTmdbPoster(tmdbId).then((url) => {
-      if (!cancelled) setFetched(url || '');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt, posters, fetched, tmdbId]);
-
-  const candidates = fetched && !posters.includes(fetched) ? [...posters, fetched] : posters;
-  const src = candidates[attempt];
-
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        onError={() => setAttempt((current) => current + 1)}
-        className="h-[84px] w-14 shrink-0 rounded-md object-cover"
-      />
-    );
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded-md"
-      style={{ background: 'color-mix(in srgb, var(--theme-text) 8%, transparent)' }}
-    >
-      <Film size={18} className="opacity-25" />
-    </div>
-  );
-}
-
-function FilmBlock({ film, posters }) {
-  return (
-    <div className="flex gap-3">
-      <Poster key={posters.join('|')} posters={posters} tmdbId={film.tmdbId} />
-      <div className="min-w-0 flex-1 text-left">
-        <p className="break-words font-outfit text-[14px] font-semibold leading-snug text-[var(--theme-text)]">
-          {film.title}
-        </p>
-        {film.genre && (
-          <p className="mt-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">{film.genre}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CommentBlock({ entry }) {
-  if (!entry.comment) return null;
-  return (
-    <div className="mt-3">
-      <p className="font-outfit text-[11px] italic text-[var(--theme-text-secondary)]">
-        {entry.who === 'me' ? 'et en as pensé ça :' : 'et en a pensé ça :'}
-      </p>
-      <blockquote
-        className="mt-1.5 whitespace-pre-line break-words border-l-2 pl-3 font-outfit text-[13px] leading-relaxed text-[var(--theme-text)]"
-        style={{ borderColor: 'var(--theme-accent)' }}
-      >
-        {entry.comment}
-      </blockquote>
-    </div>
-  );
-}
-
-const REACTIONS = [
-  { kind: 'like', emoji: '👍', label: 'J’aime', done: 'a aimé' },
-  { kind: 'dislike', emoji: '👎', label: 'Je n’aime pas', done: 'n’a pas aimé' },
-  { kind: 'watch', emoji: '🍿', label: 'À voir', done: 'veut le voir' },
-];
-
-/* Réagir à la séance d'un ami */
-function ReactionBar({ entry, onReact }) {
-  if (!entry.activityId) return null;
-  return (
-    <div role="group" aria-label="Réagir" className="mt-3 flex flex-wrap gap-2">
-      {REACTIONS.map(({ kind, emoji, label }) => {
-        const list = entry.reactions?.[kind] || [];
-        const mine = list.some((reactor) => reactor.mine);
-        const names = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami')).join(', ');
-        return (
-          <button
-            key={kind}
-            type="button"
-            aria-pressed={mine}
-            aria-label={names ? `${label} (${names})` : label}
-            title={names || label}
-            onClick={() => onReact(entry.activityId, kind, !mine)}
-            className="inline-flex min-h-10 min-w-[52px] items-center justify-center gap-1.5 rounded-full border px-3 font-outfit text-[12px] font-bold transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-            style={{
-              borderColor: mine ? 'var(--theme-accent)' : 'var(--theme-border)',
-              background: mine ? 'color-mix(in srgb, var(--theme-accent) 14%, transparent)' : 'transparent',
-              color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)',
-            }}
-          >
-            <span aria-hidden="true">{emoji}</span>
-            {list.length > 0 && <span>{list.length}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* Réactions reçues sur MA séance : qui a réagi, et comment */
-function ReactionSummary({ entry }) {
-  const lines = REACTIONS
-    .map((reaction) => ({ ...reaction, list: entry.reactions?.[reaction.kind] || [] }))
-    .filter((line) => line.list.length > 0);
-  if (lines.length === 0) return null;
-  return (
-    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
-      {lines.map(({ kind, emoji, label, list }) => {
-        const names = list.map((reactor) => reactor.displayName || 'Un ami').join(', ');
-        return (
-          <span key={kind} className="inline-flex items-center gap-1" aria-label={`${label} : ${names}`}>
-            <span aria-hidden="true">{emoji}</span>
-            <span>{names}</span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-/* Un seul spectateur : bulle à gauche (ami) ou à droite (moi) */
-function SingleBubble({ group, userName, userAvatar, onReact }) {
-  const entry = group.entries[0];
-  const isMe = entry.who === 'me';
-  return (
-    <li className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`w-full max-w-[88%] rounded-[20px] border p-4 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
-        style={{
-          background: isMe ? MINE_TINT : 'var(--theme-surface)',
-          borderColor: isMe ? MINE_BORDER : 'var(--theme-border)',
-        }}
-      >
-        <div className="flex items-center gap-2.5">
-          <FriendAvatar
-            name={isMe ? userName : entry.name}
-            url={isMe ? userAvatar : entry.avatarUrl}
-            size={30}
-          />
-          <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-outfit text-[12px] leading-tight text-[var(--theme-text-secondary)]">
-            <span>
-              {isMe ? (
-                <span className="font-bold text-[var(--theme-text)]">Tu as vu</span>
-              ) : (
-                <>
-                  <span className="font-bold text-[var(--theme-text)]">{entry.name}</span> a vu
-                </>
-              )}
-            </span>
-            {entry.watchedOn && (
-              <>
-                <span aria-hidden="true">·</span>
-                <WhenLabel iso={entry.watchedOn} />
-              </>
-            )}
-          </p>
-        </div>
-
-        <div className="mt-3">
-          <FilmBlock film={group.film} posters={group.posters} />
-        </div>
-        <div className="mt-3">
-          <RatingBadge entry={entry} />
-        </div>
-        <CommentBlock entry={entry} />
-        {isMe ? <ReactionSummary entry={entry} /> : <ReactionBar entry={entry} onReact={onReact} />}
-      </div>
-    </li>
-  );
-}
-
-/* Deux spectateurs ou plus : une seule carte mise en avant, avec toutes les notes en discussion */
-function SharedCard({ group, userName, userAvatar, onReact }) {
-  return (
-    <li>
-      <div
-        className="rounded-[20px] border-2 p-4"
-        style={{
-          borderColor: 'var(--theme-accent)',
-          background: 'color-mix(in srgb, var(--theme-accent) 6%, var(--theme-surface))',
-        }}
-      >
-        <p
-          className="mb-3 flex items-center gap-1.5 font-outfit text-[10px] font-black uppercase tracking-[0.18em]"
-          style={{ color: 'var(--theme-accent)' }}
-        >
-          <Users size={12} aria-hidden="true" />
-          Vu par {group.entries.length} personnes
-        </p>
-
-        <FilmBlock film={group.film} posters={group.posters} />
-
-        <ul className="mt-4 space-y-2.5">
-          {group.entries.map((entry) => {
-            const isMe = entry.who === 'me';
-            return (
-              <li key={entry.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[94%] rounded-2xl border px-3 py-2.5 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
-                  style={{
-                    background: isMe ? MINE_TINT : 'var(--theme-bg)',
-                    borderColor: isMe ? MINE_BORDER : 'var(--theme-border)',
-                  }}
-                >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <FriendAvatar
-                      name={isMe ? userName : entry.name}
-                      url={isMe ? userAvatar : entry.avatarUrl}
-                      size={22}
-                    />
-                    <span className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">
-                      {isMe ? 'Toi' : entry.name}
-                    </span>
-                    <RatingBadge entry={entry} />
-                    <span className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">
-                      <WhenLabel iso={entry.watchedOn} />
-                    </span>
-                  </div>
-                  <CommentBlock entry={entry} />
-                  {isMe ? <ReactionSummary entry={entry} /> : <ReactionBar entry={entry} onReact={onReact} />}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </li>
-  );
-}
-
-function FeedGroup({ group, userName, userAvatar, onReact }) {
-  return group.kind === 'shared'
-    ? <SharedCard group={group} userName={userName} userAvatar={userAvatar} onReact={onReact} />
-    : <SingleBubble group={group} userName={userName} userAvatar={userAvatar} onReact={onReact} />;
 }
 
 /* ─── Pop-up de partage : mon code, ajout, liste d'amis ───────────── */
@@ -880,17 +549,18 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
             Impossible de charger l’activité de tes amis.
           </p>
         )}
-        <ul className="space-y-3">
-          {groups.map((group) => (
-            <FeedGroup
-              key={group.key}
-              group={group}
-              userName={userName}
-              userAvatar={userAvatar}
-              onReact={handleReact}
-            />
-          ))}
-        </ul>
+        <ul className="-mx-4">
+  {groups.map((group) => (
+    <FeedGroup
+      key={group.key}
+      group={group}
+      userName={userName}
+      userAvatar={userAvatar}
+      ratingScale={ratingScale}
+      onReact={handleReact}
+    />
+  ))}
+</ul>
       </>
     );
   };
