@@ -45,8 +45,21 @@ const PAGE_CSS = `
   }
   .ge-slide-from-right { animation: ge-slide-from-right 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
   .ge-slide-from-left  { animation: ge-slide-from-left 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* Barre d'onglets : mobile = sous la barre d'état · desktop = sous le bandeau de navigation (z-30 < en-tête) */
+  .ge-community-bar { padding-top: env(safe-area-inset-top, 0px); }
+  .ge-community-main { padding-top: calc(env(safe-area-inset-top, 0px) + 52px); }
+  @media (min-width: 768px) {
+    .ge-community-bar {
+      padding-top: var(--header-opaque-height, calc(env(safe-area-inset-top, 0px) + 52px));
+      transition: padding-top 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .ge-community-main { padding-top: calc(env(safe-area-inset-top, 0px) + 52px + 52px); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ge-skeleton, .ge-slide-from-right, .ge-slide-from-left { animation: none; }
+    .ge-community-bar { transition: none; }
   }
 `;
 
@@ -55,12 +68,9 @@ const SUB_TABS = [
   { id: 'compare', label: 'Comparer' },
 ];
 const SWIPE_MIN_DISTANCE = 60;
-const TOP_OFFSET = 'var(--header-opaque-height, env(safe-area-inset-top, 0px))';
 const TABS_ROW_HEIGHT = 44;
-const BAR_FADE =
-  'linear-gradient(to bottom, color-mix(in srgb, var(--theme-bg, #111) 70%, transparent) 0%, color-mix(in srgb, var(--theme-bg, #111) 38%, transparent) 55%, transparent 100%)';
-const BAR_MASK =
-  'linear-gradient(to bottom, rgba(0,0,0,.7) 0%, rgba(0,0,0,.42) 55%, transparent 100%)';
+const FADE_HEIGHT = 8;
+const BAR_BG = `linear-gradient(to bottom, var(--theme-bg) calc(100% - ${FADE_HEIGHT}px), transparent 100%)`;
 
 const SectionLabel = ({ children, className = 'ml-5' }) => (
   <h3 className={`font-outfit text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-2 ${className}`}>
@@ -551,17 +561,17 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
           </p>
         )}
         <ul className="-mx-4">
-  {groups.map((group) => (
-    <FeedGroup
-      key={group.key}
-      group={group}
-      userName={userName}
-      userAvatar={userAvatar}
-      ratingScale={ratingScale}
-      onReact={handleReact}
-    />
-  ))}
-</ul>
+          {groups.map((group) => (
+            <FeedGroup
+              key={group.key}
+              group={group}
+              userName={userName}
+              userAvatar={userAvatar}
+              ratingScale={ratingScale}
+              onReact={handleReact}
+            />
+          ))}
+        </ul>
       </>
     );
   };
@@ -622,19 +632,9 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
       <style>{PAGE_CSS}</style>
       <h1 className="sr-only">Amis</h1>
 
-      {/* Barre d'onglets fixe façon TikTok : texte seul, fond fondu, bouton de partage à droite */}
-      <div className="fixed inset-x-0 top-0 z-[90] pb-2" style={{ paddingTop: TOP_OFFSET }}>
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: BAR_FADE }} />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backdropFilter: 'blur(22px) saturate(145%)',
-            WebkitBackdropFilter: 'blur(22px) saturate(145%)',
-            maskImage: BAR_MASK,
-            WebkitMaskImage: BAR_MASK,
-          }}
-        />
+      {/* Barre d'onglets fixe façon TikTok : texte seul, même fond que la page, bouton de partage à droite */}
+      <div className="ge-community-bar fixed inset-x-0 top-0 z-30">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: BAR_BG }} />
         <div className="relative flex items-center justify-center" style={{ height: TABS_ROW_HEIGHT }}>
           <div
             role="tablist"
@@ -660,7 +660,7 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
                   {label}
                   <span
                     aria-hidden="true"
-                    className="absolute bottom-2.5 left-1/2 h-[2px] -translate-x-1/2 rounded-full transition-all duration-300"
+                    className="absolute bottom-1 left-1/2 h-[2px] -translate-x-1/2 rounded-full transition-all duration-300"
                     style={{
                       width: isActive ? '100%' : '0%',
                       background: 'var(--theme-accent-gradient, var(--theme-accent))',
@@ -674,12 +674,12 @@ export function Community({ userName, userAvatar, historyData, ratingScale }) {
             <ProfileButton name={userName} url={userAvatar} onClick={openShare} />
           </div>
         </div>
+        <div style={{ height: FADE_HEIGHT }} />
       </div>
 
       <main
-        className="px-4"
+        className="ge-community-main px-4"
         style={{
-          paddingTop: `calc(${TOP_OFFSET} + ${TABS_ROW_HEIGHT}px)`,
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
           minHeight: '70dvh',
           touchAction: 'pan-y',

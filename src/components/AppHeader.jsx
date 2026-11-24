@@ -54,16 +54,18 @@ export function AppHeader({
   }, [scrollY]);
 
   const desktopContentHeight = (expanded ? LOGO_ROW_H : 0) + (hideTopBar ? 0 : TITLE_ROW_H);
-  const desktopTotalHeight = desktopContentHeight + TAIL_H;
+  const desktopTotalHeight = desktopContentHeight + (hideTopBar ? 0 : TAIL_H);
+  const mobileOpaqueHeight = hideTopBar ? 0 : 64;
+  const mobileTotalHeight = hideTopBar ? 0 : 76;
   const cssVars = `
-      :root {
-        --header-opaque-height: calc(env(safe-area-inset-top, 0px) + ${hideTopBar ? 0 : 64}px);
-        --header-total-height: calc(env(safe-area-inset-top, 0px) + ${hideTopBar ? 0 : 76}px);
-      }
+    :root {
+      --header-opaque-height: calc(env(safe-area-inset-top, 0px) + ${desktopContentHeight}px);
+      --header-total-height: calc(env(safe-area-inset-top, 0px) + ${desktopTotalHeight}px);
+    }
     @media (max-width: 767px) {
       :root {
-        --header-opaque-height: calc(env(safe-area-inset-top, 0px) + 64px);
-        --header-total-height: calc(env(safe-area-inset-top, 0px) + 76px);
+        --header-opaque-height: calc(env(safe-area-inset-top, 0px) + ${mobileOpaqueHeight}px);
+        --header-total-height: calc(env(safe-area-inset-top, 0px) + ${mobileTotalHeight}px);
       }
       #main-scroll-container {
         padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));

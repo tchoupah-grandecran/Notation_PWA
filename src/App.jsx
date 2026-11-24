@@ -399,7 +399,6 @@ function App() {
     userAvatar={prefs.userAvatar}
     historyData={historyData}
     ratingScale={prefs.ratingScale}
-    onHeaderRight={handleSetHeaderRight}
   />
 )}
         {activeTab === 'studio' && (
@@ -420,6 +419,7 @@ function App() {
             scrollY={scrollY}
             headerTitle={headerTitle}
             headerRight={headerRight}
+            hideTopBar={activeTab === 'community'}
             isDark={prefs.isDark}
             accentColor={getThemeAccent(themeKey, prefs.accentPalette)}
           />
