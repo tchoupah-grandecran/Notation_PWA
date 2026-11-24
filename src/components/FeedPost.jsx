@@ -136,8 +136,8 @@ function AvatarStack({ people, size }) {
       {people.slice(0, MAX_AVATARS).map((person, index) => (
         <span
           key={person.key}
-          className={`flex rounded-full ring-[3px] ring-[var(--theme-surface)] ${index > 0 ? overlap : ''}`}
-          style={{ lineHeight: 0 }}
+          className={`relative flex rounded-full ring-[3px] ring-[var(--theme-surface)] ${index > 0 ? overlap : ''}`}
+          style={{ lineHeight: 0, zIndex: index + 1 }}
         >
           <FriendAvatar name={person.name} url={person.url} size={size} />
         </span>
