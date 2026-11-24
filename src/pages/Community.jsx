@@ -9,7 +9,7 @@ import {
   getFeed,
   getMyCommunityProfile,
   listFriends,
-  reactToActivity,
+  reactToActivities,
   removeFriend,
   syncActivity,
 } from '../communityApi';
@@ -234,7 +234,7 @@ function ShareModal({
               <SectionLabel className="ml-1">Mon code ami</SectionLabel>
               <div className="rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-bg)] p-5">
                 <p
-                  className="select-all text-center font-Outfit text-[22px] tracking-[0.12em]"
+                  className="select-all text-center font-outfit text-[22px] tracking-[0.12em]"
                   style={{ color: 'var(--theme-accent)' }}
                 >
                   {me.friendCode}
@@ -388,17 +388,19 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
     }
   }, []);
 
-  /* Réaction : affichage immédiat, puis serveur ; en cas d'échec on recharge l'état réel */
-  const handleReact = useCallback(async (activityId, kind, active) => {
+  /* Réaction sur un post : appliquée à chaque séance d'ami du post (affichage immédiat, puis serveur) */
+  const handleReact = useCallback(async (group, kind, active) => {
+    const ids = new Set(group.activityIds);
+    if (ids.size === 0) return;
     setFeed((current) =>
       current
         ? current.map((item) =>
-            item.id === activityId ? { ...item, reactions: withReaction(item.reactions, kind, active) } : item
+            ids.has(item.id) ? { ...item, reactions: withReaction(item.reactions, kind, active) } : item
           )
         : current
     );
     try {
-      await reactToActivity(activityId, kind, active);
+      await reactToActivities([...ids], kind, active);
     } catch (err) {
       console.error('Réaction impossible :', err);
       void loadFeed();

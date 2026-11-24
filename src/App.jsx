@@ -251,15 +251,6 @@ function App() {
   void syncActivity(historyData, prefs.ratingScale).catch(() => {});
 }, [userToken, historyData, prefs.ratingScale]);
 
-// Community props
-<Community
-  userName={prefs.userName}
-  userAvatar={prefs.userAvatar}
-  historyData={historyData}
-  ratingScale={prefs.ratingScale}
-  onHeaderRight={handleSetHeaderRight}
-/>
-
   /* ─── Reset on tab change ─────────────────────────────────────────── */
   useEffect(() => {
     const activeEl = document.activeElement;

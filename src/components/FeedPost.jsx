@@ -4,11 +4,17 @@ import { fetchTmdbPoster } from '../communityApi';
 import { formatScore } from '../communityStats';
 import { FriendAvatar, Skeleton } from './communityUi';
 
+/*
+ * Contrat attendu (réactions PAR POST) :
+ *   group.reactions = { like: [...], dislike: [...], watch: [...] }   // reactors : { mine, displayName }
+ *   onReact(group, kind, active)                                      // active = true pour ajouter, false pour retirer
+ */
+
 /* ─── Constantes & formats ────────────────────────────────────────── */
-const MINE_TINT = 'color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface))';
-const POST = 'border-b-4 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4 pt-3 pb-2';
+const POST = 'border-b-4 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4 pt-3 pb-1';
 const POSTER_SIZE = 'h-[72px] w-12 shrink-0 rounded-md';
-const MAX_NAMES = 3;
+const BUBBLE = 'color-mix(in srgb, var(--theme-text) 7%, var(--theme-surface))';
+const MINE_BUBBLE = 'color-mix(in srgb, var(--theme-accent) 14%, var(--theme-surface))';
 
 const REACTIONS = [
   { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
@@ -48,21 +54,25 @@ export function FeedSkeleton({ rows = 3 }) {
       <ul className="-mx-4">
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} aria-hidden="true" className={POST}>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3">
               <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
-              <div className="flex-1">
-                <Skeleton className="h-3.5 w-40 rounded-full" />
-                <Skeleton className="mt-2.5 h-3.5 w-11/12 rounded-full" />
-                <div className="mt-3 flex gap-3">
-                  <Skeleton className={POSTER_SIZE} />
-                  <div className="flex-1 space-y-2 pt-1">
-                    <Skeleton className="h-4 w-3/4 rounded-full" />
-                    <Skeleton className="h-3 w-1/3 rounded-full" />
-                  </div>
-                </div>
-                <Skeleton className="mt-3 h-8 w-2/3 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-24 rounded-full" />
+                <Skeleton className="h-3 w-36 rounded-full" />
               </div>
             </div>
+            <div className="mt-2.5 flex gap-3">
+              <Skeleton className={POSTER_SIZE} />
+              <div className="flex-1 space-y-2 pt-2">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-3 w-1/3 rounded-full" />
+              </div>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+              <Skeleton className="h-12 w-2/3 rounded-2xl" />
+            </div>
+            <Skeleton className="mt-3 h-10 w-full rounded-full" />
           </li>
         ))}
       </ul>
@@ -131,7 +141,7 @@ function Poster({ posters, tmdbId }) {
   );
 }
 
-/* Film : simple rangée (affiche + titre + genre + infos), sans cadre */
+/* Film : affiche + titre + genre (+ contenu libre), sans cadre */
 function FilmRow({ film, posters, className = '', children }) {
   return (
     <div className={`flex gap-3 ${className}`}>
@@ -151,73 +161,96 @@ function FilmRow({ film, posters, className = '', children }) {
   );
 }
 
-function PostText({ comment, className = '' }) {
-  if (!comment) return null;
+/* Commentaire façon Facebook : avatar + bulle (nom, note, texte) + date */
+function Comment({ entry, userName, userAvatar, showWhen = true }) {
+  const isMe = entry.who === 'me';
+  const when = showWhen ? formatWatched(entry.watchedOn) : '';
   return (
-    <p
-      className={`whitespace-pre-line break-words text-left font-outfit text-[14px] leading-relaxed text-[var(--theme-text)] ${className}`}
-    >
-      {comment}
-    </p>
+    <li className="mt-2 flex gap-2 first:mt-0">
+      <FriendAvatar
+        name={isMe ? userName : entry.name}
+        url={isMe ? userAvatar : entry.avatarUrl}
+        size={28}
+      />
+      <div className="min-w-0 text-left">
+        <div
+          className="rounded-2xl px-3 py-2"
+          style={{ background: isMe ? MINE_BUBBLE : BUBBLE }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 truncate font-outfit text-[13px] font-bold text-[var(--theme-text)]">
+              {isMe ? 'Toi' : entry.name}
+            </span>
+            <RatingBadge entry={entry} />
+          </div>
+          {entry.comment && (
+            <p className="mt-0.5 whitespace-pre-line break-words font-outfit text-[13px] leading-snug text-[var(--theme-text)]">
+              {entry.comment}
+            </p>
+          )}
+        </div>
+        {when && (
+          <p className="pl-3 pt-0.5 font-outfit text-[11px] text-[var(--theme-text-secondary)]">{when}</p>
+        )}
+      </div>
+    </li>
   );
 }
 
-/* Pied de chaque entrée : qui a réagi + boutons de réaction. Toujours en dernier. */
-function ReactionFooter({ entry, onReact, canReact }) {
-  const lines = REACTIONS
-    .map((reaction) => ({ ...reaction, list: entry.reactions?.[reaction.kind] || [] }))
-    .filter((line) => line.list.length > 0);
-  const showBar = canReact && Boolean(entry.activityId);
+/* Réactions du post : toujours tout en bas */
+function ReactionBar({ group, onReact, canReact }) {
+  const items = REACTIONS.map((reaction) => ({ ...reaction, list: group.reactions?.[reaction.kind] || [] }));
 
-  if (lines.length === 0 && !showBar) return null;
+  // Lecture seule (ex. mon propre post) : on n'affiche que les compteurs non nuls.
+  if (!canReact) {
+    const active = items.filter((item) => item.list.length > 0);
+    if (active.length === 0) return <div className="h-2" />;
+    return (
+      <div className="mt-2 flex gap-4 border-t border-[var(--theme-border)] py-2.5 font-outfit text-[13px] text-[var(--theme-text-secondary)]">
+        {active.map(({ kind, Icon, label, list }) => (
+          <span
+            key={kind}
+            className="inline-flex items-center gap-1.5"
+            title={list.map(reactorName).join(', ')}
+            aria-label={`${label} : ${list.map(reactorName).join(', ')}`}
+          >
+            <Icon size={16} aria-hidden="true" />
+            {list.length}
+          </span>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-2">
-      {lines.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-left font-outfit text-[12px] text-[var(--theme-text-secondary)]">
-          {lines.map(({ kind, Icon, label, list }) => {
-            const all = list.map(reactorName);
-            const shown = all.length > MAX_NAMES ? [...all.slice(0, 2), `${all.length - 2} autres`] : all;
-            return (
-              <span key={kind} className="inline-flex items-center gap-1" aria-label={`${label} : ${all.join(', ')}`}>
-                <Icon size={13} aria-hidden="true" />
-                <span>{shown.join(', ')}</span>
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {showBar && (
-        <div role="group" aria-label="Réagir" className="-ml-3 mt-0.5 flex items-center">
-          {REACTIONS.map(({ kind, Icon, fillable, label, short }) => {
-            const list = entry.reactions?.[kind] || [];
-            const mine = list.some((reactor) => reactor.mine);
-            const names = list.map(reactorName).join(', ');
-            return (
-              <button
-                key={kind}
-                type="button"
-                aria-pressed={mine}
-                aria-label={names ? `${label} (${names})` : label}
-                title={names || label}
-                onClick={() => onReact(entry.activityId, kind, !mine)}
-                className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-                style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
-              >
-                <Icon
-                  size={18}
-                  strokeWidth={mine ? 2.5 : 2}
-                  fill={mine && fillable ? 'currentColor' : 'none'}
-                  aria-hidden="true"
-                />
-                {list.length > 0 && <span>{list.length}</span>}
-                {short && <span>{short}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
+    <div className="mt-2 border-t border-[var(--theme-border)] pt-0.5">
+      <div role="group" aria-label="Réagir" className="-ml-3 flex">
+        {items.map(({ kind, Icon, fillable, label, short, list }) => {
+          const mine = list.some((reactor) => reactor.mine);
+          const names = list.map(reactorName).join(', ');
+          return (
+            <button
+              key={kind}
+              type="button"
+              aria-pressed={mine}
+              aria-label={names ? `${label} (${names})` : label}
+              title={names || label}
+              onClick={() => onReact(group, kind, !mine)}
+              className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+              style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
+            >
+              <Icon
+                size={18}
+                strokeWidth={mine ? 2.5 : 2}
+                fill={mine && fillable ? 'currentColor' : 'none'}
+                aria-hidden="true"
+              />
+              {list.length > 0 && <span>{list.length}</span>}
+              {short && <span>{short}</span>}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -230,40 +263,34 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
 
   return (
     <li className={POST}>
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
         <FriendAvatar
           name={isMe ? userName : entry.name}
           url={isMe ? userAvatar : entry.avatarUrl}
           size={36}
         />
-
         <div className="min-w-0 flex-1 text-left">
-          <p className="flex items-baseline gap-1 font-outfit text-[13px] text-[var(--theme-text-secondary)]">
-            <span className="min-w-0 truncate font-bold text-[var(--theme-text)]">
-              {isMe ? 'Toi' : entry.name}
-            </span>
-            <span className="shrink-0">
-              {isMe ? 'as vu' : 'a vu'}
-              {when && ` · ${when}`}
-            </span>
+          <p className="truncate font-outfit text-[14px] font-bold leading-snug text-[var(--theme-text)]">
+            {isMe ? 'Toi' : entry.name}
           </p>
-
-          <PostText comment={entry.comment} className="mt-1" />
-
-          <FilmRow film={group.film} posters={group.posters} className="mt-2.5">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <RatingBadge entry={entry} />
-              {!isMe && (
-                <span className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">
-                  Pas encore vu par toi
-                </span>
-              )}
-            </div>
-          </FilmRow>
-
-          <ReactionFooter entry={entry} onReact={onReact} canReact={!isMe} />
+          <p className="font-outfit text-[12px] text-[var(--theme-text-secondary)]">
+            {isMe ? 'as vu un film' : 'a vu un film'}
+            {when && ` · ${when}`}
+          </p>
         </div>
       </div>
+
+      <FilmRow film={group.film} posters={group.posters} className="mt-2.5">
+        {!isMe && (
+          <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Pas encore vu par toi</p>
+        )}
+      </FilmRow>
+
+      <ul className="mt-2.5">
+        <Comment entry={entry} userName={userName} userAvatar={userAvatar} showWhen={false} />
+      </ul>
+
+      <ReactionBar group={group} onReact={onReact} canReact={!isMe} />
     </li>
   );
 }
@@ -311,41 +338,13 @@ function SharedPost({ group, userName, userAvatar, ratingScale, onReact }) {
         )}
       </FilmRow>
 
-      {/* Entrées à plat : pas de carte, juste un fond pleine largeur pour la mienne */}
-      <ul className="-mx-4 mt-2">
-        {entries.map((entry) => {
-          const isMe = entry.who === 'me';
-          const when = formatWatched(entry.watchedOn);
-          return (
-            <li
-              key={entry.id}
-              className="flex gap-2.5 px-4 py-2"
-              style={isMe ? { background: MINE_TINT } : undefined}
-            >
-              <FriendAvatar
-                name={isMe ? userName : entry.name}
-                url={isMe ? userAvatar : entry.avatarUrl}
-                size={28}
-              />
-              <div className="min-w-0 flex-1 text-left">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 truncate font-outfit text-[13px] font-bold text-[var(--theme-text)]">
-                    {isMe ? 'Toi' : entry.name}
-                  </span>
-                  <RatingBadge entry={entry} />
-                  {when && (
-                    <span className="ml-auto shrink-0 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
-                      {when}
-                    </span>
-                  )}
-                </div>
-                <PostText comment={entry.comment} className="mt-1 !text-[13px]" />
-                <ReactionFooter entry={entry} onReact={onReact} canReact={!isMe} />
-              </div>
-            </li>
-          );
-        })}
+      <ul className="mt-2.5">
+        {entries.map((entry) => (
+          <Comment key={entry.id} entry={entry} userName={userName} userAvatar={userAvatar} />
+        ))}
       </ul>
+
+      <ReactionBar group={group} onReact={onReact} canReact />
     </li>
   );
 }

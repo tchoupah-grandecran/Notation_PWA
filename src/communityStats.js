@@ -182,6 +182,22 @@ export function withReaction(reactions, kind, active) {
   }
   return next;
 }
+/** Fusionne les réactions de toutes les entrées d'un post (une personne = une fois par type). */
+export function mergeReactions(entries) {
+  const merged = emptyReactions();
+  const seen = { like: new Set(), dislike: new Set(), watch: new Set() };
+  for (const entry of entries) {
+    for (const kind of Object.keys(merged)) {
+      for (const reactor of entry.reactions?.[kind] || []) {
+        const id = reactor.mine ? 'me' : reactor.friendCode || reactor.displayName;
+        if (seen[kind].has(id)) continue;
+        seen[kind].add(id);
+        merged[kind].push(reactor);
+      }
+    }
+  }
+  return merged;
+}
 
 /* ─── Fil d'actualité façon discussion : un bloc par film ─────────────
    - vu uniquement par un/des ami(s) seul(s) → kind « friend » (à gauche)
@@ -285,6 +301,8 @@ export function buildFeedGroups({ items, historyData, ratingScale, myReactions =
         film: group.film,
         posters: group.posters,
         entries,
+        reactions: mergeReactions(entries),
+        activityIds: entries.filter((entry) => entry.activityId).map((entry) => entry.activityId),
         latest,
         kind: entries.length >= 2 ? 'shared' : entries[0].who === 'me' ? 'mine' : 'friend',
       };

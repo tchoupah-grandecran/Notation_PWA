@@ -53,6 +53,9 @@ export const getFeed = () => call('feed');
 /** Pose (active = true) ou retire (false) ma réaction « like » | « dislike » | « watch » sur une séance d'ami. */
 export const reactToActivity = (activityId, kind, active) => call('react', { activityId, kind, active });
 
+/** Réaction sur un post entier : une seule requête pour toutes les séances d'ami qu'il contient. */
+export const reactToActivities = (activityIds, kind, active) => call('react', { activityIds, kind, active });
+
 /** Stats d'un ami + films en commun. → { friend, stats | null, updatedAt, common: [...] } */
 export const compareWithFriend = (friendCode) => call('compare', { friendCode });
 

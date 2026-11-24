@@ -273,43 +273,56 @@ async function feed(account, _body, res) {
 
 const REACTION_KINDS = ['like', 'dislike', 'watch'];
 const OPPOSITE = { like: 'dislike', dislike: 'like' };
+const MAX_REACT_TARGETS = 20;
 
-/* POST /api/community/react   Body : { activityId, kind, active }
-   Pose ou retire ma réaction sur la séance d'un ami. 👍 et 👎 s'excluent ; 🍿 est indépendant. */
+/* POST /api/community/react   Body : { activityIds: [...], kind, active }   (ou { activityId } pour une seule séance)
+   Pose ou retire ma réaction sur une ou plusieurs séances d'amis (= un post). 👍 et 👎 s'excluent ; 🍿 est indépendant. */
 async function react(account, body, res) {
   const sql = db();
   const me = account.google_sub;
-  const activityId = String(body.activityId ?? '');
   const kind = body.kind;
-  if (!/^\d{1,18}$/.test(activityId) || !REACTION_KINDS.includes(kind)) {
+  const ids = [...new Set((Array.isArray(body.activityIds) ? body.activityIds : [body.activityId]).map((id) => String(id ?? '')))];
+
+  if (
+    ids.length === 0 ||
+    ids.length > MAX_REACT_TARGETS ||
+    !ids.every((id) => /^\d{1,18}$/.test(id)) ||
+    !REACTION_KINDS.includes(kind)
+  ) {
     return res.status(400).json({ error: 'Réaction invalide.' });
   }
 
-  // On ne peut réagir qu'à la séance d'un de ses amis
-  const target = await sql`
+  // On ne peut réagir qu'aux séances de ses amis ; les autres identifiants sont ignorés
+  const targets = await sql`
     SELECT a.id
     FROM community_activity a
     JOIN friendships f
       ON (f.user_a = ${me} AND f.user_b = a.google_sub)
       OR (f.user_b = ${me} AND f.user_a = a.google_sub)
-    WHERE a.id = ${activityId}::bigint`;
-  if (!target[0]) return res.status(404).json({ error: 'Publication introuvable.' });
+    WHERE a.id IN (SELECT value::bigint FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))`;
+  if (targets.length === 0) return res.status(404).json({ error: 'Publication introuvable.' });
+  const allowed = targets.map((row) => String(row.id));
+  const allowedJson = JSON.stringify(allowed);
 
   if (body.active === false) {
     await sql`
       DELETE FROM community_reactions
-      WHERE activity_id = ${activityId}::bigint AND reactor_sub = ${me} AND kind = ${kind}`;
+      WHERE reactor_sub = ${me} AND kind = ${kind}
+        AND activity_id IN (SELECT value::bigint FROM jsonb_array_elements_text(${allowedJson}::jsonb))`;
   } else {
     const queries = [];
     if (OPPOSITE[kind]) {
       queries.push(sql`
         DELETE FROM community_reactions
-        WHERE activity_id = ${activityId}::bigint AND reactor_sub = ${me} AND kind = ${OPPOSITE[kind]}`);
+        WHERE reactor_sub = ${me} AND kind = ${OPPOSITE[kind]}
+          AND activity_id IN (SELECT value::bigint FROM jsonb_array_elements_text(${allowedJson}::jsonb))`);
     }
-    queries.push(sql`
-      INSERT INTO community_reactions (activity_id, reactor_sub, kind)
-      VALUES (${activityId}::bigint, ${me}, ${kind})
-      ON CONFLICT DO NOTHING`);
+    for (const id of allowed) {
+      queries.push(sql`
+        INSERT INTO community_reactions (activity_id, reactor_sub, kind)
+        VALUES (${id}::bigint, ${me}, ${kind})
+        ON CONFLICT DO NOTHING`);
+    }
     await sql.transaction(queries);
   }
 
