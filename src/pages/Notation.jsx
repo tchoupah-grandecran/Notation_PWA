@@ -128,7 +128,7 @@ function NotationForm({ initialFilm, token, spreadsheetId, ratingScale = 5, onSa
   const [comment, setComment] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCapucine, setIsCapucine] = useState(false);
-  const [price, setPrice] = useState(initialFilm.depense || '0.00');
+  const [price, setPrice] = useState(initialFilm.depense || '0,00');
 
   const [selectedLang, setSelectedLang] = useState(null);
   const [customLang, setCustomLang] = useState('');

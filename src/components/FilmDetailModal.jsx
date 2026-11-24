@@ -182,7 +182,7 @@ export function FilmDetailModal({ film, onClose, ratingScale = 5 }) {
   const note = film.note ? String(film.note).replace(',', '.') : null;
   const genreClass = GENRE_COLORS[film.genre] || 'border-white/30 text-white/90';
   const formattedCost = film.depense
-    ? `${String(film.depense).replace('.', ',')} €`
+    ? `${String(film.depense).replace('.', ',')}`
     : '';
 
   // Les gélules disparaissent au début du retournement et réapparaissent
