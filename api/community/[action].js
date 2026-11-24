@@ -212,7 +212,122 @@ async function feed(account, _body, res) {
   });
 }
 
-const ACTIONS = { me, add, list, remove, activity, feed };
+const MAX_FILMS = 3000;
+
+const toInt = (value, max) => {
+  const n = Math.trunc(Number(value));
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : 0;
+};
+
+const toRatio = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? Math.round(n * 1000) / 1000 : null;
+};
+
+function cleanCounts(raw, maxEntries, keyOk) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, value] of Object.entries(raw).slice(0, maxEntries)) {
+    if (key === '__proto__' || !keyOk(key)) continue;
+    out[key] = toInt(value, 100000);
+  }
+  return out;
+}
+
+/* POST /api/community/stats   Body : { stats, films }
+   Enregistre mon instantané de statistiques. Ignoré tant que je n'ai pas de profil communautaire. */
+async function stats(account, body, res) {
+  const sql = db();
+  const profile = await sql`SELECT 1 FROM community_profiles WHERE google_sub = ${account.google_sub}`;
+  if (!profile[0]) return res.status(200).json({ skipped: true });
+
+  const raw = body.stats && typeof body.stats === 'object' ? body.stats : {};
+  const cleanStats = {
+    totalFilms: toInt(raw.totalFilms, 100000),
+    ratedFilms: toInt(raw.ratedFilms, 100000),
+    avgRatio: toRatio(raw.avgRatio),
+    coupsDeCoeur: toInt(raw.coupsDeCoeur, 100000),
+    totalMinutes: toInt(raw.totalMinutes, 10_000_000),
+    genres: cleanCounts(raw.genres, 40, (key) => key.length <= 60),
+    byYear: cleanCounts(raw.byYear, 60, (key) => /^\d{4}$/.test(key)),
+  };
+
+  const films = (Array.isArray(body.films) ? body.films : [])
+    .slice(0, MAX_FILMS)
+    .map((film) => {
+      const title = text(film?.t, 200);
+      const normalized = text(film?.n, 120);
+      const ratio = toRatio(film?.r);
+      if (!title || !normalized || ratio === null) return null;
+      return { k: text(film.k, 40) || null, n: normalized, t: title, r: ratio, h: film.h === true };
+    })
+    .filter(Boolean);
+
+  await sql`
+    INSERT INTO community_stats (google_sub, stats, films, updated_at)
+    VALUES (${account.google_sub}, ${JSON.stringify(cleanStats)}::jsonb, ${JSON.stringify(films)}::jsonb, now())
+    ON CONFLICT (google_sub) DO UPDATE SET
+      stats = EXCLUDED.stats,
+      films = EXCLUDED.films,
+      updated_at = now()`;
+
+  return res.status(200).json({ saved: true });
+}
+
+/* POST /api/community/compare   Body : { friendCode }
+   Statistiques d'un ami + films vus par nous deux (avec les deux notes). */
+async function compare(account, body, res) {
+  const sql = db();
+  const code = normalizeFriendCode(body.friendCode);
+  if (code.length !== 8) return res.status(400).json({ error: 'Code ami invalide.' });
+
+  const friends = await sql`
+    SELECT p.google_sub, p.friend_code, p.display_name, p.avatar_url
+    FROM community_profiles p
+    JOIN friendships f
+      ON (f.user_a = ${account.google_sub} AND f.user_b = p.google_sub)
+      OR (f.user_b = ${account.google_sub} AND f.user_a = p.google_sub)
+    WHERE p.friend_code = ${code}`;
+  const friend = friends[0];
+  if (!friend) return res.status(404).json({ error: 'Cet ami est introuvable dans ta liste.' });
+
+  const rows = await sql`
+    SELECT google_sub, stats, films, updated_at
+    FROM community_stats
+    WHERE google_sub = ${account.google_sub} OR google_sub = ${friend.google_sub}`;
+  const mine = rows.find((row) => row.google_sub === account.google_sub);
+  const theirs = rows.find((row) => row.google_sub === friend.google_sub);
+
+  // Intersection : on associe par identifiant TMDB, à défaut par titre normalisé
+  const theirByKey = new Map();
+  const theirByName = new Map();
+  for (const film of theirs?.films || []) {
+    if (film.k) theirByKey.set(film.k, film);
+    theirByName.set(film.n, film);
+  }
+  const common = [];
+  for (const film of mine?.films || []) {
+    const match = (film.k && theirByKey.get(film.k)) || theirByName.get(film.n);
+    if (match) {
+      common.push({
+        title: film.t,
+        mine: film.r,
+        theirs: match.r,
+        mineHeart: film.h === true,
+        theirsHeart: match.h === true,
+      });
+    }
+  }
+
+  return res.status(200).json({
+    friend: toPublic(friend),
+    stats: theirs?.stats || null,
+    updatedAt: theirs?.updated_at || null,
+    common: common.slice(0, 200),
+  });
+}
+
+const ACTIONS = { me, add, list, remove, activity, feed, stats, compare };
 
 export default async function handler(req, res) {
   addNoStoreHeaders(res);

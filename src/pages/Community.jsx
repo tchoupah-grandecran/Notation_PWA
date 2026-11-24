@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Clock3, Copy, Film, Heart, Share2, Sparkles, Trophy, UserPlus, Users, X } from 'lucide-react';
-import { Avatar3D } from '../components/Avatar3D';
+import { Check, Clock3, Copy, Film, Heart, Share2, UserPlus, Users, X } from 'lucide-react';
+import { CompareView } from '../components/CompareView';
+import { EmptyState, FriendAvatar, Skeleton } from '../components/communityUi';
 import {
   addFriendByCode,
   getFeed,
@@ -82,8 +83,6 @@ const formatWatched = (iso) => {
 };
 
 /* ─── Skeletons ───────────────────────────────────────────────────── */
-const Skeleton = ({ className = '' }) => <div aria-hidden="true" className={`ge-skeleton ${className}`} />;
-
 function FeedSkeleton({ rows = 3 }) {
   return (
     <div role="status" aria-live="polite">
@@ -149,31 +148,6 @@ function ShareSkeleton() {
 }
 
 /* ─── Éléments d'interface ────────────────────────────────────────── */
-function FriendAvatar({ name, url, size = 40 }) {
-  if (url) {
-    return (
-      <div className="shrink-0">
-        <Avatar3D src={url} size={size} primary="transparent" borderWidth={0} />
-      </div>
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="flex shrink-0 items-center justify-center rounded-full font-galinoy italic"
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.5),
-        background: 'color-mix(in srgb, var(--theme-accent) 18%, transparent)',
-        color: 'var(--theme-accent)',
-      }}
-    >
-      {(name || '?').trim().charAt(0).toUpperCase()}
-    </span>
-  );
-}
-
 function ProfileButton({ name, url, onClick }) {
   return (
     <button
@@ -194,25 +168,6 @@ function ProfileButton({ name, url, onClick }) {
         <UserPlus size={10} strokeWidth={2.5} />
       </span>
     </button>
-  );
-}
-
-function EmptyState({ icon: Icon, title, text, action }) {
-  return (
-    <div className="flex flex-col items-center rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)] px-6 py-10 text-center">
-      <span
-        className="mb-4 flex h-14 w-14 items-center justify-center rounded-full"
-        style={{
-          background: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)',
-          color: 'var(--theme-accent)',
-        }}
-      >
-        <Icon size={24} aria-hidden="true" />
-      </span>
-      <p className="font-galinoy text-[22px] italic text-[var(--theme-text)]">{title}</p>
-      <p className="mt-2 max-w-[28ch] font-outfit text-[13px] leading-relaxed text-[var(--theme-text-secondary)]">{text}</p>
-      {action}
-    </div>
   );
 }
 
@@ -283,42 +238,6 @@ function FeedItem({ item }) {
         </div>
       )}
     </li>
-  );
-}
-
-function ComingSoon() {
-  const teasers = [
-    { icon: Users, label: 'Comparer vos goûts avec ceux de vos amis' },
-    { icon: Trophy, label: 'Défis et classements entre cinéphiles' },
-    { icon: Sparkles, label: 'Statistiques croisées et badges' },
-  ];
-  return (
-    <div className="rounded-[20px] border border-[var(--theme-border)] bg-[var(--theme-surface)] px-6 py-10 text-center">
-      <span
-        className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full"
-        style={{
-          background: 'color-mix(in srgb, var(--theme-accent) 14%, transparent)',
-          color: 'var(--theme-accent)',
-        }}
-      >
-        <Trophy size={24} aria-hidden="true" />
-      </span>
-      <p className="font-galinoy text-[26px] italic text-[var(--theme-text)]">Bientôt disponible</p>
-      <p className="mx-auto mt-2 max-w-[30ch] font-outfit text-[13px] leading-relaxed text-[var(--theme-text-secondary)]">
-        On prépare de quoi vous mesurer entre amis.
-      </p>
-      <ul className="mx-auto mt-6 flex max-w-xs flex-col gap-2 text-left">
-        {teasers.map(({ icon: Icon, label }) => (
-          <li
-            key={label}
-            className="flex items-center gap-3 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-bg)] px-4 py-3 opacity-70"
-          >
-            <Icon size={16} aria-hidden="true" className="shrink-0 opacity-60" />
-            <span className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">{label}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -764,6 +683,10 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
       swipeRef.current = null;
       return;
     }
+    if (event.target instanceof Element && event.target.closest('[data-no-swipe]')) {
+      swipeRef.current = null;
+      return;
+    }
     const touch = event.touches[0];
     swipeRef.current = { x: touch.clientX, y: touch.clientY };
   };
@@ -846,7 +769,18 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
           aria-labelledby={`community-tab-${activeSubTab}`}
           className={slideDir === 'right' ? 'ge-slide-from-right' : slideDir === 'left' ? 'ge-slide-from-left' : ''}
         >
-          {activeSubTab === 'activity' ? renderActivity() : <ComingSoon />}
+          {activeSubTab === 'activity' || status !== 'ready' ? (
+            renderActivity()
+          ) : (
+            <CompareView
+              friends={friends}
+              userName={userName}
+              userAvatar={userAvatar}
+              historyData={historyData}
+              ratingScale={ratingScale}
+              onOpenShare={openShare}
+            />
+          )}
         </div>
       </main>
 

@@ -1,3 +1,5 @@
+import { computeStats, parseNote, toIsoDate } from './communityStats';
+
 const HEADERS = {
   'Content-Type': 'application/json',
   'X-Requested-With': 'XmlHttpRequest',
@@ -6,6 +8,7 @@ const HEADERS = {
 // Le partage de notes n'est actif qu'après une première visite de l'onglet Amis (consentement implicite).
 const ENABLED_KEY = 'grandecran_community_on';
 const SIGNATURE_KEY = 'grandecran_activity_sig';
+const STATS_SIGNATURE_KEY = 'grandecran_stats_sig';
 const SYNC_LIMIT = 10;
 
 async function call(action, body = {}) {
@@ -47,20 +50,10 @@ export const removeFriend = (friendCode) => call('remove', { friendCode });
 /** Dernières séances de mes amis. → { items: [...] } */
 export const getFeed = () => call('feed');
 
+/** Stats d'un ami + films en commun. → { friend, stats | null, updatedAt, common: [...] } */
+export const compareWithFriend = (friendCode) => call('compare', { friendCode });
+
 // ─── Synchronisation de mes séances ──────────────────────────────────
-const parseNote = (value) => {
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-  const n = Number(raw.replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-};
-
-// Le journal stocke « JJ/MM/AAAA » ; le serveur attend « AAAA-MM-JJ ».
-const toIsoDate = (value) => {
-  const m = String(value || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
-};
-
 const toActivityItem = (film, ratingScale) => {
   const rating = parseNote(film?.note);
   const watchedOn = toIsoDate(film?.date);
@@ -79,17 +72,30 @@ const toActivityItem = (film, ratingScale) => {
   };
 };
 
-/**
- * Envoie mes 10 dernières séances notées (idempotent côté serveur).
- * Un « signature » local évite tout appel réseau tant que rien n'a changé.
- */
-export async function syncActivity(historyData, ratingScale) {
-  try {
-    if (!localStorage.getItem(ENABLED_KEY)) return { skipped: true };
-  } catch {
-    return { skipped: true };
-  }
+// Petite empreinte (djb2) pour détecter un changement sans stocker tout l'instantané
+const hashString = (value) => {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) hash = ((hash << 5) + hash + value.charCodeAt(i)) | 0;
+  return String(hash >>> 0);
+};
 
+const readStorage = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* stockage indisponible */
+  }
+};
+
+async function pushActivity(historyData, ratingScale) {
   const items = (Array.isArray(historyData) ? historyData : [])
     .map((film) => toActivityItem(film, ratingScale))
     .filter(Boolean)
@@ -98,19 +104,38 @@ export async function syncActivity(historyData, ratingScale) {
   if (items.length === 0) return { skipped: true };
 
   const signature = JSON.stringify(items);
-  try {
-    if (localStorage.getItem(SIGNATURE_KEY) === signature) return { unchanged: true };
-  } catch {
-    /* on envoie quand même */
-  }
+  if (readStorage(SIGNATURE_KEY) === signature) return { unchanged: true };
 
   const result = await call('activity', { items });
-  if (!result.skipped) {
-    try {
-      localStorage.setItem(SIGNATURE_KEY, signature);
-    } catch {
-      /* stockage indisponible */
-    }
-  }
+  if (!result.skipped) writeStorage(SIGNATURE_KEY, signature);
   return result;
+}
+
+async function pushStats(historyData, ratingScale) {
+  const { stats, films } = computeStats(historyData, ratingScale);
+  if (stats.totalFilms === 0) return { skipped: true };
+
+  const signature = hashString(JSON.stringify({ stats, films, ratingScale }));
+  if (readStorage(STATS_SIGNATURE_KEY) === signature) return { unchanged: true };
+
+  const result = await call('stats', { stats, films });
+  if (!result.skipped) writeStorage(STATS_SIGNATURE_KEY, signature);
+  return result;
+}
+
+/**
+ * Envoie mes 10 dernières séances notées ET mon instantané de statistiques (idempotent côté serveur).
+ * Des empreintes locales évitent tout appel réseau tant que rien n'a changé.
+ * (Le nom est conservé pour ne pas toucher aux appels existants dans App.jsx et Community.jsx.)
+ */
+export async function syncActivity(historyData, ratingScale) {
+  if (!readStorage(ENABLED_KEY)) return { skipped: true };
+
+  const [activity, stats] = await Promise.allSettled([
+    pushActivity(historyData, ratingScale),
+    pushStats(historyData, ratingScale),
+  ]);
+  if (stats.status === 'rejected') console.warn('Synchronisation des stats impossible :', stats.reason);
+  if (activity.status === 'rejected') throw activity.reason;
+  return activity.value;
 }

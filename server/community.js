@@ -57,6 +57,15 @@ export function ensureCommunitySchema() {
         )`;
       // Commentaire de la séance (colonne N du Sheet), ajouté après coup
       await sql`ALTER TABLE community_activity ADD COLUMN IF NOT EXISTS comment text`;
+      // Instantané de statistiques (pour « Comparer ») + liste compacte des films notés.
+      // La liste ne quitte jamais le serveur : seule l'intersection avec celle d'un ami est renvoyée.
+      await sql`
+        CREATE TABLE IF NOT EXISTS community_stats (
+          google_sub text PRIMARY KEY,
+          stats      jsonb NOT NULL,
+          films      jsonb NOT NULL DEFAULT '[]'::jsonb,
+          updated_at timestamptz NOT NULL DEFAULT now()
+        )`;
     })().catch((err) => {
       schemaReady = undefined;
       throw err;
