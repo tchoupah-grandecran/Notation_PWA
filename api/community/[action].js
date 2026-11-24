@@ -180,24 +180,73 @@ async function activity(account, body, res) {
   return res.status(200).json({ saved: items.length });
 }
 
+const emptyReactions = () => ({ like: [], dislike: [], watch: [] });
+
+const reactorFrom = (row, mine = false) => ({
+  friendCode: formatFriendCode(row.friend_code),
+  displayName: row.display_name || '',
+  avatarUrl: row.avatar_url || null,
+  mine,
+});
+
 /* POST /api/community/feed
-   Dernières séances de mes amis (jamais les miennes). */
+   Dernières séances de mes amis, avec les réactions visibles (les miennes + celles de mes amis),
+   et les réactions reçues sur MES séances (`myReactions`, rattachées par session_key). */
 async function feed(account, _body, res) {
   const sql = db();
+  const me = account.google_sub;
+
   const rows = await sql`
-    SELECT a.movie_title, a.rating, a.rating_scale, a.genre, a.poster_url, a.tmdb_id, a.coup_de_coeur, a.comment,
+    SELECT a.id, a.movie_title, a.rating, a.rating_scale, a.genre, a.poster_url, a.tmdb_id, a.coup_de_coeur, a.comment,
            to_char(a.watched_on, 'YYYY-MM-DD') AS watched_on,
            p.friend_code, p.display_name, p.avatar_url
     FROM community_activity a
     JOIN community_profiles p ON p.google_sub = a.google_sub
     JOIN friendships f
-      ON (f.user_a = ${account.google_sub} AND f.user_b = a.google_sub)
-      OR (f.user_b = ${account.google_sub} AND f.user_a = a.google_sub)
+      ON (f.user_a = ${me} AND f.user_b = a.google_sub)
+      OR (f.user_b = ${me} AND f.user_a = a.google_sub)
     ORDER BY COALESCE(a.watched_on, a.created_at::date) DESC, a.created_at DESC
     LIMIT ${FEED_LIMIT}`;
 
+  // Réactions sur ces séances. On ne montre que moi et mes amis : jamais un inconnu.
+  const reactionsById = new Map();
+  if (rows.length > 0) {
+    const ids = JSON.stringify(rows.map((row) => String(row.id)));
+    const reactionRows = await sql`
+      SELECT r.activity_id, r.kind, (r.reactor_sub = ${me}) AS is_me,
+             p.friend_code, p.display_name, p.avatar_url
+      FROM community_reactions r
+      JOIN community_profiles p ON p.google_sub = r.reactor_sub
+      WHERE r.activity_id IN (SELECT value::bigint FROM jsonb_array_elements_text(${ids}::jsonb))
+        AND (r.reactor_sub = ${me} OR EXISTS (
+          SELECT 1 FROM friendships f
+          WHERE (f.user_a = ${me} AND f.user_b = r.reactor_sub)
+             OR (f.user_b = ${me} AND f.user_a = r.reactor_sub)))
+      ORDER BY r.created_at`;
+    for (const row of reactionRows) {
+      const key = String(row.activity_id);
+      if (!reactionsById.has(key)) reactionsById.set(key, emptyReactions());
+      reactionsById.get(key)[row.kind]?.push(reactorFrom(row, row.is_me));
+    }
+  }
+
+  // Réactions reçues sur mes propres séances (par mes amis actuels)
+  const myRows = await sql`
+    SELECT a.session_key, r.kind, p.friend_code, p.display_name, p.avatar_url
+    FROM community_activity a
+    JOIN community_reactions r ON r.activity_id = a.id
+    JOIN community_profiles p ON p.google_sub = r.reactor_sub
+    WHERE a.google_sub = ${me}
+      AND EXISTS (
+        SELECT 1 FROM friendships f
+        WHERE (f.user_a = ${me} AND f.user_b = r.reactor_sub)
+           OR (f.user_b = ${me} AND f.user_a = r.reactor_sub))
+    ORDER BY r.created_at DESC
+    LIMIT 300`;
+
   return res.status(200).json({
     items: rows.map((row) => ({
+      id: String(row.id),
       friend: toPublic(row),
       title: row.movie_title,
       rating: Number(row.rating),
@@ -208,8 +257,59 @@ async function feed(account, _body, res) {
       coupDeCoeur: row.coup_de_coeur,
       watchedOn: row.watched_on || null,
       comment: row.comment || null,
+      reactions: reactionsById.get(String(row.id)) || emptyReactions(),
+    })),
+    myReactions: myRows.map((row) => ({
+      sessionKey: row.session_key,
+      kind: row.kind,
+      reactor: reactorFrom(row),
     })),
   });
+}
+
+const REACTION_KINDS = ['like', 'dislike', 'watch'];
+const OPPOSITE = { like: 'dislike', dislike: 'like' };
+
+/* POST /api/community/react   Body : { activityId, kind, active }
+   Pose ou retire ma réaction sur la séance d'un ami. 👍 et 👎 s'excluent ; 🍿 est indépendant. */
+async function react(account, body, res) {
+  const sql = db();
+  const me = account.google_sub;
+  const activityId = String(body.activityId ?? '');
+  const kind = body.kind;
+  if (!/^\d{1,18}$/.test(activityId) || !REACTION_KINDS.includes(kind)) {
+    return res.status(400).json({ error: 'Réaction invalide.' });
+  }
+
+  // On ne peut réagir qu'à la séance d'un de ses amis
+  const target = await sql`
+    SELECT a.id
+    FROM community_activity a
+    JOIN friendships f
+      ON (f.user_a = ${me} AND f.user_b = a.google_sub)
+      OR (f.user_b = ${me} AND f.user_a = a.google_sub)
+    WHERE a.id = ${activityId}::bigint`;
+  if (!target[0]) return res.status(404).json({ error: 'Publication introuvable.' });
+
+  if (body.active === false) {
+    await sql`
+      DELETE FROM community_reactions
+      WHERE activity_id = ${activityId}::bigint AND reactor_sub = ${me} AND kind = ${kind}`;
+  } else {
+    const queries = [];
+    if (OPPOSITE[kind]) {
+      queries.push(sql`
+        DELETE FROM community_reactions
+        WHERE activity_id = ${activityId}::bigint AND reactor_sub = ${me} AND kind = ${OPPOSITE[kind]}`);
+    }
+    queries.push(sql`
+      INSERT INTO community_reactions (activity_id, reactor_sub, kind)
+      VALUES (${activityId}::bigint, ${me}, ${kind})
+      ON CONFLICT DO NOTHING`);
+    await sql.transaction(queries);
+  }
+
+  return res.status(200).json({ ok: true });
 }
 
 const MAX_FILMS = 3000;
@@ -327,7 +427,7 @@ async function compare(account, body, res) {
   });
 }
 
-const ACTIONS = { me, add, list, remove, activity, feed, stats, compare };
+const ACTIONS = { me, add, list, remove, activity, feed, stats, compare, react };
 
 export default async function handler(req, res) {
   addNoStoreHeaders(res);

@@ -47,8 +47,11 @@ export const listFriends = () => call('list');
 /** Retire un ami. */
 export const removeFriend = (friendCode) => call('remove', { friendCode });
 
-/** Dernières séances de mes amis. → { items: [...] } */
+/** Dernières séances de mes amis (+ réactions). → { items: [...], myReactions: [...] } */
 export const getFeed = () => call('feed');
+
+/** Pose (active = true) ou retire (false) ma réaction « like » | « dislike » | « watch » sur une séance d'ami. */
+export const reactToActivity = (activityId, kind, active) => call('react', { activityId, kind, active });
 
 /** Stats d'un ami + films en commun. → { friend, stats | null, updatedAt, common: [...] } */
 export const compareWithFriend = (friendCode) => call('compare', { friendCode });

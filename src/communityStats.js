@@ -121,6 +121,7 @@ export function buildFilmIndex(historyData, ratingScale) {
       poster: film.affiche || null,
       genre: film.genre || null,
       tmdbId: film.tmdbId ? String(film.tmdbId) : null,
+      sessionKey: `${film.titre}|${film.date}|${film.heure || ''}`, // même formule que l'envoi d'activité
     };
 
     // Un film vu plusieurs fois : on préfère une séance notée, puis la plus récente
@@ -148,13 +149,48 @@ export function buildFilmIndex(historyData, ratingScale) {
   };
 }
 
+/* ─── Réactions ─────────────────────────────────────────────────────── */
+const emptyReactions = () => ({ like: [], dislike: [], watch: [] });
+
+const ME_REACTOR = { friendCode: 'me', displayName: 'Toi', avatarUrl: null, mine: true };
+
+/** Réactions reçues sur mes séances → Map(sessionKey → { like, dislike, watch }) */
+export function groupMyReactions(myReactions) {
+  const map = new Map();
+  for (const { sessionKey, kind, reactor } of myReactions || []) {
+    if (!map.has(sessionKey)) map.set(sessionKey, emptyReactions());
+    map.get(sessionKey)[kind]?.push(reactor);
+  }
+  return map;
+}
+
+/** Mise à jour optimiste de MA réaction (👍 et 👎 s'excluent). */
+export function withReaction(reactions, kind, active) {
+  const next = {
+    like: [...(reactions?.like || [])],
+    dislike: [...(reactions?.dislike || [])],
+    watch: [...(reactions?.watch || [])],
+  };
+  const strip = (k) => {
+    next[k] = next[k].filter((reactor) => !reactor.mine);
+  };
+  strip(kind);
+  if (active) {
+    if (kind === 'like') strip('dislike');
+    if (kind === 'dislike') strip('like');
+    next[kind].push(ME_REACTOR);
+  }
+  return next;
+}
+
 /* ─── Fil d'actualité façon discussion : un bloc par film ─────────────
    - vu uniquement par un/des ami(s) seul(s) → kind « friend » (à gauche)
    - vu uniquement par moi                  → kind « mine »   (à droite)
    - vu par 2 personnes ou plus (moi inclus) → kind « shared » (une seule carte, toutes les notes)
    Pour chaque film, on réunit TOUTES les affiches connues (moi + amis) : `posters`. */
-export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 }) {
+export function buildFeedGroups({ items, historyData, ratingScale, myReactions = [], myLimit = 10 }) {
   const index = buildFilmIndex(historyData, ratingScale);
+  const myReactionMap = groupMyReactions(myReactions);
   const groups = [];
   const byTmdb = new Map();
   const byName = new Map();
@@ -190,6 +226,7 @@ export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 
     heart: mine.heart,
     comment: mine.comment,
     watchedOn: mine.iso || null,
+    reactions: myReactionMap.get(mine.sessionKey) || emptyReactions(),
   });
 
   // 1. Séances de mes amis
@@ -206,6 +243,8 @@ export function buildFeedGroups({ items, historyData, ratingScale, myLimit = 10 
         heart: item.coupDeCoeur,
         comment: item.comment,
         watchedOn: item.watchedOn,
+        activityId: item.id,
+        reactions: item.reactions || emptyReactions(),
       }
     );
   }

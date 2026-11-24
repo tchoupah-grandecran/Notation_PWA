@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Clock3, Copy, Film, Heart, Share2, UserPlus, Users, X } from 'lucide-react';
 import { CompareView } from '../components/CompareView';
-import { buildFeedGroups } from '../communityStats';
+import { buildFeedGroups, withReaction } from '../communityStats';
 import { EmptyState, FriendAvatar, Skeleton } from '../components/communityUi';
 import {
   addFriendByCode,
@@ -9,6 +9,7 @@ import {
   getFeed,
   getMyCommunityProfile,
   listFriends,
+  reactToActivity,
   removeFriend,
   syncActivity,
 } from '../communityApi';
@@ -271,8 +272,68 @@ function CommentBlock({ entry }) {
   );
 }
 
+const REACTIONS = [
+  { kind: 'like', emoji: '👍', label: 'J’aime', done: 'a aimé' },
+  { kind: 'dislike', emoji: '👎', label: 'Je n’aime pas', done: 'n’a pas aimé' },
+  { kind: 'watch', emoji: '🍿', label: 'À voir', done: 'veut le voir' },
+];
+
+/* Réagir à la séance d'un ami */
+function ReactionBar({ entry, onReact }) {
+  if (!entry.activityId) return null;
+  return (
+    <div role="group" aria-label="Réagir" className="mt-3 flex flex-wrap gap-2">
+      {REACTIONS.map(({ kind, emoji, label }) => {
+        const list = entry.reactions?.[kind] || [];
+        const mine = list.some((reactor) => reactor.mine);
+        const names = list.map((reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami')).join(', ');
+        return (
+          <button
+            key={kind}
+            type="button"
+            aria-pressed={mine}
+            aria-label={names ? `${label} (${names})` : label}
+            title={names || label}
+            onClick={() => onReact(entry.activityId, kind, !mine)}
+            className="inline-flex min-h-10 min-w-[52px] items-center justify-center gap-1.5 rounded-full border px-3 font-outfit text-[12px] font-bold transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+            style={{
+              borderColor: mine ? 'var(--theme-accent)' : 'var(--theme-border)',
+              background: mine ? 'color-mix(in srgb, var(--theme-accent) 14%, transparent)' : 'transparent',
+              color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)',
+            }}
+          >
+            <span aria-hidden="true">{emoji}</span>
+            {list.length > 0 && <span>{list.length}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Réactions reçues sur MA séance : qui a réagi, et comment */
+function ReactionSummary({ entry }) {
+  const lines = REACTIONS
+    .map((reaction) => ({ ...reaction, list: entry.reactions?.[reaction.kind] || [] }))
+    .filter((line) => line.list.length > 0);
+  if (lines.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">
+      {lines.map(({ kind, emoji, label, list }) => {
+        const names = list.map((reactor) => reactor.displayName || 'Un ami').join(', ');
+        return (
+          <span key={kind} className="inline-flex items-center gap-1" aria-label={`${label} : ${names}`}>
+            <span aria-hidden="true">{emoji}</span>
+            <span>{names}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 /* Un seul spectateur : bulle à gauche (ami) ou à droite (moi) */
-function SingleBubble({ group, userName, userAvatar }) {
+function SingleBubble({ group, userName, userAvatar, onReact }) {
   const entry = group.entries[0];
   const isMe = entry.who === 'me';
   return (
@@ -316,13 +377,14 @@ function SingleBubble({ group, userName, userAvatar }) {
           <RatingBadge entry={entry} />
         </div>
         <CommentBlock entry={entry} />
+        {isMe ? <ReactionSummary entry={entry} /> : <ReactionBar entry={entry} onReact={onReact} />}
       </div>
     </li>
   );
 }
 
 /* Deux spectateurs ou plus : une seule carte mise en avant, avec toutes les notes en discussion */
-function SharedCard({ group, userName, userAvatar }) {
+function SharedCard({ group, userName, userAvatar, onReact }) {
   return (
     <li>
       <div
@@ -369,6 +431,7 @@ function SharedCard({ group, userName, userAvatar }) {
                     </span>
                   </div>
                   <CommentBlock entry={entry} />
+                  {isMe ? <ReactionSummary entry={entry} /> : <ReactionBar entry={entry} onReact={onReact} />}
                 </div>
               </li>
             );
@@ -379,10 +442,10 @@ function SharedCard({ group, userName, userAvatar }) {
   );
 }
 
-function FeedGroup({ group, userName, userAvatar }) {
+function FeedGroup({ group, userName, userAvatar, onReact }) {
   return group.kind === 'shared'
-    ? <SharedCard group={group} userName={userName} userAvatar={userAvatar} />
-    : <SingleBubble group={group} userName={userName} userAvatar={userAvatar} />;
+    ? <SharedCard group={group} userName={userName} userAvatar={userAvatar} onReact={onReact} />
+    : <SingleBubble group={group} userName={userName} userAvatar={userAvatar} onReact={onReact} />;
 }
 
 /* ─── Pop-up de partage : mon code, ajout, liste d'amis ───────────── */
@@ -617,6 +680,7 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
   const [me, setMe] = useState(null);
   const [friends, setFriends] = useState([]);
   const [feed, setFeed] = useState(null); // null = chargement
+  const [myReactions, setMyReactions] = useState([]);
   const [feedError, setFeedError] = useState(false);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [loadError, setLoadError] = useState('');
@@ -626,8 +690,8 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
 
   const closeShare = useCallback(() => setShowShare(false), []);
   const groups = useMemo(
-    () => buildFeedGroups({ items: feed || [], historyData, ratingScale }),
-    [feed, historyData, ratingScale]
+    () => buildFeedGroups({ items: feed || [], historyData, ratingScale, myReactions }),
+    [feed, historyData, ratingScale, myReactions]
   );
 
   const openShare = useCallback(() => {
@@ -645,14 +709,32 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
   const loadFeed = useCallback(async () => {
     setFeedError(false);
     try {
-      const { items } = await getFeed();
+      const { items, myReactions: received } = await getFeed();
       setFeed(items);
+      setMyReactions(received || []);
     } catch (err) {
       console.error('Erreur fil d’actualité :', err);
       setFeed([]);
       setFeedError(true);
     }
   }, []);
+
+  /* Réaction : affichage immédiat, puis serveur ; en cas d'échec on recharge l'état réel */
+  const handleReact = useCallback(async (activityId, kind, active) => {
+    setFeed((current) =>
+      current
+        ? current.map((item) =>
+            item.id === activityId ? { ...item, reactions: withReaction(item.reactions, kind, active) } : item
+          )
+        : current
+    );
+    try {
+      await reactToActivity(activityId, kind, active);
+    } catch (err) {
+      console.error('Réaction impossible :', err);
+      void loadFeed();
+    }
+  }, [loadFeed]);
 
   const load = useCallback(async () => {
     setStatus((current) => (current === 'ready' ? current : 'loading'));
@@ -800,7 +882,13 @@ export function Community({ userName, userAvatar, historyData, ratingScale, onHe
         )}
         <ul className="space-y-3">
           {groups.map((group) => (
-            <FeedGroup key={group.key} group={group} userName={userName} userAvatar={userAvatar} />
+            <FeedGroup
+              key={group.key}
+              group={group}
+              userName={userName}
+              userAvatar={userAvatar}
+              onReact={handleReact}
+            />
           ))}
         </ul>
       </>
