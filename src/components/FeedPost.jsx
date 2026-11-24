@@ -6,7 +6,7 @@ import { FriendAvatar, Skeleton } from './communityUi';
 
 /*
  * Contrat attendu (réactions PAR POST) :
- *   group.reactions = { like: [...], dislike: [...], watch: [...] }   // reactors : { mine, displayName }
+ *   group.reactions = { like: [...], dislike: [...], watch: [...] }   // reactors : { mine, friendCode, displayName, avatarUrl }
  *   onReact(group, kind, active)                                      // active = true pour ajouter, false pour retirer
  */
 
@@ -15,12 +15,21 @@ const POST = 'border-b-4 border-[var(--theme-bg)] bg-[var(--theme-surface)] px-4
 const POSTER_SIZE = 'h-[72px] w-12 shrink-0 rounded-md';
 const BUBBLE = 'color-mix(in srgb, var(--theme-text) 7%, var(--theme-surface))';
 const MINE_BUBBLE = 'color-mix(in srgb, var(--theme-accent) 14%, var(--theme-surface))';
+const MAX_NAMES = 3;
+const MAX_AVATARS = 3;
 
 const REACTIONS = [
   { kind: 'like', Icon: ThumbsUp, fillable: true, label: 'J’aime', short: '' },
   { kind: 'dislike', Icon: ThumbsDown, fillable: true, label: 'Je n’aime pas', short: '' },
   { kind: 'watch', Icon: PopcornIcon, fillable: false, label: 'À voir', short: 'À voir' },
 ];
+
+// Conjugaisons : un ami · plusieurs amis · moi seul · moi + d'autres
+const VERBS = {
+  like: { one: 'a aimé', many: 'ont aimé', you: 'as aimé', youAnd: 'avez aimé' },
+  dislike: { one: 'n’a pas aimé', many: 'n’ont pas aimé', you: 'n’as pas aimé', youAnd: 'n’avez pas aimé' },
+  watch: { one: 'veut voir', many: 'veulent voir', you: 'veux voir', youAnd: 'voulez voir' },
+};
 
 const formatRating = (rating, scale) => `${String(rating).replace('.', ',')}/${scale}`;
 
@@ -45,6 +54,25 @@ const formatWatched = (iso) => {
 };
 
 const reactorName = (reactor) => (reactor.mine ? 'Toi' : reactor.displayName || 'Un ami');
+
+const joinNames = (names) =>
+  names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0];
+
+/* « Léa, Tom et 2 autres ont aimé ce film » */
+function reactionSentence(kind, list) {
+  const verbs = VERBS[kind];
+  const mine = list.some((reactor) => reactor.mine);
+  const others = list.filter((reactor) => !reactor.mine).map((reactor) => reactor.displayName || 'Un ami');
+  const total = list.length;
+
+  if (mine && others.length === 0) return `Tu ${verbs.you} ce film`;
+
+  const names = total <= MAX_NAMES
+    ? [...others, ...(mine ? ['toi'] : [])]
+    : [...others.slice(0, 2), `${total - 2} autres`];
+  const verb = total > MAX_NAMES ? verbs.many : mine ? verbs.youAnd : total > 1 ? verbs.many : verbs.one;
+  return `${joinNames(names)} ${verb} ce film`;
+}
 
 /* ─── Skeleton ────────────────────────────────────────────────────── */
 export function FeedSkeleton({ rows = 3 }) {
@@ -97,6 +125,21 @@ function RatingBadge({ entry }) {
       {formatRating(entry.rating, entry.scale)}
       {entry.heart && <Heart size={11} fill="currentColor" aria-label="Coup de cœur" />}
     </span>
+  );
+}
+
+/* Pile d'avatars qui se chevauchent */
+function AvatarStack({ people, size }) {
+  return (
+    <div className="flex shrink-0">
+      {people.slice(0, MAX_AVATARS).map((person, index) => (
+        <span key={person.key} className={index > 0 ? (size >= 32 ? '-ml-3' : '-ml-1.5') : ''}>
+          <span className="block rounded-full ring-2 ring-[var(--theme-surface)]">
+            <FriendAvatar name={person.name} url={person.url} size={size} />
+          </span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -197,60 +240,66 @@ function Comment({ entry, userName, userAvatar, showWhen = true }) {
   );
 }
 
-/* Réactions du post : toujours tout en bas */
-function ReactionBar({ group, onReact, canReact }) {
+/* Réactions du post : détail (qui ?) puis boutons. Toujours tout en bas. */
+function ReactionSection({ group, userName, userAvatar, onReact, canReact }) {
   const items = REACTIONS.map((reaction) => ({ ...reaction, list: group.reactions?.[reaction.kind] || [] }));
-
-  // Lecture seule (ex. mon propre post) : on n'affiche que les compteurs non nuls.
-  if (!canReact) {
-    const active = items.filter((item) => item.list.length > 0);
-    if (active.length === 0) return <div className="h-2" />;
-    return (
-      <div className="mt-2 flex gap-4 border-t border-[var(--theme-border)] py-2.5 font-outfit text-[13px] text-[var(--theme-text-secondary)]">
-        {active.map(({ kind, Icon, label, list }) => (
-          <span
-            key={kind}
-            className="inline-flex items-center gap-1.5"
-            title={list.map(reactorName).join(', ')}
-            aria-label={`${label} : ${list.map(reactorName).join(', ')}`}
-          >
-            <Icon size={16} aria-hidden="true" />
-            {list.length}
-          </span>
-        ))}
-      </div>
-    );
-  }
+  const lines = items.filter((item) => item.list.length > 0);
 
   return (
-    <div className="mt-2 border-t border-[var(--theme-border)] pt-0.5">
-      <div role="group" aria-label="Réagir" className="-ml-3 flex">
-        {items.map(({ kind, Icon, fillable, label, short, list }) => {
-          const mine = list.some((reactor) => reactor.mine);
-          const names = list.map(reactorName).join(', ');
-          return (
-            <button
-              key={kind}
-              type="button"
-              aria-pressed={mine}
-              aria-label={names ? `${label} (${names})` : label}
-              title={names || label}
-              onClick={() => onReact(group, kind, !mine)}
-              className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-              style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
-            >
-              <Icon
-                size={18}
-                strokeWidth={mine ? 2.5 : 2}
-                fill={mine && fillable ? 'currentColor' : 'none'}
-                aria-hidden="true"
+    <div className="mt-3">
+      {lines.length > 0 && (
+        <ul aria-label="Réactions" className="space-y-1.5 pb-2.5">
+          {lines.map(({ kind, list }) => (
+            <li key={kind} className="flex items-center gap-2">
+              <AvatarStack
+                size={20}
+                people={list.map((reactor, index) => ({
+                  key: reactor.mine ? 'me' : reactor.friendCode || index,
+                  name: reactor.mine ? userName : reactor.displayName,
+                  url: reactor.mine ? userAvatar : reactor.avatarUrl,
+                }))}
               />
-              {list.length > 0 && <span>{list.length}</span>}
-              {short && <span>{short}</span>}
-            </button>
-          );
-        })}
-      </div>
+              <p className="min-w-0 text-left font-outfit text-[12px] leading-snug text-[var(--theme-text-secondary)]">
+                {reactionSentence(kind, list)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canReact ? (
+        <div className="border-t border-[var(--theme-border)] pt-0.5">
+          <div role="group" aria-label="Réagir" className="-ml-3 flex">
+            {items.map(({ kind, Icon, fillable, label, short, list }) => {
+              const mine = list.some((reactor) => reactor.mine);
+              const names = list.map(reactorName).join(', ');
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={mine}
+                  aria-label={names ? `${label} (${names})` : label}
+                  title={names || label}
+                  onClick={() => onReact(group, kind, !mine)}
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 font-outfit text-[13px] font-semibold transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                  style={{ color: mine ? 'var(--theme-accent)' : 'var(--theme-text-secondary)' }}
+                >
+                  <Icon
+                    size={18}
+                    strokeWidth={mine ? 2.5 : 2}
+                    fill={mine && fillable ? 'currentColor' : 'none'}
+                    aria-hidden="true"
+                  />
+                  {list.length > 0 && <span>{list.length}</span>}
+                  {short && <span>{short}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        lines.length === 0 && <div className="h-2" />
+      )}
     </div>
   );
 }
@@ -274,7 +323,7 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
             {isMe ? 'Toi' : entry.name}
           </p>
           <p className="font-outfit text-[12px] text-[var(--theme-text-secondary)]">
-            {isMe ? 'as vu un film' : 'a vu un film'}
+            {isMe ? '' : 'a vu un film'}
             {when && ` · ${when}`}
           </p>
         </div>
@@ -282,7 +331,7 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
 
       <FilmRow film={group.film} posters={group.posters} className="mt-2.5">
         {!isMe && (
-          <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Pas encore vu par toi</p>
+          <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Tu ne l'as pas encore vu</p>
         )}
       </FilmRow>
 
@@ -290,7 +339,13 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
         <Comment entry={entry} userName={userName} userAvatar={userAvatar} showWhen={false} />
       </ul>
 
-      <ReactionBar group={group} onReact={onReact} canReact={!isMe} />
+      <ReactionSection
+        group={group}
+        userName={userName}
+        userAvatar={userAvatar}
+        onReact={onReact}
+        canReact={!isMe}
+      />
     </li>
   );
 }
@@ -299,15 +354,16 @@ function SinglePost({ group, userName, userAvatar, onReact }) {
 function SharedPost({ group, userName, userAvatar, ratingScale, onReact }) {
   const { entries } = group;
   const hasMe = entries.some((entry) => entry.who === 'me');
+  const when = formatWatched(group.latest);
 
-  // « Léa, Tom et toi avez vu ce film »
+  // « Léa, Tom et toi » · « ont vu ce film »
   const friends = entries.filter((entry) => entry.who !== 'me').map((entry) => entry.name);
   const shown = friends.slice(0, 2);
   const rest = friends.length - shown.length;
   const parts = [...shown];
   if (rest > 0) parts.push(`${rest} autre${rest > 1 ? 's' : ''}`);
   if (hasMe) parts.push('toi');
-  const label = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}` : parts[0];
+  const label = joinNames(parts);
 
   // Moyenne du groupe, ramenée à l'échelle de l'utilisateur
   const rated = entries.filter((entry) => entry.rating !== null && entry.rating !== undefined && entry.scale > 0);
@@ -317,10 +373,25 @@ function SharedPost({ group, userName, userAvatar, ratingScale, onReact }) {
 
   return (
     <li className={POST}>
-      <p className="text-left font-outfit text-[13px] leading-snug text-[var(--theme-text-secondary)]">
-        <span className="font-bold text-[var(--theme-text)]">{label}</span>{' '}
-        {hasMe ? 'avez vu ce film' : 'ont vu ce film'}
-      </p>
+      <div className="flex items-center gap-3">
+        <AvatarStack
+          size={36}
+          people={entries.map((entry) => ({
+            key: entry.id,
+            name: entry.who === 'me' ? userName : entry.name,
+            url: entry.who === 'me' ? userAvatar : entry.avatarUrl,
+          }))}
+        />
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate font-outfit text-[14px] font-bold leading-snug text-[var(--theme-text)]">
+            {label}
+          </p>
+          <p className="font-outfit text-[12px] text-[var(--theme-text-secondary)]">
+            {hasMe ? 'avez vu ce film' : 'ont vu ce film'}
+            {when && ` · ${when}`}
+          </p>
+        </div>
+      </div>
 
       <FilmRow film={group.film} posters={group.posters} className="mt-2.5">
         {average !== null && (
@@ -344,7 +415,13 @@ function SharedPost({ group, userName, userAvatar, ratingScale, onReact }) {
         ))}
       </ul>
 
-      <ReactionBar group={group} onReact={onReact} canReact />
+      <ReactionSection
+        group={group}
+        userName={userName}
+        userAvatar={userAvatar}
+        onReact={onReact}
+        canReact
+      />
     </li>
   );
 }
