@@ -30,6 +30,13 @@ export async function ensureOAuthSchema() {
       `;
       await sql`ALTER TABLE oauth_accounts ADD COLUMN IF NOT EXISTS spreadsheet_id TEXT`;
       await sql`
+        CREATE TABLE IF NOT EXISTS oauth_account_aliases (
+          alias_google_sub TEXT PRIMARY KEY,
+          canonical_google_sub TEXT NOT NULL REFERENCES oauth_accounts(google_sub) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS oauth_sessions (
           session_hash TEXT PRIMARY KEY,
           google_sub TEXT NOT NULL REFERENCES oauth_accounts(google_sub) ON DELETE CASCADE,
@@ -234,6 +241,52 @@ export async function getAccountByGoogleSub(googleSub) {
     LIMIT 1
   `;
   return row || null;
+}
+
+export async function resolveGoogleAccount(googleSub, email, emailVerified) {
+  const sql = getSql();
+  const [alias] = await sql`
+    SELECT a.google_sub, a.spreadsheet_id
+    FROM oauth_account_aliases x
+    JOIN oauth_accounts a ON a.google_sub = x.canonical_google_sub
+    WHERE x.alias_google_sub = ${googleSub}
+    LIMIT 1
+  `;
+  if (alias) return alias;
+
+  const [exact] = await sql`
+    SELECT google_sub, spreadsheet_id
+    FROM oauth_accounts
+    WHERE google_sub = ${googleSub}
+    LIMIT 1
+  `;
+
+  // Google email is used only when Google marks it verified. If this address
+  // already belongs to multiple rows (from previous duplicate signups), keep
+  // the oldest account and its existing spreadsheet as the canonical record.
+  if (emailVerified && email) {
+    const matches = await sql`
+      SELECT google_sub, spreadsheet_id
+      FROM oauth_accounts
+      WHERE LOWER(email) = LOWER(${email})
+      ORDER BY updated_at ASC
+    `;
+    if (matches.length) {
+      const canonical = matches[0];
+      const aliases = new Set([googleSub, ...matches.map((row) => row.google_sub)]);
+      aliases.delete(canonical.google_sub);
+      for (const aliasSub of aliases) {
+        await sql`
+          INSERT INTO oauth_account_aliases (alias_google_sub, canonical_google_sub)
+          VALUES (${aliasSub}, ${canonical.google_sub})
+          ON CONFLICT (alias_google_sub) DO UPDATE SET canonical_google_sub = EXCLUDED.canonical_google_sub
+        `;
+      }
+      return canonical;
+    }
+  }
+
+  return exact || null;
 }
 
 export async function getAccountForSession(sessionToken) {
