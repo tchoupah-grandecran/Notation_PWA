@@ -336,7 +336,7 @@ export function Profile({
         )}
         
         <section className="border-b border-[var(--theme-border)] pb-6">
-          <h1 className="mb-4 font-outfit text-lg font-semibold text-[var(--theme-text)]">Profil</h1>
+          <h1 className="mb-4 font-outfit text-lg font-semibold text-[var(--theme-text)]">Nom & Avatar</h1>
           <div className="flex items-center gap-4">
           <button type="button" onClick={() => setShowAvatarModal(true)} aria-label="Modifier l’avatar" className="group relative shrink-0 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
             <span className="absolute inset-0 rounded-full border-2 border-[var(--theme-accent)] transition-transform group-hover:scale-105" aria-hidden="true" />
