@@ -41,6 +41,9 @@ const DEFAULT_TITLES = {
 /* ─── App ─────────────────────────────────────────────────────────── */
 function App() {
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('grandecran_db_id') || '');
+  const [isCreatingSpreadsheet, setIsCreatingSpreadsheet] = useState(false);
+  const [spreadsheetCreationError, setSpreadsheetCreationError] = useState('');
+  const [spreadsheetCreationAttempt, setSpreadsheetCreationAttempt] = useState(0);
   const [activeTab,     setActiveTab]     = useState('home');
   const [scrollY,       setScrollY]       = useState(0);
   const [selectedFilm,  setSelectedFilm]  = useState(null);
@@ -65,6 +68,35 @@ function App() {
     error: authError,
   } = useAuth();
   const didScanSessionRef = useRef(false);
+  const spreadsheetCreationRef = useRef(false);
+  const currentTokenRef = useRef(userToken);
+  currentTokenRef.current = userToken;
+
+  // Chaque compte Google qui n'a pas encore de journal sur cet appareil reçoit
+  // automatiquement son Google Sheet au premier accès à l'application.
+  useEffect(() => {
+    if (!userToken || spreadsheetId || spreadsheetCreationRef.current) return;
+    const creatingForToken = userToken;
+    spreadsheetCreationRef.current = true;
+    setIsCreatingSpreadsheet(true);
+    setSpreadsheetCreationError('');
+
+    api.createAutoSpreadsheet(userToken)
+      .then((newId) => {
+        if (!newId) throw new Error('La création du journal Google Sheets a échoué. Vérifie les autorisations Google puis reconnecte-toi.');
+        if (currentTokenRef.current !== creatingForToken) return;
+        localStorage.setItem('grandecran_db_id', newId);
+        setSpreadsheetId(newId);
+      })
+      .catch((error) => {
+        if (currentTokenRef.current === creatingForToken) setSpreadsheetCreationError(error.message || 'Impossible de créer ton journal.');
+        console.error('Erreur création du journal Google Sheets :', error);
+      })
+      .finally(() => {
+        spreadsheetCreationRef.current = false;
+        setIsCreatingSpreadsheet(false);
+      });
+  }, [userToken, spreadsheetId, spreadsheetCreationAttempt]);
 
   const handleScan = useCallback(async (token = userToken) => {
     if (!token) return false;
@@ -229,6 +261,13 @@ const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
   }
 
   if (!userToken) return <WelcomeScreen login={login} isAuthenticating={isAuthenticating} error={authError} />;
+  if (!spreadsheetId) return (
+    <div className="min-h-dvh flex flex-col items-center justify-center gap-3 px-6 text-center" style={{ background: THEME_COLORS.dark.bg, color: THEME_COLORS.dark.text }}>
+      <p className="text-xs uppercase tracking-[0.24em] opacity-60">{isCreatingSpreadsheet ? 'Création de ton journal…' : 'Préparation de ton journal'}</p>
+      {spreadsheetCreationError && <p role="alert" className="max-w-sm text-sm opacity-75">{spreadsheetCreationError}</p>}
+      {spreadsheetCreationError && <button type="button" className="rounded-full border border-white/20 px-4 py-2 text-sm" onClick={() => setSpreadsheetCreationAttempt((attempt) => attempt + 1)}>Réessayer</button>}
+    </div>
+  );
 
   return (
     <div

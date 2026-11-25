@@ -923,7 +923,6 @@ export const getPreferencesFromSheet = async (token, spreadsheetId) => {
 };
 
 export const createAutoSpreadsheet = async (token) => {
-  try {
     // 1. Création du fichier
     const createRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets`, {
       method: 'POST',
@@ -933,11 +932,13 @@ export const createAutoSpreadsheet = async (token) => {
       })
     });
     const sheet = await createRes.json();
+    if (!createRes.ok) throw new Error(sheet.error?.message || `Google Sheets a refusé la création (${createRes.status}).`);
     const spreadsheetId = sheet.spreadsheetId;
+    if (!spreadsheetId) throw new Error('Google Sheets n’a pas renvoyé l’identifiant du journal.');
 
     // 2. Configuration des onglets (DB et Config)
     // On renomme la feuille par défaut en DB pour rester aligné avec les lectures/écritures.
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    const configRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -992,12 +993,10 @@ export const createAutoSpreadsheet = async (token) => {
         ]
       })
     });
+    const config = await configRes.json().catch(() => ({}));
+    if (!configRes.ok) throw new Error(config.error?.message || `Google Sheets a refusé la configuration du journal (${configRes.status}).`);
 
     return spreadsheetId;
-  } catch (error) {
-    console.error("Erreur création Sheet:", error);
-    return null;
-  }
 };
 
 // ==========================================
