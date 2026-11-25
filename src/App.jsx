@@ -9,6 +9,7 @@ import { syncActivity } from './communityApi';
 import { OWNER_EMAIL } from './config';
 import * as api from './api';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { Onboarding } from './components/Onboarding';
 import { AppHeader } from './components/AppHeader';
 import { FilmDetailModal } from './components/FilmDetailModal';
 import { Dashboard } from './pages/Dashboard';
@@ -51,6 +52,7 @@ function App() {
   const [nextFilm,      setNextFilm]      = useState(null);
   const [pendingCount,  setPendingCount]  = useState(0);
   const [showNotation,  setShowNotation]  = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -60,6 +62,7 @@ function App() {
   const {
     userToken,
     accountSpreadsheetId,
+    isNewAccount,
     login,
     logout: authLogout,
     refreshSession,
@@ -68,6 +71,10 @@ function App() {
     error: authError,
   } = useAuth();
   const didScanSessionRef = useRef(false);
+
+  useEffect(() => {
+    if (isNewAccount && spreadsheetId) setShowOnboarding(true);
+  }, [isNewAccount, spreadsheetId]);
 
   useEffect(() => {
     setSpreadsheetId(accountSpreadsheetId || '');
@@ -291,6 +298,9 @@ const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
       style={{ background: 'var(--theme-bg)', color: theme.text, ...tokens }}
     >
       <PaperGrain />
+      {showOnboarding && (
+        <Onboarding spreadsheetId={spreadsheetId} onClose={() => setShowOnboarding(false)} />
+      )}
 
       <div
         id="main-scroll-container"

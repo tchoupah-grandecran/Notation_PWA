@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       access_token: tokens.access_token,
       expires_in: tokens.expires_in || 3600,
       spreadsheet_id: spreadsheetId,
+      created_account: intent === 'signup' && !existingAccount,
       user: { given_name: profile.given_name || '' },
     });
   } catch (error) {
