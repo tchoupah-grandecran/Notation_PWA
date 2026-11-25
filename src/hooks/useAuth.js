@@ -29,6 +29,7 @@ export function useAuth() {
   const [accessExpiresAt, setAccessExpiresAt] = useState(0);
   const refreshPromiseRef = useRef(null);
   const lastRefreshAtRef = useRef(0);
+  const signupIntentRef = useRef(false);
 
   const applySession = useCallback((session) => {
     setUserToken(session.access_token);
@@ -112,7 +113,7 @@ export function useAuth() {
     };
   }, [userToken, accessExpiresAt, refreshSession]);
 
-  const login = useGoogleLogin({
+  const googleLogin = useGoogleLogin({
     flow: 'auth-code',
     scope:
       'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile',
@@ -124,7 +125,7 @@ export function useAuth() {
           method: 'POST',
           credentials: 'same-origin',
           headers: AUTH_HEADERS,
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, intent: signupIntentRef.current ? 'signup' : 'signin' }),
         });
         const session = await readJsonResponse(response);
         applySession(session);
@@ -145,6 +146,11 @@ export function useAuth() {
       setIsAuthenticating(false);
     },
   });
+
+  const login = useCallback((intent = 'signin') => {
+    signupIntentRef.current = intent === 'signup';
+    googleLogin();
+  }, [googleLogin]);
 
   const logout = useCallback(() => {
     setUserToken(null);

@@ -41,6 +41,8 @@ const DEFAULT_TITLES = {
 /* ─── App ─────────────────────────────────────────────────────────── */
 function App() {
   const [spreadsheetId, setSpreadsheetId] = useState('');
+  const [spreadsheetIdInput, setSpreadsheetIdInput] = useState('');
+  const [spreadsheetLinkError, setSpreadsheetLinkError] = useState('');
   const [activeTab,     setActiveTab]     = useState('home');
   const [scrollY,       setScrollY]       = useState(0);
   const [selectedFilm,  setSelectedFilm]  = useState(null);
@@ -223,6 +225,25 @@ function App() {
       }).catch((error) => window.alert(error.message));
     }
   };
+
+  const handleAttachSpreadsheet = async (event) => {
+    event.preventDefault();
+    setSpreadsheetLinkError('');
+    try {
+      const response = await fetch('/api/auth/spreadsheet', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XmlHttpRequest' },
+        body: JSON.stringify({ spreadsheetId: spreadsheetIdInput }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Impossible de synchroniser cet ID.');
+      localStorage.setItem('grandecran_db_id', payload.spreadsheet_id);
+      setSpreadsheetId(payload.spreadsheet_id);
+    } catch (error) {
+      setSpreadsheetLinkError(error.message || 'Impossible de synchroniser cet ID.');
+    }
+  };
 useEffect(() => {
   if (!userToken) { setUserEmail(''); return; }
   fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
@@ -246,8 +267,21 @@ const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
 
   if (!userToken) return <WelcomeScreen login={login} isAuthenticating={isAuthenticating} error={authError} />;
   if (!spreadsheetId) return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-3 px-6 text-center" style={{ background: THEME_COLORS.dark.bg, color: THEME_COLORS.dark.text }}>
-      <p className="text-xs uppercase tracking-[0.24em] opacity-60">Préparation de ton journal…</p>
+    <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center" style={{ background: THEME_COLORS.dark.bg, color: THEME_COLORS.dark.text }}>
+      <p className="text-xs uppercase tracking-[0.24em] opacity-60">Aucun journal n’est associé à ce compte</p>
+      <p className="max-w-sm text-sm opacity-70">Colle l’ID de ton Google Sheets existant pour le rattacher à ton profil et le retrouver sur tes appareils.</p>
+      <form onSubmit={handleAttachSpreadsheet} className="flex w-full max-w-sm flex-col gap-3">
+        <input
+          value={spreadsheetIdInput}
+          onChange={(event) => setSpreadsheetIdInput(event.target.value)}
+          placeholder="ID du Google Sheets"
+          aria-label="ID du Google Sheets"
+          className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm outline-none"
+        />
+        {spreadsheetLinkError && <p role="alert" className="text-sm text-red-300">{spreadsheetLinkError}</p>}
+        <button type="submit" disabled={!spreadsheetIdInput.trim()} className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">Associer mon journal existant</button>
+      </form>
+      <button type="button" onClick={handleLogout} className="mt-2 text-sm opacity-60">Se déconnecter</button>
     </div>
   );
 

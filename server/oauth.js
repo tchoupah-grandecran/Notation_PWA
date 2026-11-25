@@ -191,17 +191,18 @@ export async function refreshGoogleAccessToken(refreshToken) {
   return payload;
 }
 
-export async function storeOAuthSession({ sessionToken, googleSub, email, givenName, refreshToken }) {
+export async function storeOAuthSession({ sessionToken, googleSub, email, givenName, refreshToken, spreadsheetId = null }) {
   const sql = getSql();
   const refreshTokenCipher = refreshToken ? encryptRefreshToken(refreshToken) : null;
 
   await sql`
-    INSERT INTO oauth_accounts (google_sub, email, given_name, refresh_token_cipher, updated_at)
-    VALUES (${googleSub}, ${email || null}, ${givenName || null}, ${refreshTokenCipher}, NOW())
+    INSERT INTO oauth_accounts (google_sub, email, given_name, refresh_token_cipher, spreadsheet_id, updated_at)
+    VALUES (${googleSub}, ${email || null}, ${givenName || null}, ${refreshTokenCipher}, ${spreadsheetId}, NOW())
     ON CONFLICT (google_sub) DO UPDATE SET
       email = EXCLUDED.email,
       given_name = EXCLUDED.given_name,
       refresh_token_cipher = COALESCE(EXCLUDED.refresh_token_cipher, oauth_accounts.refresh_token_cipher),
+      spreadsheet_id = COALESCE(oauth_accounts.spreadsheet_id, EXCLUDED.spreadsheet_id),
       updated_at = NOW()
   `;
 
@@ -220,6 +221,17 @@ export async function storeOAuthSession({ sessionToken, googleSub, email, givenN
       last_used_at = NOW(),
       expires_at = EXCLUDED.expires_at
   `;
+}
+
+export async function getAccountByGoogleSub(googleSub) {
+  const sql = getSql();
+  const [row] = await sql`
+    SELECT google_sub, spreadsheet_id
+    FROM oauth_accounts
+    WHERE google_sub = ${googleSub}
+    LIMIT 1
+  `;
+  return row || null;
 }
 
 export async function getAccountForSession(sessionToken) {

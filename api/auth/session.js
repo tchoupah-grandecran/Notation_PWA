@@ -8,11 +8,9 @@ import {
   getSessionToken,
   isTrustedPopupPost,
   refreshGoogleAccessToken,
-  saveAccountSpreadsheet,
   setSessionCookie,
   touchSession,
 } from '../../server/oauth.js';
-import { createDefaultSpreadsheet } from '../../server/sheets.js';
 
 export default async function handler(req, res) {
   addNoStoreHeaders(res);
@@ -38,18 +36,13 @@ export default async function handler(req, res) {
 
     const refreshToken = decryptRefreshToken(account.refresh_token_cipher);
     const tokens = await refreshGoogleAccessToken(refreshToken);
-    let spreadsheetId = account.spreadsheet_id;
-    if (!spreadsheetId) {
-      spreadsheetId = await createDefaultSpreadsheet(tokens.access_token);
-      await saveAccountSpreadsheet(account.google_sub, spreadsheetId);
-    }
     await touchSession(sessionToken);
     setSessionCookie(res, sessionToken, req);
 
     return res.status(200).json({
       access_token: tokens.access_token,
       expires_in: tokens.expires_in || 3600,
-      spreadsheet_id: spreadsheetId,
+      spreadsheet_id: account.spreadsheet_id || '',
       user: { given_name: account.given_name || '' },
     });
   } catch (error) {

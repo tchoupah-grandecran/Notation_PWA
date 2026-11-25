@@ -376,7 +376,7 @@ export function WelcomeScreen({ login, isAuthenticating, error }) {
 
           <button
             type="button"
-            onClick={() => login()}
+            onClick={() => login(isSignup ? 'signup' : 'signin')}
             disabled={isAuthenticating}
             className="ge-focus flex items-center justify-center gap-3 w-full active:scale-[0.985]"
             style={{
