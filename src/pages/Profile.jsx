@@ -364,9 +364,16 @@ export function Profile({
         </section>
 
         <section>
-          <h2 className="mb-2 pt-2 font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Apparence</h2>
-          <div>
-            <Row label="Thème" sublabel={themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}>
+          <details className="group border-b border-[var(--theme-border)]">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
+              <span className="font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Apparence</span>
+              <span className="flex items-center gap-2">
+                <span className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">{themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'} · {ACCENT_PALETTES[accentPalette]?.name || ACCENT_PALETTES.classic.name}</span>
+                <ChevronDown size={16} className="text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
+              </span>
+            </summary>
+            <div className="pb-3">
+            <Row label="Thème">
               <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-0.5">
                 <button type="button" aria-label="Thème clair" aria-pressed={themeMode === 'light'} onClick={() => handleChange(toggleDarkMode, 'light')} className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'light' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'light' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
                   <Sun size={14} />
@@ -441,11 +448,21 @@ export function Profile({
                 </button>
               </div>
             </div>
-          </div>
-        <div>
-          <h2 className="mb-2 mt-5 font-outfit text-[13px] font-semibold text-[var(--theme-text)]">Notation</h2>
-          <div className="border-y border-[var(--theme-border)]">
-            <Row label="Échelle de score" sublabel={ratingScale === 5 ? "Notation Cinéphile (1-5)" : "Notation Standard (1-10)"}>
+            </div>
+          </details>
+        </section>
+
+        <section>
+          <details className="group border-b border-[var(--theme-border)]">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
+              <span className="font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Notation</span>
+              <span className="flex items-center gap-2">
+                <span className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">/{ratingScale}</span>
+                <ChevronDown size={16} className="text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
+              </span>
+            </summary>
+            <div className="border-t border-[var(--theme-border)] pb-2">
+            <Row label="Échelle de score">
               <button
                 type="button"
                 aria-label={`Échelle actuelle sur ${ratingScale}. Passer à ${ratingScale === 5 ? 10 : 5}.`}
@@ -467,8 +484,8 @@ export function Profile({
                 </div>
               </button>
             </Row>
-          </div>
-        </div>
+            </div>
+          </details>
         </section>
 
         {/* RÉGLAGES AVANCÉS */}
