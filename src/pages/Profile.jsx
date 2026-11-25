@@ -288,7 +288,7 @@ export function Profile({
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="font-outfit text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--theme-accent)]">Le portrait</p>
-                <h2 id="avatar-dialog-title" className="mt-1 font-galinoy text-2xl italic text-[var(--theme-text)]">Choisis ton avatar</h2>
+                <h2 id="avatar-dialog-title" className="mt-1 font-outfit text-lg font-semibold text-[var(--theme-text)]">Choisir un avatar</h2>
               </div>
               <button type="button" onClick={() => setShowAvatarModal(false)} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--theme-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><X size={18} /></button>
             </div>
@@ -335,29 +335,15 @@ export function Profile({
           </p>
         )}
         
-        <header className="pb-2">
-          <p className="font-outfit text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--theme-accent)]">Carnet de cinéphile</p>
-          <h1 className="mt-2 font-galinoy text-[38px] italic leading-tight text-[var(--theme-text)]">Ta signature<br />de spectateur</h1>
-          <p className="mt-2 max-w-sm font-outfit text-[13px] leading-relaxed text-[var(--theme-text-secondary)]">Compose un profil à ton image, puis choisis l’ambiance et la manière de noter tes séances.</p>
-        </header>
-
-        {/* 01 — PORTRAIT */}
-        <section className="flex flex-col items-center border-t border-[var(--theme-border)] pt-5 pb-7">
-          <div className="mb-4 flex w-full items-baseline gap-3">
-            <span className="font-galinoy text-[26px] italic text-[var(--theme-accent)]">01</span>
-            <div>
-              <h2 className="font-outfit text-[16px] font-semibold text-[var(--theme-text)]">Le portrait</h2>
-              <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Comment la communauté te reconnaît</p>
-            </div>
-          </div>
-          <button type="button" onClick={() => setShowAvatarModal(true)} aria-label="Modifier l’avatar" className="group relative mb-3 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
+        <section className="border-b border-[var(--theme-border)] pb-6">
+          <h1 className="mb-4 font-outfit text-lg font-semibold text-[var(--theme-text)]">Profil</h1>
+          <div className="flex items-center gap-4">
+          <button type="button" onClick={() => setShowAvatarModal(true)} aria-label="Modifier l’avatar" className="group relative shrink-0 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
             <span className="absolute inset-0 rounded-full border-2 border-[var(--theme-accent)] transition-transform group-hover:scale-105" aria-hidden="true" />
-            <Avatar3D src={userAvatar} size={104} primary="transparent" borderWidth={0} />
-            <span className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-[var(--theme-bg)] bg-[var(--theme-surface)] text-[var(--theme-accent)]" aria-hidden="true"><Edit2 size={13} /></span>
+            <Avatar3D src={userAvatar} size={72} primary="transparent" borderWidth={0} />
+            <span className="absolute bottom-0 right-0 grid h-6 w-6 place-items-center rounded-full border-2 border-[var(--theme-bg)] bg-[var(--theme-surface)] text-[var(--theme-accent)]" aria-hidden="true"><Edit2 size={11} /></span>
           </button>
-          <button type="button" onClick={() => setShowAvatarModal(true)} className="mb-2 font-outfit text-[11px] text-[var(--theme-text-secondary)] underline decoration-[var(--theme-border)] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">Changer l’avatar</button>
-
-          <div className="mt-6 w-full max-w-xs relative flex items-center justify-center">
+          <div className="min-w-0 flex-1">
             <label htmlFor="profile-display-name" className="sr-only">Nom affiché dans l’application</label>
             <input
               id="profile-display-name"
@@ -366,22 +352,16 @@ export function Profile({
               maxLength={40}
               value={userName}
               onChange={(e) => handleChange(updateUserName, e.target.value)}
-              className="w-full bg-transparent text-center font-galinoy text-[32px] italic text-[var(--theme-text)] outline-none transition-colors focus:text-[var(--theme-accent)] focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]/50"
+              placeholder="Prénom"
+              className="w-full bg-transparent font-outfit text-[17px] font-semibold text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]/50"
             />
-            <Edit2 size={14} aria-hidden="true" className="pointer-events-none absolute right-0 opacity-20" />
+            <p className="mt-1 truncate font-outfit text-[11px] text-[var(--theme-text)] opacity-40">{userEmail || 'Adresse e-mail indisponible'}</p>
           </div>
-          <p className="mt-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">Nom affiché</p>
+          </div>
         </section>
 
-        {/* 02 — AMBIANCE */}
         <section>
-          <div className="mb-2 flex items-baseline gap-3 border-t border-[var(--theme-border)] pt-5">
-            <span className="font-galinoy text-[26px] italic text-[var(--theme-accent)]">02</span>
-            <div>
-              <h2 className="font-outfit text-[16px] font-semibold text-[var(--theme-text)]">L’ambiance</h2>
-              <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Lumière, couleurs et atmosphère</p>
-            </div>
-          </div>
+          <h2 className="mb-2 border-t border-[var(--theme-border)] pt-5 font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Apparence</h2>
           <div className="border-y border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
             <Row label="Thème" sublabel={themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}>
               <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-0.5">
@@ -399,7 +379,6 @@ export function Profile({
             <div className="py-4">
               <div className="mb-2 flex items-baseline justify-between gap-3">
                 <p className="font-outfit text-[12px] font-semibold text-[var(--theme-text)]">Couleur d’accent</p>
-                <p className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Change en direct</p>
               </div>
               <div role="group" aria-label="Palettes de couleurs" className="grid grid-cols-2 gap-1.5">
                 {Object.values(ACCENT_PALETTES).map((palette) => {
@@ -434,7 +413,6 @@ export function Profile({
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--theme-border)] pt-2.5">
                 <div className="min-w-0">
                   <p className="font-outfit text-[12px] font-semibold text-[var(--theme-text)]">Accent Fiertés</p>
-                  <p className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Liserés arc-en-ciel</p>
                 </div>
                 <button
                   type="button"
@@ -461,15 +439,8 @@ export function Profile({
               </div>
             </div>
           </div>
-        {/* 03 — REGARD */}
         <div>
-          <div className="mb-1 flex items-baseline gap-3">
-            <span className="font-galinoy text-[26px] italic text-[var(--theme-accent)]">03</span>
-            <div>
-              <h2 className="font-outfit text-[16px] font-semibold text-[var(--theme-text)]">Ton regard</h2>
-              <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Choisis ton échelle de notation</p>
-            </div>
-          </div>
+          <h2 className="mb-2 mt-5 font-outfit text-[13px] font-semibold text-[var(--theme-text)]">Notation</h2>
           <div className="border-y border-[var(--theme-border)]">
             <Row label="Échelle de score" sublabel={ratingScale === 5 ? "Notation Cinéphile (1-5)" : "Notation Standard (1-10)"}>
               <button
@@ -504,7 +475,6 @@ export function Profile({
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-outfit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block text-[14px] font-semibold text-[var(--theme-text)]">Tarifs et forfaits</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--theme-text-secondary)]">Coût de tes séances de cinéma</span>
               </span>
               <ChevronDown size={18} className="shrink-0 text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
@@ -537,27 +507,18 @@ export function Profile({
               </div>
             </Row>
           </div>
-          <p className="px-5 pt-2 font-outfit text-[9px] leading-relaxed opacity-40">La date choisie est conservée avec chaque changement de tarif.</p>
             </div>
           </details>
 
           <details className="group border-b border-[var(--theme-border)]">
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-outfit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
               <span>
-                <span className="block text-[14px] font-semibold text-[var(--theme-text)]">Compte et données</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--theme-text-secondary)]">Adresse e-mail, source et synchronisation</span>
+                <span className="block text-[14px] font-semibold text-[var(--theme-text)]">Données</span>
               </span>
               <ChevronDown size={18} className="shrink-0 text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="border-t border-[var(--theme-border)]">
           <div className="divide-y divide-[var(--theme-border)]">
-            <div className="flex min-h-[64px] items-center justify-between gap-4 px-5 py-3">
-              <span className="font-outfit text-[13px] text-[var(--theme-text-secondary)]">Adresse e-mail</span>
-              <div className="min-w-0 text-right">
-                <span className="block break-all font-outfit text-[13px] font-medium text-[var(--theme-text)]">{userEmail || 'Indisponible'}</span>
-                <span className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Gérée par votre compte Google</span>
-              </div>
-            </div>
             <Row 
               icon={Database} 
               label="Google Sheet" 
