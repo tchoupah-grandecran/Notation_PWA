@@ -8,7 +8,7 @@ import { Community } from './pages/Community';
 import { syncActivity } from './communityApi';
 import { OWNER_EMAIL } from './config';
 import * as api from './api';
-
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { AppHeader } from './components/AppHeader';
 import { FilmDetailModal } from './components/FilmDetailModal';
 import { Dashboard } from './pages/Dashboard';
@@ -28,109 +28,6 @@ const PaperGrain = () => (
     }}
   />
 );
-
-/* ─── WelcomeScreen ───────────────────────────────────────────────── */
-function WelcomeScreen({ login, isAuthenticating, error }) {
-  const isReturning = !!localStorage.getItem('grandecran_username');
-  const savedName   = localStorage.getItem('grandecran_username') || '';
-  const DARK   = THEME_COLORS.dark;
-  const tokens = THEME_TOKENS('dark');
-
-  const titles = [
-    'Mulholland Drive', 'Tokyo Story', 'La Dolce Vita', 'Vertigo',
-    'Stalker', 'In the Mood for Love', 'Mirror', 'Au hasard Balthazar',
-    'Persona', "L'Avventura", 'Breathless', 'Hiroshima Mon Amour',
-    'Andrei Rublev', '8½', 'The Conformist', 'Ordet',
-  ];
-
-  return (
-    <div
-      className="fixed inset-0 flex flex-col overflow-hidden"
-      style={{ background: DARK.bg, color: DARK.text, ...tokens }}
-    >
-      <PaperGrain />
-      <div
-        className="absolute inset-0 flex gap-8 px-6 overflow-hidden pointer-events-none select-none"
-        aria-hidden="true"
-      >
-        <div className="flex flex-col gap-5 pt-24" style={{ opacity: 0.055 }}>
-          {titles.slice(0, 8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap"
-              style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
-          ))}
-        </div>
-        <div className="flex flex-col gap-5 pt-48 ml-auto" style={{ opacity: 0.04 }}>
-          {titles.slice(8).map((t, i) => (
-            <span key={i} className="text-xs uppercase tracking-[0.2em] whitespace-nowrap"
-              style={{ color: DARK.text, fontFamily: "'Outfit', sans-serif" }}>{t}</span>
-          ))}
-        </div>
-      </div>
-      <div
-        className="relative flex flex-col flex-1 z-10 overflow-y-auto"
-        style={{
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div className="px-8 pt-14 pb-0">
-          <p className="text-xs tracking-[0.35em] uppercase" style={{ color: DARK.accent, opacity: 0.6 }}>
-            Journal cinématographique
-          </p>
-        </div>
-        <div className="flex-1 flex flex-col justify-center px-8">
-          <h1
-            className="font-galinoy italic leading-none"
-            style={{ fontSize: 'clamp(4rem, 18vw, 6.5rem)', color: DARK.text, letterSpacing: '-0.02em', marginBottom: '1.5rem' }}
-          >
-            Grand<br />Écran
-          </h1>
-          <div style={{ width: '2.5rem', height: '2px', background: DARK.accent, marginBottom: '1.75rem' }} />
-          {isReturning ? (
-            <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', fontStyle: 'italic', maxWidth: '22ch' }}>
-              Heureux de vous retrouver{savedName
-                ? <>, <span style={{ fontStyle: 'normal', fontWeight: 600, opacity: 1 }}>{savedName}</span></>
-                : null}.
-            </p>
-          ) : (
-            <p className="leading-relaxed" style={{ color: DARK.text, opacity: 0.4, fontSize: '0.95rem', maxWidth: '26ch' }}>
-              Consignez, évaluez et racontez votre histoire avec le cinéma.
-            </p>
-          )}
-        </div>
-        <div className="px-8 pb-12 flex flex-col gap-10">
-          <button
-            onClick={() => login()}
-            disabled={isAuthenticating}
-            className="flex items-center gap-4 w-full active:opacity-70 transition-opacity duration-150"
-            style={{
-              background: 'transparent',
-              border: `1px solid ${DARK.accent}`,
-              color: DARK.text,
-              padding: '1.1rem 1.75rem',
-              letterSpacing: '0.2em',
-              fontSize: '0.65rem',
-              textTransform: 'uppercase',
-              fontWeight: 700,
-              borderRadius: 0,
-            }}
-          >
-            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: DARK.accent, flexShrink: 0 }} />
-            <span style={{ flex: 1 }}>{isAuthenticating ? 'Connexion…' : isReturning ? 'Reprendre là où vous en étiez' : 'Connexion Google'}</span>
-          </button>
-          {error && (
-            <p role="alert" className="text-sm leading-relaxed" style={{ color: '#f0a39a', marginTop: '-1.5rem' }}>
-              {error}
-            </p>
-          )}
-          <p className="text-xs italic leading-relaxed" style={{ color: DARK.text, opacity: 0.18, maxWidth: '30ch' }}>
-            "Le cinéma, c'est vingt-quatre fois la vérité par seconde."
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Default titles per tab ─────────────────────────────────────── */
 const DEFAULT_TITLES = {
