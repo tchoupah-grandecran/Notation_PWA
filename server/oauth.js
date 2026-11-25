@@ -7,8 +7,10 @@ let sqlClient;
 let schemaReady;
 
 function getSql() {
-  const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-  if (!connectionString) throw new Error('POSTGRES_URL n’est pas configurée sur le serveur.');
+  // Utiliser la même priorité que server/community.js afin que les comptes,
+  // sessions et données communautaires restent dans la même base Neon.
+  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!connectionString) throw new Error('DATABASE_URL n’est pas configurée sur le serveur.');
   if (!sqlClient) sqlClient = neon(connectionString);
   return sqlClient;
 }
