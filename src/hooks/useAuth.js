@@ -22,6 +22,7 @@ async function readJsonResponse(response) {
  */
 export function useAuth() {
   const [userToken, setUserToken] = useState(null);
+  const [accountSpreadsheetId, setAccountSpreadsheetId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +32,7 @@ export function useAuth() {
 
   const applySession = useCallback((session) => {
     setUserToken(session.access_token);
+    setAccountSpreadsheetId(session.spreadsheet_id || '');
     setAccessExpiresAt(Date.now() + Math.max(60, session.expires_in || 3600) * 1000);
     lastRefreshAtRef.current = Date.now();
 
@@ -146,6 +148,7 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     setUserToken(null);
+    setAccountSpreadsheetId('');
     setAccessExpiresAt(0);
     setError('');
 
@@ -156,5 +159,5 @@ export function useAuth() {
     }).catch((err) => console.error('Erreur de fermeture de session :', err));
   }, []);
 
-  return { userToken, login, logout, refreshSession, isLoading, isAuthenticating, error };
+  return { userToken, accountSpreadsheetId, login, logout, refreshSession, isLoading, isAuthenticating, error };
 }

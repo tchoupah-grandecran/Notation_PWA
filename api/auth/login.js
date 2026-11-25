@@ -4,11 +4,14 @@ import {
   ensureOAuthSchema,
   exchangeAuthorizationCode,
   fetchGoogleProfile,
+  getAccountForSession,
   getRequestOrigin,
   isTrustedPopupPost,
+  saveAccountSpreadsheet,
   setSessionCookie,
   storeOAuthSession,
 } from '../../server/oauth.js';
+import { createDefaultSpreadsheet } from '../../server/sheets.js';
 
 export default async function handler(req, res) {
   addNoStoreHeaders(res);
@@ -42,11 +45,18 @@ export default async function handler(req, res) {
       givenName: profile.given_name,
       refreshToken: tokens.refresh_token,
     });
+    const account = await getAccountForSession(sessionToken);
+    let spreadsheetId = account?.spreadsheet_id;
+    if (!spreadsheetId) {
+      spreadsheetId = await createDefaultSpreadsheet(tokens.access_token);
+      await saveAccountSpreadsheet(profile.sub, spreadsheetId);
+    }
     setSessionCookie(res, sessionToken, req);
 
     return res.status(200).json({
       access_token: tokens.access_token,
       expires_in: tokens.expires_in || 3600,
+      spreadsheet_id: spreadsheetId,
       user: { given_name: profile.given_name || '' },
     });
   } catch (error) {

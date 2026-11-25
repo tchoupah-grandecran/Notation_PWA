@@ -26,6 +26,7 @@ export async function ensureOAuthSchema() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `;
+      await sql`ALTER TABLE oauth_accounts ADD COLUMN IF NOT EXISTS spreadsheet_id TEXT`;
       await sql`
         CREATE TABLE IF NOT EXISTS oauth_sessions (
           session_hash TEXT PRIMARY KEY,
@@ -224,13 +225,22 @@ export async function storeOAuthSession({ sessionToken, googleSub, email, givenN
 export async function getAccountForSession(sessionToken) {
   const sql = getSql();
   const [row] = await sql`
-    SELECT a.google_sub, a.email, a.given_name, a.refresh_token_cipher
+    SELECT a.google_sub, a.email, a.given_name, a.refresh_token_cipher, a.spreadsheet_id
     FROM oauth_sessions s
     JOIN oauth_accounts a ON a.google_sub = s.google_sub
     WHERE s.session_hash = ${hashSessionToken(sessionToken)} AND s.expires_at > NOW()
     LIMIT 1
   `;
   return row || null;
+}
+
+export async function saveAccountSpreadsheet(googleSub, spreadsheetId) {
+  const sql = getSql();
+  await sql`
+    UPDATE oauth_accounts
+    SET spreadsheet_id = ${spreadsheetId}, updated_at = NOW()
+    WHERE google_sub = ${googleSub}
+  `;
 }
 
 export async function touchSession(sessionToken) {
