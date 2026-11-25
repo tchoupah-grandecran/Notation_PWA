@@ -335,34 +335,37 @@ export function Profile({
           </p>
         )}
         
-        <section className="border-b border-[var(--theme-border)] pb-6">
-          <h1 className="mb-4 font-outfit text-lg font-semibold text-[var(--theme-text)]">Nom & Avatar</h1>
+        <section className="pb-2">
+          <h1 className="mb-4 font-outfit text-lg font-semibold text-[var(--theme-text)]">Nom &amp; avatar</h1>
           <div className="flex items-center gap-4">
           <button type="button" onClick={() => setShowAvatarModal(true)} aria-label="Modifier l’avatar" className="group relative shrink-0 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
             <span className="absolute inset-0 rounded-full border-2 border-[var(--theme-accent)] transition-transform group-hover:scale-105" aria-hidden="true" />
             <Avatar3D src={userAvatar} size={72} primary="transparent" borderWidth={0} />
-            <span className="absolute bottom-0 right-0 grid h-6 w-6 place-items-center rounded-full border-2 border-[var(--theme-bg)] bg-[var(--theme-surface)] text-[var(--theme-accent)]" aria-hidden="true"><Edit2 size={11} /></span>
+            <span className="absolute bottom-0 right-0 grid h-6 w-6 place-items-center rounded-full border-2 border-[var(--theme-bg)] bg-[var(--theme-accent)] text-[var(--theme-action-ink)]" aria-hidden="true"><Edit2 size={11} /></span>
           </button>
           <div className="min-w-0 flex-1">
             <label htmlFor="profile-display-name" className="sr-only">Nom affiché dans l’application</label>
-            <input
-              id="profile-display-name"
-              type="text"
-              autoComplete="nickname"
-              maxLength={40}
-              value={userName}
-              onChange={(e) => handleChange(updateUserName, e.target.value)}
-              placeholder="Prénom"
-              className="w-full bg-transparent font-outfit text-[17px] font-semibold text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]/50"
-            />
+            <div className="relative">
+              <input
+                id="profile-display-name"
+                type="text"
+                autoComplete="nickname"
+                maxLength={40}
+                value={userName}
+                onChange={(e) => handleChange(updateUserName, e.target.value)}
+                placeholder="Prénom"
+                className="w-full bg-transparent py-1 pr-7 font-outfit text-[17px] font-semibold text-[var(--theme-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]/50"
+              />
+              <Edit2 size={13} aria-hidden="true" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[var(--theme-text-secondary)]" />
+            </div>
             <p className="mt-1 truncate font-outfit text-[11px] text-[var(--theme-text)] opacity-40">{userEmail || 'Adresse e-mail indisponible'}</p>
           </div>
           </div>
         </section>
 
         <section>
-          <h2 className="mb-2 border-t border-[var(--theme-border)] pt-5 font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Apparence</h2>
-          <div className="border-y border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
+          <h2 className="mb-2 pt-2 font-outfit text-[15px] font-semibold text-[var(--theme-text)]">Apparence</h2>
+          <div>
             <Row label="Thème" sublabel={themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}>
               <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-0.5">
                 <button type="button" aria-label="Thème clair" aria-pressed={themeMode === 'light'} onClick={() => handleChange(toggleDarkMode, 'light')} className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'light' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'light' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
@@ -410,7 +413,7 @@ export function Profile({
                   );
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--theme-border)] pt-2.5">
+              <div className="mt-3 flex items-center justify-between gap-3 pt-2.5">
                 <div className="min-w-0">
                   <p className="font-outfit text-[12px] font-semibold text-[var(--theme-text)]">Accent Fiertés</p>
                 </div>
