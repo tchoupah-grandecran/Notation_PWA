@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ACCENT_PALETTES, AVATAR_PRESETS } from '../constants';
 import { Avatar3D } from '../components/Avatar3D';
 import { 
-  RefreshCw, ChevronRight, LogOut, Save, Check, 
+  RefreshCw, ChevronRight, ChevronDown, LogOut, Save, Check,
   Database, Edit2, Sun, Moon, Sparkles, CreditCard, Ticket, X 
 } from 'lucide-react';
 
@@ -41,7 +41,7 @@ const getCurrentTariffStartDate = (pricing, type) => {
 };
 
 export function Profile({
-  handleScan, userName, userAvatar, themeMode, toggleDarkMode,
+  handleScan, userName, userEmail, userAvatar, themeMode, toggleDarkMode,
   accentPalette, updateAccentPalette, prideAccentEnabled, updatePrideAccentEnabled,
   ratingScale, pricing, spreadsheetId, updateUserName, updateAvatar,
   updateRatingScale, updatePricing, triggerCloudSave, onEditSpreadsheet, onLogout,
@@ -301,8 +301,10 @@ export function Profile({
           </p>
         )}
         
-        {/* SECTION 1: IDENTITY */}
-        <section className="flex flex-col items-center">
+        {/* PROFIL ET COMPTE */}
+        <section className="flex flex-col items-center border-b border-[var(--theme-border)] pb-7">
+          <h2 className="mb-5 w-full text-left font-outfit text-lg font-semibold text-[var(--theme-text)]">Profil et compte</h2>
+          <p className="mb-2 w-full text-center font-outfit text-[11px] text-[var(--theme-text-secondary)]">Choisis ton avatar</p>
           <div className="relative rounded-full ring-4 ring-[var(--theme-accent)] p-1 mb-6 shadow-xl">
             <Avatar3D src={userAvatar} size={100} primary="transparent" borderWidth={0} />
           </div>
@@ -339,12 +341,23 @@ export function Profile({
             />
             <Edit2 size={14} aria-hidden="true" className="pointer-events-none absolute right-0 opacity-20" />
           </div>
+          <p className="mt-1 font-outfit text-[11px] text-[var(--theme-text-secondary)]">Nom affiché</p>
+          <div className="mt-5 w-full max-w-md border-t border-[var(--theme-border)] pt-4">
+            <div className="flex items-center justify-between gap-4 py-2">
+              <span className="font-outfit text-[13px] text-[var(--theme-text-secondary)]">Adresse e-mail</span>
+              <div className="min-w-0 text-right">
+                <span className="block break-all font-outfit text-[13px] font-medium text-[var(--theme-text)]">{userEmail || 'Indisponible'}</span>
+                <span className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Gérée par votre compte Google</span>
+              </div>
+            </div>
+          </div>
         </section>
 
-        {/* SECTION 2: APPARENCE */}
-        <div>
+        {/* PRÉFÉRENCES */}
+        <section>
+          <h2 className="mb-2 font-outfit text-lg font-semibold text-[var(--theme-text)]">Préférences</h2>
           <SectionLabel>Apparence</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden">
+          <div className="border-y border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
             <Row label="Thème" sublabel={themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}>
               <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-1">
                 <button type="button" aria-label="Thème clair" aria-pressed={themeMode === 'light'} onClick={() => handleChange(toggleDarkMode, 'light')} className={`flex h-11 w-11 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'light' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'light' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
@@ -358,14 +371,14 @@ export function Profile({
                 </button>
               </div>
             </Row>
-            <div className="border-t border-[var(--theme-border)] px-5 py-4">
+            <div className="py-4">
               <div className="mb-3">
-                <p className="font-outfit text-[13px] font-bold text-[var(--theme-text)]">Thème de couleur</p>
+                <p className="font-outfit text-[13px] font-bold text-[var(--theme-text)]">Palette de couleurs</p>
                 <p className="mt-1 font-outfit text-[11px] leading-relaxed text-[var(--theme-text-secondary)]">
                   Quatre accents au choix, indépendants du mode clair ou sombre.
                 </p>
               </div>
-              <div role="group" aria-label="Thèmes de couleur" className="grid grid-cols-2 gap-2">
+              <div role="group" aria-label="Palettes de couleurs" className="divide-y divide-[var(--theme-border)]">
                 {Object.values(ACCENT_PALETTES).map((palette) => {
                   const isSelected = accentPalette === palette.key;
                   return (
@@ -375,24 +388,12 @@ export function Profile({
                       aria-pressed={isSelected}
                       aria-label={`Thème ${palette.name}`}
                       onClick={() => handleChange(updateAccentPalette, palette.key)}
-                      className="relative min-h-[72px] rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                      className="relative flex min-h-[64px] w-full items-center gap-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)]"
                       style={{
-                        borderColor: isSelected ? 'var(--theme-accent)' : 'var(--theme-border)',
-                        backgroundColor: isSelected
-                          ? 'color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface))'
-                          : 'var(--theme-bg)',
+                        color: 'var(--theme-text)',
                       }}
                     >
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">{palette.name}</span>
-                        {isSelected && (
-                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[var(--theme-bg)]" style={{ backgroundColor: 'var(--theme-accent)' }}>
-                            <Check size={12} strokeWidth={3} aria-hidden="true" />
-                          </span>
-                        )}
-                      </span>
-                      <span className="mt-1.5 block font-outfit text-[10px] leading-snug text-[var(--theme-text-secondary)]">{palette.description}</span>
-                      <span className="mt-2 flex items-center gap-1" aria-hidden="true">
+                      <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
                         {palette.swatches.map((color, index) => (
                           <span
                             key={`${palette.key}-${index}`}
@@ -401,11 +402,16 @@ export function Profile({
                           />
                         ))}
                       </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-outfit text-[12px] font-semibold">{palette.name}</span>
+                        <span className="mt-0.5 block font-outfit text-[10px] leading-snug text-[var(--theme-text-secondary)]">{palette.description}</span>
+                      </span>
+                      {isSelected && <Check size={16} className="shrink-0 text-[var(--theme-accent)]" aria-hidden="true" />}
                     </button>
                   );
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-bg)] px-4 py-3">
+              <div className="mt-3 flex items-center justify-between gap-4 border-t border-[var(--theme-border)] pt-3">
                 <div className="min-w-0">
                   <p className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">Accent Fiertés</p>
                   <p className="mt-1 font-outfit text-[10px] leading-relaxed text-[var(--theme-text-secondary)]">
@@ -435,7 +441,7 @@ export function Profile({
                   />
                 </button>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg)] px-3 py-2.5">
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--theme-border)] pt-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <span className="h-2 w-14 shrink-0 rounded-full" style={{ background: 'var(--theme-accent-gradient)' }} />
                   <span className="truncate font-outfit text-[10px] text-[var(--theme-text-secondary)]">Aperçu de la palette choisie</span>
@@ -446,12 +452,10 @@ export function Profile({
               </div>
             </div>
           </div>
-        </div>
-
         {/* SECTION 3: NOTATION */}
         <div>
           <SectionLabel>Notation</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden">
+          <div className="border-y border-[var(--theme-border)]">
             <Row label="Échelle de score" sublabel={ratingScale === 5 ? "Notation Cinéphile (1-5)" : "Notation Standard (1-10)"}>
               <button
                 type="button"
@@ -476,11 +480,21 @@ export function Profile({
             </Row>
           </div>
         </div>
+        </section>
 
-        {/* SECTION 4: TARIFS */}
-        <div>
-          <SectionLabel>Tarifs & Forfaits</SectionLabel>
-          <div className="bg-[color-mix(in_srgb,var(--theme-surface)_72%,transparent)] border border-[color-mix(in_srgb,var(--theme-border)_70%,transparent)] rounded-[18px] overflow-hidden divide-y divide-[color-mix(in_srgb,var(--theme-border)_55%,transparent)]">
+        {/* RÉGLAGES AVANCÉS */}
+        <section>
+          <h2 className="mb-2 font-outfit text-lg font-semibold text-[var(--theme-text)]">Réglages avancés</h2>
+          <details className="group border-y border-[var(--theme-border)]">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-outfit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-[14px] font-semibold text-[var(--theme-text)]">Tarifs et forfaits</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--theme-text-secondary)]">Coût de tes séances de cinéma</span>
+              </span>
+              <ChevronDown size={18} className="shrink-0 text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <div className="border-t border-[var(--theme-border)]">
+          <div className="divide-y divide-[var(--theme-border)]">
             <Row compact icon={CreditCard} label="Cinepass" sublabel="Abonnement mensuel">
               <div className="flex w-[132px] flex-col items-end gap-0.5">
                 <div className="flex h-8 items-center gap-1">
@@ -509,12 +523,19 @@ export function Profile({
             </Row>
           </div>
           <p className="px-5 pt-2 font-outfit text-[9px] leading-relaxed opacity-40">La date choisie est conservée avec chaque changement de tarif.</p>
-        </div>
+            </div>
+          </details>
 
-        {/* SECTION 5: DATABASE & SYNC */}
-        <div>
-          <SectionLabel>Données & Sync</SectionLabel>
-          <div className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-[20px] overflow-hidden divide-y divide-[var(--theme-border)]">
+          <details className="group border-b border-[var(--theme-border)]">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-outfit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-[14px] font-semibold text-[var(--theme-text)]">Données et synchronisation</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--theme-text-secondary)]">Source des données et mise à jour</span>
+              </span>
+              <ChevronDown size={18} className="shrink-0 text-[var(--theme-text-secondary)] transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <div className="border-t border-[var(--theme-border)]">
+          <div className="divide-y divide-[var(--theme-border)]">
             <Row 
               icon={Database} 
               label="Google Sheet" 
@@ -538,7 +559,9 @@ export function Profile({
               </div>
             </Row>
           </div>
-        </div>
+            </div>
+          </details>
+        </section>
 
         {/* LOGOUT */}
         <button 

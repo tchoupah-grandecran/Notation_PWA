@@ -47,7 +47,7 @@ export const ACCENT_PALETTES = {
   },
   midnight: {
     key: 'midnight',
-    name: 'Midnight Dream',
+    name: 'Rêve nocturne',
     description: 'Violet nocturne et lavande.',
     dark: '#B59AF7',
     light: '#6D28D9',
@@ -75,7 +75,7 @@ export const ACCENT_PALETTES = {
   },
   passionate: {
     key: 'passionate',
-    name: 'Passionate Red',
+    name: 'Rouge passion',
     description: 'Rouge profond et velours.',
     dark: '#FF8293',
     light: '#BE123C',

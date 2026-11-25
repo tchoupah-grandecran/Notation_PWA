@@ -333,6 +333,7 @@ const safeTab = activeTab === 'studio' && !isOwner ? 'home' : activeTab;
         )}
         {activeTab === 'profile' && (
           <Profile
+            userEmail={userEmail}
             userToken={userToken}
             spreadsheetId={spreadsheetId}
             handleScan={handleScan}
