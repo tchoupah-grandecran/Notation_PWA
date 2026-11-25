@@ -50,6 +50,7 @@ export function Profile({
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isDirty, setIsDirty] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [tempSheetId, setTempSheetId] = useState(spreadsheetId);
   const [syncStatus, setSyncStatus] = useState('idle');
   const [priceEffectiveDates, setPriceEffectiveDates] = useState(() => {
@@ -61,7 +62,9 @@ export function Profile({
   const priceDateTouchedRef = useRef({ ticket: false, subscription: false });
   const saveStatusTimer = useRef(null);
   const sheetDialogRef = useRef(null);
+  const avatarDialogRef = useRef(null);
   const sheetInputRef = useRef(null);
+  const avatarOptionRef = useRef(null);
   const sheetTriggerRef = useRef(null);
 
   useEffect(() => {
@@ -136,18 +139,22 @@ export function Profile({
   useEffect(() => () => clearTimeout(saveStatusTimer.current), []);
 
   useEffect(() => {
-    if (!showSheetModal) return undefined;
+    if (!showSheetModal && !showAvatarModal) return undefined;
     sheetTriggerRef.current = document.activeElement;
-    const focusFrame = requestAnimationFrame(() => sheetInputRef.current?.focus());
+    const activeDialog = showSheetModal ? sheetDialogRef.current : avatarDialogRef.current;
+    const focusFrame = requestAnimationFrame(() => {
+      (showSheetModal ? sheetInputRef.current : avatarOptionRef.current)?.focus();
+    });
     const handleDialogKeys = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         setShowSheetModal(false);
+        setShowAvatarModal(false);
         return;
       }
       if (event.key !== 'Tab') return;
 
-      const focusable = sheetDialogRef.current?.querySelectorAll(
+      const focusable = activeDialog?.querySelectorAll(
         'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
       if (!focusable?.length) return;
@@ -168,7 +175,7 @@ export function Profile({
       document.removeEventListener('keydown', handleDialogKeys);
       sheetTriggerRef.current?.focus?.();
     };
-  }, [showSheetModal]);
+  }, [showSheetModal, showAvatarModal]);
 
   /* ─── TÉLÉPORTATION DU BOUTON DANS LE HEADER GÉNÉRAL ──────────────── */
   useEffect(() => {
@@ -274,6 +281,39 @@ export function Profile({
         </div>
       )}
 
+      {showAvatarModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-5 py-6">
+          <button type="button" className="absolute inset-0 bg-black/65 backdrop-blur-sm" aria-label="Fermer la sélection d’avatar" onClick={() => setShowAvatarModal(false)} />
+          <div ref={avatarDialogRef} role="dialog" aria-modal="true" aria-labelledby="avatar-dialog-title" className="relative max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-3xl border border-[var(--theme-border)] bg-[var(--theme-surface)] p-5 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="font-outfit text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--theme-accent)]">Le portrait</p>
+                <h2 id="avatar-dialog-title" className="mt-1 font-galinoy text-2xl italic text-[var(--theme-text)]">Choisis ton avatar</h2>
+              </div>
+              <button type="button" onClick={() => setShowAvatarModal(false)} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--theme-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-4 gap-x-2 gap-y-4">
+              {AVATAR_PRESETS.map((url, idx) => {
+                const selected = userAvatar === url;
+                return (
+                  <button
+                    key={url}
+                    ref={idx === 0 ? avatarOptionRef : undefined}
+                    type="button"
+                    onClick={() => { handleChange(updateAvatar, url); setShowAvatarModal(false); }}
+                    aria-label={`Choisir l’avatar ${idx + 1}`}
+                    aria-pressed={selected}
+                    className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${selected ? 'scale-105 border-[var(--theme-accent)]' : 'border-transparent opacity-70'}`}
+                  >
+                    <Avatar3D src={url} size={56} primary="transparent" borderWidth={0} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 
         Remplacement du header par un Spacer intelligent (pt) 
         qui pousse le contenu sous le AppHeader général flottant 
@@ -310,29 +350,12 @@ export function Profile({
               <p className="font-outfit text-[11px] text-[var(--theme-text-secondary)]">Comment la communauté te reconnaît</p>
             </div>
           </div>
-          <p className="mb-2 w-full text-center font-outfit text-[11px] text-[var(--theme-text-secondary)]">Choisis ton avatar</p>
-          <div className="relative rounded-full ring-4 ring-[var(--theme-accent)] p-1 mb-6 shadow-xl">
-            <Avatar3D src={userAvatar} size={100} primary="transparent" borderWidth={0} />
-          </div>
-          
-          <div className="w-full overflow-x-auto scrollbar-hide py-2">
-            <div className="flex gap-4 px-4 justify-start sm:justify-center">
-              {AVATAR_PRESETS.map((url, idx) => (
-                <button 
-                  key={idx} 
-                  type="button"
-                  onClick={() => handleChange(updateAvatar, url)}
-                  aria-label={`Choisir l’avatar ${idx + 1}`}
-                  aria-pressed={userAvatar === url}
-                  className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
-                    userAvatar === url ? 'border-[var(--theme-accent)] scale-110 shadow-lg' : 'border-transparent opacity-30 grayscale'
-                  }`}
-                >
-                  <Avatar3D src={url} size={44} primary="transparent" borderWidth={0} />
-                </button>
-              ))}
-            </div>
-          </div>
+          <button type="button" onClick={() => setShowAvatarModal(true)} aria-label="Modifier l’avatar" className="group relative mb-3 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">
+            <span className="absolute inset-0 rounded-full border-2 border-[var(--theme-accent)] transition-transform group-hover:scale-105" aria-hidden="true" />
+            <Avatar3D src={userAvatar} size={104} primary="transparent" borderWidth={0} />
+            <span className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-[var(--theme-bg)] bg-[var(--theme-surface)] text-[var(--theme-accent)]" aria-hidden="true"><Edit2 size={13} /></span>
+          </button>
+          <button type="button" onClick={() => setShowAvatarModal(true)} className="mb-2 font-outfit text-[11px] text-[var(--theme-text-secondary)] underline decoration-[var(--theme-border)] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]">Changer l’avatar</button>
 
           <div className="mt-6 w-full max-w-xs relative flex items-center justify-center">
             <label htmlFor="profile-display-name" className="sr-only">Nom affiché dans l’application</label>
@@ -361,26 +384,24 @@ export function Profile({
           </div>
           <div className="border-y border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
             <Row label="Thème" sublabel={themeMode === 'system' ? 'Automatique' : themeMode === 'dark' ? 'Sombre' : 'Clair'}>
-              <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-1">
-                <button type="button" aria-label="Thème clair" aria-pressed={themeMode === 'light'} onClick={() => handleChange(toggleDarkMode, 'light')} className={`flex h-11 w-11 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'light' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'light' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
+              <div role="group" aria-label="Choisir le thème" className="flex items-center gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg)] p-0.5">
+                <button type="button" aria-label="Thème clair" aria-pressed={themeMode === 'light'} onClick={() => handleChange(toggleDarkMode, 'light')} className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'light' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'light' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
                   <Sun size={14} />
                 </button>
-                <button type="button" aria-label="Thème sombre" aria-pressed={themeMode === 'dark'} onClick={() => handleChange(toggleDarkMode, 'dark')} className={`flex h-11 w-11 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'dark' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'dark' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
+                <button type="button" aria-label="Thème sombre" aria-pressed={themeMode === 'dark'} onClick={() => handleChange(toggleDarkMode, 'dark')} className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'dark' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'dark' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
                   <Moon size={14} />
                 </button>
-                <button type="button" aria-label="Thème automatique" aria-pressed={themeMode === 'system'} onClick={() => handleChange(toggleDarkMode, 'system')} className={`flex min-h-11 items-center gap-1.5 rounded-full border-2 border-transparent px-3 font-black text-[9px] uppercase tracking-widest transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'system' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'system' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
+                <button type="button" aria-label="Thème automatique" aria-pressed={themeMode === 'system'} onClick={() => handleChange(toggleDarkMode, 'system')} className={`flex min-h-9 items-center gap-1 rounded-full border-2 border-transparent px-2.5 font-black text-[9px] uppercase tracking-widest transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${themeMode === 'system' ? 'text-[var(--theme-action-ink)]' : 'opacity-50'}`} style={themeMode === 'system' ? { background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box' } : undefined}>
                   <Sparkles size={10} /> Auto
                 </button>
               </div>
             </Row>
             <div className="py-4">
-              <div className="mb-3">
-                <p className="font-outfit text-[13px] font-bold text-[var(--theme-text)]">Palette de couleurs</p>
-                <p className="mt-1 font-outfit text-[11px] leading-relaxed text-[var(--theme-text-secondary)]">
-                  Quatre accents au choix, indépendants du mode clair ou sombre.
-                </p>
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <p className="font-outfit text-[12px] font-semibold text-[var(--theme-text)]">Couleur d’accent</p>
+                <p className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Change en direct</p>
               </div>
-              <div role="group" aria-label="Palettes de couleurs" className="divide-y divide-[var(--theme-border)]">
+              <div role="group" aria-label="Palettes de couleurs" className="grid grid-cols-2 gap-1.5">
                 {Object.values(ACCENT_PALETTES).map((palette) => {
                   const isSelected = accentPalette === palette.key;
                   return (
@@ -390,35 +411,30 @@ export function Profile({
                       aria-pressed={isSelected}
                       aria-label={`Thème ${palette.name}`}
                       onClick={() => handleChange(updateAccentPalette, palette.key)}
-                      className="relative flex min-h-[64px] w-full items-center gap-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)]"
+                      className={`relative flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--theme-accent)] ${isSelected ? 'bg-[color-mix(in_srgb,var(--theme-accent)_10%,transparent)]' : ''}`}
                       style={{
                         color: 'var(--theme-text)',
                       }}
                     >
-                      <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
+                      <span className="flex shrink-0 items-center gap-0.5" aria-hidden="true">
                         {palette.swatches.map((color, index) => (
                           <span
                             key={`${palette.key}-${index}`}
-                            className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10"
+                            className="h-2 w-2 rounded-full ring-1 ring-black/10"
                             style={{ backgroundColor: color }}
                           />
                         ))}
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-outfit text-[12px] font-semibold">{palette.name}</span>
-                        <span className="mt-0.5 block font-outfit text-[10px] leading-snug text-[var(--theme-text-secondary)]">{palette.description}</span>
-                      </span>
-                      {isSelected && <Check size={16} className="shrink-0 text-[var(--theme-accent)]" aria-hidden="true" />}
+                      <span className="min-w-0 flex-1 truncate font-outfit text-[11px] font-semibold">{palette.name}</span>
+                      {isSelected && <Check size={13} className="shrink-0 text-[var(--theme-accent)]" aria-hidden="true" />}
                     </button>
                   );
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between gap-4 border-t border-[var(--theme-border)] pt-3">
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--theme-border)] pt-2.5">
                 <div className="min-w-0">
-                  <p className="font-outfit text-[12px] font-bold text-[var(--theme-text)]">Accent Fiertés</p>
-                  <p className="mt-1 font-outfit text-[10px] leading-relaxed text-[var(--theme-text-secondary)]">
-                    Liserés arc-en-ciel sur le thème choisi.
-                  </p>
+                  <p className="font-outfit text-[12px] font-semibold text-[var(--theme-text)]">Accent Fiertés</p>
+                  <p className="font-outfit text-[10px] text-[var(--theme-text-secondary)]">Liserés arc-en-ciel</p>
                 </div>
                 <button
                   type="button"
@@ -426,7 +442,7 @@ export function Profile({
                   aria-label="Activer l’accent Fiertés"
                   aria-checked={prideAccentEnabled}
                   onClick={() => handleChange(updatePrideAccentEnabled, !prideAccentEnabled)}
-                  className="relative h-8 w-[54px] shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                  className="relative h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
                   style={{
                     background: prideAccentEnabled
                       ? 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box'
@@ -435,22 +451,13 @@ export function Profile({
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full shadow-sm transition-all"
+                    className="absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full shadow-sm transition-all"
                     style={{
-                      left: prideAccentEnabled ? 'calc(100% - 24px)' : '3px',
+                      left: prideAccentEnabled ? 'calc(100% - 21px)' : '3px',
                       backgroundColor: prideAccentEnabled ? 'var(--theme-action-ink)' : 'var(--theme-text-secondary)',
                     }}
                   />
                 </button>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--theme-border)] pt-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="h-2 w-14 shrink-0 rounded-full" style={{ background: 'var(--theme-accent-gradient)' }} />
-                  <span className="truncate font-outfit text-[10px] text-[var(--theme-text-secondary)]">Aperçu de la palette choisie</span>
-                </div>
-                <span className="shrink-0 rounded-full border-2 border-transparent px-3 py-1 font-outfit text-[9px] font-bold" style={{ background: 'linear-gradient(var(--theme-action-bg), var(--theme-action-bg)) padding-box, var(--theme-accent-gradient) border-box', color: 'var(--theme-action-ink)' }}>
-                  Action
-                </span>
               </div>
             </div>
           </div>
