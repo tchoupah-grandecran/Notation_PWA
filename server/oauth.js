@@ -30,15 +30,6 @@ export async function ensureOAuthSchema() {
       `;
       await sql`ALTER TABLE oauth_accounts ADD COLUMN IF NOT EXISTS spreadsheet_id TEXT`;
       await sql`
-        CREATE TABLE IF NOT EXISTS oauth_account_aliases (
-          alias_google_sub TEXT PRIMARY KEY,
-          canonical_google_sub TEXT NOT NULL REFERENCES oauth_accounts(google_sub) ON DELETE CASCADE,
-          canonical_email TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `;
-      await sql`ALTER TABLE oauth_account_aliases ADD COLUMN IF NOT EXISTS canonical_email TEXT`;
-      await sql`
         CREATE TABLE IF NOT EXISTS oauth_sessions (
           session_hash TEXT PRIMARY KEY,
           google_sub TEXT NOT NULL REFERENCES oauth_accounts(google_sub) ON DELETE CASCADE,
@@ -245,66 +236,6 @@ export async function getAccountByGoogleSub(googleSub) {
   return row || null;
 }
 
-export async function resolveGoogleAccount(googleSub, email, emailVerified) {
-  const sql = getSql();
-  const [alias] = await sql`
-    SELECT a.google_sub, a.email, a.spreadsheet_id, x.canonical_email
-    FROM oauth_account_aliases x
-    JOIN oauth_accounts a ON a.google_sub = x.canonical_google_sub
-    WHERE x.alias_google_sub = ${googleSub}
-    LIMIT 1
-  `;
-  const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
-  const aliasEmail = normalizeEmail(alias?.canonical_email);
-  const loginEmail = normalizeEmail(email);
-  if (alias && emailVerified && loginEmail && aliasEmail
-      && aliasEmail === loginEmail && aliasEmail === normalizeEmail(alias.email)) {
-    return alias;
-  }
-  if (alias) {
-    // L’adresse vérifiée a changé ou l’alias est erroné : ne pas fusionner
-    // deux comptes Google distincts sur la seule base de l’ancien alias.
-    await sql`DELETE FROM oauth_account_aliases WHERE alias_google_sub = ${googleSub}`;
-  }
-
-  const [exact] = await sql`
-    SELECT google_sub, spreadsheet_id
-    FROM oauth_accounts
-    WHERE google_sub = ${googleSub}
-    LIMIT 1
-  `;
-  if (alias) return exact || null;
-
-  // Google email is used only when Google marks it verified. If this address
-  // already belongs to multiple rows (from previous duplicate signups), keep
-  // the oldest account and its existing spreadsheet as the canonical record.
-  if (emailVerified && email) {
-    const matches = await sql`
-      SELECT google_sub, spreadsheet_id
-      FROM oauth_accounts
-      WHERE LOWER(email) = LOWER(${email})
-      ORDER BY updated_at ASC
-    `;
-    if (matches.length) {
-      const canonical = matches[0];
-      const aliases = new Set([googleSub, ...matches.map((row) => row.google_sub)]);
-      aliases.delete(canonical.google_sub);
-      for (const aliasSub of aliases) {
-        await sql`
-          INSERT INTO oauth_account_aliases (alias_google_sub, canonical_google_sub, canonical_email)
-          VALUES (${aliasSub}, ${canonical.google_sub}, ${canonical.email || null})
-          ON CONFLICT (alias_google_sub) DO UPDATE SET
-            canonical_google_sub = EXCLUDED.canonical_google_sub,
-            canonical_email = EXCLUDED.canonical_email
-        `;
-      }
-      return canonical;
-    }
-  }
-
-  return exact || null;
-}
-
 export async function getAccountForSession(sessionToken) {
   const sql = getSql();
   const [row] = await sql`
@@ -341,27 +272,9 @@ export async function deleteSession(sessionToken) {
   await sql`DELETE FROM oauth_sessions WHERE session_hash = ${hashSessionToken(sessionToken)}`;
 }
 
-export async function deleteAccountAndSessions(googleSub) {
-  if (!googleSub) return;
-  const sql = getSql();
-  await sql`DELETE FROM oauth_accounts WHERE google_sub = ${googleSub}`;
-}
-
 export function createSessionToken() {
   return randomBytes(32).toString('base64url');
 }
 
-export async function revokeGoogleToken(token) {
-  if (!token) return;
-  try {
-    await fetch('https://oauth2.googleapis.com/revoke', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ token }),
-    });
-  } catch (error) {
-    console.error('Révocation Google non confirmée :', error);
-  }
-}
 
 export { SESSION_COOKIE, SESSION_TTL_SECONDS };

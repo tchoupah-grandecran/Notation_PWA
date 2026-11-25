@@ -1,14 +1,10 @@
 import {
   addNoStoreHeaders,
   clearSessionCookie,
-  decryptRefreshToken,
-  deleteAccountAndSessions,
   deleteSession,
   ensureOAuthSchema,
-  getAccountForSession,
   getSessionToken,
   isTrustedPopupPost,
-  revokeGoogleToken,
 } from '../../server/oauth.js';
 
 export default async function handler(req, res) {
@@ -25,14 +21,9 @@ export default async function handler(req, res) {
   try {
     if (sessionToken) {
       await ensureOAuthSchema();
-      const account = await getAccountForSession(sessionToken);
-      if (account) {
-        const refreshToken = decryptRefreshToken(account.refresh_token_cipher);
-        await revokeGoogleToken(refreshToken);
-        await deleteAccountAndSessions(account.google_sub);
-      } else {
-        await deleteSession(sessionToken);
-      }
+      // Une déconnexion ferme uniquement cette session locale. Le compte et
+      // son spreadsheet_id doivent rester disponibles à la prochaine connexion.
+      await deleteSession(sessionToken);
     }
     clearSessionCookie(res, req);
     return res.status(200).json({ ok: true });

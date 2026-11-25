@@ -7,7 +7,6 @@ import {
   getAccountByGoogleSub,
   getRequestOrigin,
   isTrustedPopupPost,
-  resolveGoogleAccount,
   setSessionCookie,
   storeOAuthSession,
 } from '../../server/oauth.js';
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
     const profile = await fetchGoogleProfile(tokens.access_token);
     if (!profile.sub) throw new Error('Google n’a pas fourni d’identifiant de compte.');
 
-    const existingAccount = await resolveGoogleAccount(profile.sub, profile.email, profile.email_verified === true);
+    const existingAccount = await getAccountByGoogleSub(profile.sub);
     if (intent === 'signin' && !existingAccount) {
       return res.status(404).json({ error: 'Aucun compte Grand Écran associé à ce compte Google. Choisis « Créer un compte ».' });
     }
