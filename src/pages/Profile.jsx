@@ -287,7 +287,6 @@ export function Profile({
           <div ref={avatarDialogRef} role="dialog" aria-modal="true" aria-labelledby="avatar-dialog-title" className="relative max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-3xl border border-[var(--theme-border)] bg-[var(--theme-surface)] p-5 shadow-2xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="font-outfit text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--theme-accent)]">Le portrait</p>
                 <h2 id="avatar-dialog-title" className="mt-1 font-outfit text-lg font-semibold text-[var(--theme-text)]">Choisir un avatar</h2>
               </div>
               <button type="button" onClick={() => setShowAvatarModal(false)} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--theme-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"><X size={18} /></button>
